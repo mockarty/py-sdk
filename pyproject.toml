@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mockarty"
+version = "0.1.1"
+description = "Official Python SDK for Mockarty — multi-protocol mock server for HTTP, gRPC, MCP, GraphQL, SOAP, SSE, Kafka, RabbitMQ, SMTP"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [{name = "Orlovich Artem", email = "orlovich.artem@gmail.com"}]
+keywords = [
+    "mock", "testing", "api", "grpc", "mcp", "graphql", "soap",
+    "kafka", "rabbitmq", "smtp", "sse", "websocket",
+    "contract-testing", "fuzzing", "performance-testing",
+    "api-testing", "mock-server", "test-automation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Mocking",
+    "Framework :: Pytest",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx>=0.24",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+async = ["httpx[http2]"]
+test = ["pytest>=7.0", "pytest-asyncio>=0.21", "respx>=0.21"]
+
+[project.urls]
+Homepage = "https://mockarty.ru"
+Documentation = "https://mockarty.ru/docs"
+Repository = "https://github.com/mockarty/py-sdk"
+Issues = "https://github.com/mockarty/py-sdk/issues"
+Changelog = "https://github.com/mockarty/py-sdk/releases"
+
+[project.entry-points.pytest11]
+mockarty = "mockarty.testing.fixtures"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mockarty"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/mockarty", "LICENSE", "README.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

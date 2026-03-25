@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install ruff
+      - name: Ruff check (linting)
+        run: ruff check src/
+      - name: Ruff format check
+        run: ruff format --check src/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[test]"
+      - run: pytest -v --tb=short
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install build twine
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Validate package
+        run: twine check dist/*
+      - name: Check package contents
+        run: |
+          echo "=== Built packages ==="
+          ls -la dist/
+          echo "=== Wheel contents ==="
+          python -m zipfile -l dist/*.whl | head -50
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
