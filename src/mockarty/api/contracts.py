@@ -301,6 +301,16 @@ class AsyncContractAPI(AsyncAPIBase):
         )
         return resp.json()
 
+    async def detect_graphql_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect GraphQL schema drift via introspection."""
+        resp = await self._request("POST", "/api/v1/contract/detect-drift/graphql", json=request)
+        return resp.json()
+
+    async def detect_grpc_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect gRPC service drift via reflection."""
+        resp = await self._request("POST", "/api/v1/contract/detect-drift/grpc", json=request)
+        return resp.json()
+
     # ─── API Registry ────────────────────────────────────────────────
 
     async def list_registry(self, query: str = "", spec_type: str = "") -> list[dict[str, Any]]:
@@ -499,3 +509,28 @@ class AsyncContractAPI(AsyncAPIBase):
         resp = await self._request("GET", "/api/v1/contract/pacts/participants")
         data = resp.json()
         return data if isinstance(data, list) else []
+
+    async def validate_from_registry(self, entry_id: str) -> dict[str, Any]:
+        """Validate mocks against a registry entry specification."""
+        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/validate")
+        return resp.json()
+
+    async def submit_for_review(self, entry_id: str, reviewer_id: str = "") -> dict[str, Any]:
+        """Submit a registry entry for review."""
+        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/submit-review", json={"reviewerId": reviewer_id})
+        return resp.json()
+
+    async def approve_review(self, entry_id: str, comment: str = "") -> dict[str, Any]:
+        """Approve a registry entry review."""
+        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/approve-review", json={"comment": comment})
+        return resp.json()
+
+    async def reject_review(self, entry_id: str, comment: str = "") -> dict[str, Any]:
+        """Reject a registry entry review."""
+        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/reject-review", json={"comment": comment})
+        return resp.json()
+
+    async def assign_reviewer(self, entry_id: str, reviewer_id: str) -> dict[str, Any]:
+        """Assign a reviewer to a registry entry."""
+        resp = await self._request("PUT", f"/api/v1/contract/registry/{entry_id}/reviewer", json={"reviewerId": reviewer_id})
+        return resp.json()
