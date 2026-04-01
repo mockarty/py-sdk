@@ -229,7 +229,9 @@ class ChaosResults(BaseModel):
     steady_state_during: Optional[bool] = Field(None, alias="steadyStateDuring")
     phases: Optional[list[PhaseMetrics]] = None
     timeline: Optional[list[TimelineEvent]] = None
-    affected_resources: Optional[list[AffectedResource]] = Field(None, alias="affectedResources")
+    affected_resources: Optional[list[AffectedResource]] = Field(
+        None, alias="affectedResources"
+    )
     total_duration_ms: Optional[int] = Field(None, alias="totalDurationMs")
     error_count: Optional[int] = Field(None, alias="errorCount")
     recovery_time_ms: Optional[int] = Field(None, alias="recoveryTimeMs")
@@ -448,7 +450,9 @@ class ChaosReport(BaseModel):
     recovery_time_ms: Optional[int] = Field(None, alias="recoveryTimeMs")
     error_count: Optional[int] = Field(None, alias="errorCount")
     summary: Optional[str] = None
-    affected_resources: Optional[list[AffectedResource]] = Field(None, alias="affectedResources")
+    affected_resources: Optional[list[AffectedResource]] = Field(
+        None, alias="affectedResources"
+    )
 
     model_config = {"populate_by_name": True}
 

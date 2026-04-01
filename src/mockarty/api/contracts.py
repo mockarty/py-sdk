@@ -159,17 +159,23 @@ class ContractAPI(SyncAPIBase):
 
     def get_consumer_contract(self, contract_id: str) -> dict[str, Any]:
         """Get a consumer contract by ID."""
-        resp = self._request("GET", f"/api/v1/contract/consumer-contracts/{contract_id}")
+        resp = self._request(
+            "GET", f"/api/v1/contract/consumer-contracts/{contract_id}"
+        )
         return resp.json()
 
     def create_consumer_contract(self, contract: dict[str, Any]) -> dict[str, Any]:
         """Create or update a consumer contract."""
-        resp = self._request("POST", "/api/v1/contract/consumer-contracts", json=contract)
+        resp = self._request(
+            "POST", "/api/v1/contract/consumer-contracts", json=contract
+        )
         return resp.json()
 
     def delete_consumer_contract(self, contract_id: str) -> dict[str, Any]:
         """Delete a consumer contract."""
-        resp = self._request("DELETE", f"/api/v1/contract/consumer-contracts/{contract_id}")
+        resp = self._request(
+            "DELETE", f"/api/v1/contract/consumer-contracts/{contract_id}"
+        )
         return resp.json()
 
     def can_i_deploy_v2(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -179,13 +185,20 @@ class ContractAPI(SyncAPIBase):
 
     def parse_endpoints(self, entry_id: str) -> dict[str, Any]:
         """Parse endpoints from a registry entry specification."""
-        resp = self._request("POST", f"/api/v1/contract/registry/{entry_id}/parse-endpoints", json={})
+        resp = self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/parse-endpoints", json={}
+        )
         return resp.json()
 
-    def parse_fields(self, entry_id: str, route: str, status_code: int = 200) -> dict[str, Any]:
+    def parse_fields(
+        self, entry_id: str, route: str, status_code: int = 200
+    ) -> dict[str, Any]:
         """Parse response fields for a specific endpoint."""
-        resp = self._request("POST", f"/api/v1/contract/registry/{entry_id}/parse-fields",
-                             json={"route": route, "statusCode": status_code})
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/parse-fields",
+            json={"route": route, "statusCode": status_code},
+        )
         return resp.json()
 
     def list_registry_versions(self, entry_id: str) -> list[dict[str, Any]]:
@@ -196,23 +209,34 @@ class ContractAPI(SyncAPIBase):
 
     def rollback_registry_version(self, entry_id: str, version: int) -> dict[str, Any]:
         """Rollback a registry entry to a previous version."""
-        resp = self._request("POST", f"/api/v1/contract/registry/{entry_id}/versions/{version}/rollback")
+        resp = self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/versions/{version}/rollback"
+        )
         return resp.json()
 
     def diff_registry_versions(self, entry_id: str, v1: int, v2: int) -> dict[str, Any]:
         """Compute diff between two registry versions."""
-        resp = self._request("GET", f"/api/v1/contract/registry/{entry_id}/versions/{v1}/diff/{v2}")
+        resp = self._request(
+            "GET", f"/api/v1/contract/registry/{entry_id}/versions/{v1}/diff/{v2}"
+        )
         return resp.json()
 
     def list_consumer_contract_versions(self, contract_id: str) -> list[dict[str, Any]]:
         """List version history for a consumer contract."""
-        resp = self._request("GET", f"/api/v1/contract/consumer-contracts/{contract_id}/versions")
+        resp = self._request(
+            "GET", f"/api/v1/contract/consumer-contracts/{contract_id}/versions"
+        )
         data = resp.json()
         return data if isinstance(data, list) else []
 
-    def rollback_consumer_contract_version(self, contract_id: str, version: int) -> dict[str, Any]:
+    def rollback_consumer_contract_version(
+        self, contract_id: str, version: int
+    ) -> dict[str, Any]:
         """Rollback a consumer contract to a previous version."""
-        resp = self._request("POST", f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}/rollback")
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}/rollback",
+        )
         return resp.json()
 
     def health(self) -> dict[str, Any]:
@@ -374,17 +398,23 @@ class AsyncContractAPI(AsyncAPIBase):
 
     async def detect_graphql_drift(self, request: dict[str, Any]) -> dict[str, Any]:
         """Detect GraphQL schema drift via introspection."""
-        resp = await self._request("POST", "/api/v1/contract/detect-drift/graphql", json=request)
+        resp = await self._request(
+            "POST", "/api/v1/contract/detect-drift/graphql", json=request
+        )
         return resp.json()
 
     async def detect_grpc_drift(self, request: dict[str, Any]) -> dict[str, Any]:
         """Detect gRPC service drift via reflection."""
-        resp = await self._request("POST", "/api/v1/contract/detect-drift/grpc", json=request)
+        resp = await self._request(
+            "POST", "/api/v1/contract/detect-drift/grpc", json=request
+        )
         return resp.json()
 
     # ─── API Registry ────────────────────────────────────────────────
 
-    async def list_registry(self, query: str = "", spec_type: str = "") -> list[dict[str, Any]]:
+    async def list_registry(
+        self, query: str = "", spec_type: str = ""
+    ) -> list[dict[str, Any]]:
         """List published APIs in the registry.
 
         Args:
@@ -448,9 +478,13 @@ class AsyncContractAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/contract/registry", json=body)
         return resp.json()
 
-    async def update_registry_entry(self, entry_id: str, update: dict[str, Any]) -> dict[str, Any]:
+    async def update_registry_entry(
+        self, entry_id: str, update: dict[str, Any]
+    ) -> dict[str, Any]:
         """Update an existing registry entry."""
-        resp = await self._request("PUT", f"/api/v1/contract/registry/{entry_id}", json=update)
+        resp = await self._request(
+            "PUT", f"/api/v1/contract/registry/{entry_id}", json=update
+        )
         return resp.json()
 
     async def delete_registry_entry(self, entry_id: str) -> None:
@@ -463,10 +497,14 @@ class AsyncContractAPI(AsyncAPIBase):
         Returns:
             Dict with 'generated' count and service metadata.
         """
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/generate-mocks")
+        resp = await self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/generate-mocks"
+        )
         return resp.json()
 
-    async def check_impact(self, entry_id: str, new_spec_content: str) -> dict[str, Any]:
+    async def check_impact(
+        self, entry_id: str, new_spec_content: str
+    ) -> dict[str, Any]:
         """Check which subscribers would be affected by a spec change.
 
         Returns:
@@ -515,17 +553,23 @@ class AsyncContractAPI(AsyncAPIBase):
         if watch_endpoints:
             body["watchEndpoints"] = watch_endpoints
         resp = await self._request(
-            "POST", f"/api/v1/contract/registry/{registry_entry_id}/subscribe", json=body
+            "POST",
+            f"/api/v1/contract/registry/{registry_entry_id}/subscribe",
+            json=body,
         )
         return resp.json()
 
     async def unsubscribe(self, subscription_id: str) -> None:
         """Remove a subscription."""
-        await self._request("DELETE", f"/api/v1/contract/subscriptions/{subscription_id}")
+        await self._request(
+            "DELETE", f"/api/v1/contract/subscriptions/{subscription_id}"
+        )
 
     async def list_subscribers(self, registry_entry_id: str) -> list[dict[str, Any]]:
         """List who subscribes to a specific API."""
-        resp = await self._request("GET", f"/api/v1/contract/registry/{registry_entry_id}/subscribers")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/registry/{registry_entry_id}/subscribers"
+        )
         data = resp.json()
         return data if isinstance(data, list) else []
 
@@ -539,27 +583,41 @@ class AsyncContractAPI(AsyncAPIBase):
         if new_version:
             body["newVersion"] = new_version
         resp = await self._request(
-            "POST", f"/api/v1/contract/registry/{registry_entry_id}/change-requests", json=body
+            "POST",
+            f"/api/v1/contract/registry/{registry_entry_id}/change-requests",
+            json=body,
         )
         return resp.json()
 
-    async def list_change_requests(self, registry_entry_id: str) -> list[dict[str, Any]]:
+    async def list_change_requests(
+        self, registry_entry_id: str
+    ) -> list[dict[str, Any]]:
         """List change requests for a registry entry."""
-        resp = await self._request("GET", f"/api/v1/contract/registry/{registry_entry_id}/change-requests")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/registry/{registry_entry_id}/change-requests"
+        )
         data = resp.json()
         return data if isinstance(data, list) else []
 
-    async def approve_change_request(self, cr_id: str, comment: str = "") -> dict[str, Any]:
+    async def approve_change_request(
+        self, cr_id: str, comment: str = ""
+    ) -> dict[str, Any]:
         """Approve a change request."""
         resp = await self._request(
-            "POST", f"/api/v1/contract/change-requests/{cr_id}/approve", json={"comment": comment}
+            "POST",
+            f"/api/v1/contract/change-requests/{cr_id}/approve",
+            json={"comment": comment},
         )
         return resp.json()
 
-    async def reject_change_request(self, cr_id: str, comment: str = "") -> dict[str, Any]:
+    async def reject_change_request(
+        self, cr_id: str, comment: str = ""
+    ) -> dict[str, Any]:
         """Reject a change request."""
         resp = await self._request(
-            "POST", f"/api/v1/contract/change-requests/{cr_id}/reject", json={"comment": comment}
+            "POST",
+            f"/api/v1/contract/change-requests/{cr_id}/reject",
+            json={"comment": comment},
         )
         return resp.json()
 
@@ -583,27 +641,47 @@ class AsyncContractAPI(AsyncAPIBase):
 
     async def validate_from_registry(self, entry_id: str) -> dict[str, Any]:
         """Validate mocks against a registry entry specification."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/validate")
+        resp = await self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/validate"
+        )
         return resp.json()
 
-    async def submit_for_review(self, entry_id: str, reviewer_id: str = "") -> dict[str, Any]:
+    async def submit_for_review(
+        self, entry_id: str, reviewer_id: str = ""
+    ) -> dict[str, Any]:
         """Submit a registry entry for review."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/submit-review", json={"reviewerId": reviewer_id})
+        resp = await self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/submit-review",
+            json={"reviewerId": reviewer_id},
+        )
         return resp.json()
 
     async def approve_review(self, entry_id: str, comment: str = "") -> dict[str, Any]:
         """Approve a registry entry review."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/approve-review", json={"comment": comment})
+        resp = await self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/approve-review",
+            json={"comment": comment},
+        )
         return resp.json()
 
     async def reject_review(self, entry_id: str, comment: str = "") -> dict[str, Any]:
         """Reject a registry entry review."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/reject-review", json={"comment": comment})
+        resp = await self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/reject-review",
+            json={"comment": comment},
+        )
         return resp.json()
 
     async def assign_reviewer(self, entry_id: str, reviewer_id: str) -> dict[str, Any]:
         """Assign a reviewer to a registry entry."""
-        resp = await self._request("PUT", f"/api/v1/contract/registry/{entry_id}/reviewer", json={"reviewerId": reviewer_id})
+        resp = await self._request(
+            "PUT",
+            f"/api/v1/contract/registry/{entry_id}/reviewer",
+            json={"reviewerId": reviewer_id},
+        )
         return resp.json()
 
     # ── Consumer Contracts (Dependency Bundles) ───────────────────────
@@ -616,17 +694,25 @@ class AsyncContractAPI(AsyncAPIBase):
 
     async def get_consumer_contract(self, contract_id: str) -> dict[str, Any]:
         """Get a consumer contract by ID."""
-        resp = await self._request("GET", f"/api/v1/contract/consumer-contracts/{contract_id}")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/consumer-contracts/{contract_id}"
+        )
         return resp.json()
 
-    async def create_consumer_contract(self, contract: dict[str, Any]) -> dict[str, Any]:
+    async def create_consumer_contract(
+        self, contract: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create or update a consumer contract."""
-        resp = await self._request("POST", "/api/v1/contract/consumer-contracts", json=contract)
+        resp = await self._request(
+            "POST", "/api/v1/contract/consumer-contracts", json=contract
+        )
         return resp.json()
 
     async def delete_consumer_contract(self, contract_id: str) -> dict[str, Any]:
         """Delete a consumer contract."""
-        resp = await self._request("DELETE", f"/api/v1/contract/consumer-contracts/{contract_id}")
+        resp = await self._request(
+            "DELETE", f"/api/v1/contract/consumer-contracts/{contract_id}"
+        )
         return resp.json()
 
     # ── Can I Deploy V2 (Bidirectional) ──────────────────────────────
@@ -638,59 +724,94 @@ class AsyncContractAPI(AsyncAPIBase):
             request: Dict with 'role' ('consumer' or 'provider'),
                      'contractId' for consumer, 'registryEntryId' + optional 'newSpec' for provider.
         """
-        resp = await self._request("POST", "/api/v1/contract/can-i-deploy", json=request)
+        resp = await self._request(
+            "POST", "/api/v1/contract/can-i-deploy", json=request
+        )
         return resp.json()
 
     # ── Spec Parsing (Wizard Support) ────────────────────────────────
 
     async def parse_endpoints(self, entry_id: str) -> dict[str, Any]:
         """Parse endpoints from a registry entry specification."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/parse-endpoints", json={})
+        resp = await self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/parse-endpoints", json={}
+        )
         return resp.json()
 
-    async def parse_fields(self, entry_id: str, route: str, status_code: int = 200) -> dict[str, Any]:
+    async def parse_fields(
+        self, entry_id: str, route: str, status_code: int = 200
+    ) -> dict[str, Any]:
         """Parse response fields for a specific endpoint."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/parse-fields",
-                                   json={"route": route, "statusCode": status_code})
+        resp = await self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/parse-fields",
+            json={"route": route, "statusCode": status_code},
+        )
         return resp.json()
 
     # ── Versioning ───────────────────────────────────────────────────
 
     async def list_registry_versions(self, entry_id: str) -> list[dict[str, Any]]:
         """List version history for a registry entry."""
-        resp = await self._request("GET", f"/api/v1/contract/registry/{entry_id}/versions")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/registry/{entry_id}/versions"
+        )
         data = resp.json()
         return data if isinstance(data, list) else []
 
     async def get_registry_version(self, entry_id: str, version: int) -> dict[str, Any]:
         """Get a specific version of a registry entry."""
-        resp = await self._request("GET", f"/api/v1/contract/registry/{entry_id}/versions/{version}")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/registry/{entry_id}/versions/{version}"
+        )
         return resp.json()
 
-    async def rollback_registry_version(self, entry_id: str, version: int) -> dict[str, Any]:
+    async def rollback_registry_version(
+        self, entry_id: str, version: int
+    ) -> dict[str, Any]:
         """Rollback a registry entry to a previous version."""
-        resp = await self._request("POST", f"/api/v1/contract/registry/{entry_id}/versions/{version}/rollback")
+        resp = await self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/versions/{version}/rollback"
+        )
         return resp.json()
 
-    async def diff_registry_versions(self, entry_id: str, v1: int, v2: int) -> dict[str, Any]:
+    async def diff_registry_versions(
+        self, entry_id: str, v1: int, v2: int
+    ) -> dict[str, Any]:
         """Compute diff between two versions of a registry entry."""
-        resp = await self._request("GET", f"/api/v1/contract/registry/{entry_id}/versions/{v1}/diff/{v2}")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/registry/{entry_id}/versions/{v1}/diff/{v2}"
+        )
         return resp.json()
 
-    async def list_consumer_contract_versions(self, contract_id: str) -> list[dict[str, Any]]:
+    async def list_consumer_contract_versions(
+        self, contract_id: str
+    ) -> list[dict[str, Any]]:
         """List version history for a consumer contract."""
-        resp = await self._request("GET", f"/api/v1/contract/consumer-contracts/{contract_id}/versions")
+        resp = await self._request(
+            "GET", f"/api/v1/contract/consumer-contracts/{contract_id}/versions"
+        )
         data = resp.json()
         return data if isinstance(data, list) else []
 
-    async def get_consumer_contract_version(self, contract_id: str, version: int) -> dict[str, Any]:
+    async def get_consumer_contract_version(
+        self, contract_id: str, version: int
+    ) -> dict[str, Any]:
         """Get a specific version of a consumer contract."""
-        resp = await self._request("GET", f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}")
+        resp = await self._request(
+            "GET",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}",
+        )
         return resp.json()
 
-    async def rollback_consumer_contract_version(self, contract_id: str, version: int) -> dict[str, Any]:
+    async def rollback_consumer_contract_version(
+        self, contract_id: str, version: int
+    ) -> dict[str, Any]:
         """Rollback a consumer contract to a previous version."""
-        resp = await self._request("POST", f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}/rollback")
+        resp = await self._request(
+            "POST",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}/rollback",
+        )
         return resp.json()
 
     # ── Health ───────────────────────────────────────────────────────

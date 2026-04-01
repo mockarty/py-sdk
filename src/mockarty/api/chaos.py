@@ -152,9 +152,7 @@ class ChaosAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/chaos/experiments", json=experiment)
         return resp.json()
 
-    def update(
-        self, experiment_id: str, experiment: dict[str, Any]
-    ) -> dict[str, Any]:
+    def update(self, experiment_id: str, experiment: dict[str, Any]) -> dict[str, Any]:
         """Update an existing chaos experiment.
 
         PUT /api/v1/chaos/experiments/:id
@@ -213,9 +211,7 @@ class ChaosAPI(SyncAPIBase):
         Returns:
             List of timeline events (unwrapped from envelope).
         """
-        resp = self._request(
-            "GET", f"/api/v1/chaos/experiments/{experiment_id}/events"
-        )
+        resp = self._request("GET", f"/api/v1/chaos/experiments/{experiment_id}/events")
         data = resp.json()
         if isinstance(data, dict):
             return data.get("events") or []
@@ -226,14 +222,10 @@ class ChaosAPI(SyncAPIBase):
 
         GET /api/v1/chaos/experiments/:id/report
         """
-        resp = self._request(
-            "GET", f"/api/v1/chaos/experiments/{experiment_id}/report"
-        )
+        resp = self._request("GET", f"/api/v1/chaos/experiments/{experiment_id}/report")
         return resp.json()
 
-    def download_report(
-        self, experiment_id: str, format: str = "html"
-    ) -> bytes:
+    def download_report(self, experiment_id: str, format: str = "html") -> bytes:
         """Download an experiment report in the specified format.
 
         GET /api/v1/chaos/experiments/:id/report/download?format=...
@@ -312,9 +304,7 @@ class ChaosAPI(SyncAPIBase):
         params: dict[str, Any] | None = None
         if grace_period is not None and grace_period > 0:
             params = {"gracePeriod": str(grace_period)}
-        self._request(
-            "DELETE", f"/api/v1/chaos/pods/{namespace}/{name}", params=params
-        )
+        self._request("DELETE", f"/api/v1/chaos/pods/{namespace}/{name}", params=params)
 
     def get_pod_detail(self, namespace: str, name: str) -> dict[str, Any]:
         """Get detailed information about a specific pod.
@@ -361,9 +351,7 @@ class ChaosAPI(SyncAPIBase):
 
         GET /api/v1/chaos/deployments/:namespace/:name
         """
-        resp = self._request(
-            "GET", f"/api/v1/chaos/deployments/{namespace}/{name}"
-        )
+        resp = self._request("GET", f"/api/v1/chaos/deployments/{namespace}/{name}")
         return resp.json()
 
     def scale_deployment(
@@ -390,9 +378,7 @@ class ChaosAPI(SyncAPIBase):
 
         POST /api/v1/chaos/deployments/:namespace/:name/restart
         """
-        self._request(
-            "POST", f"/api/v1/chaos/deployments/{namespace}/{name}/restart"
-        )
+        self._request("POST", f"/api/v1/chaos/deployments/{namespace}/{name}/restart")
 
     # ── ConfigMaps ────────────────────────────────────────────────────
 
@@ -415,14 +401,10 @@ class ChaosAPI(SyncAPIBase):
 
         GET /api/v1/chaos/configmaps/:namespace/:name
         """
-        resp = self._request(
-            "GET", f"/api/v1/chaos/configmaps/{namespace}/{name}"
-        )
+        resp = self._request("GET", f"/api/v1/chaos/configmaps/{namespace}/{name}")
         return resp.json()
 
-    def update_configmap(
-        self, namespace: str, name: str, data: dict[str, str]
-    ) -> None:
+    def update_configmap(self, namespace: str, name: str, data: dict[str, str]) -> None:
         """Replace the data section of an existing ConfigMap.
 
         PUT /api/v1/chaos/configmaps/:namespace/:name
@@ -522,9 +504,7 @@ class ChaosAPI(SyncAPIBase):
         params: dict[str, Any] | None = None
         if limit is not None:
             params = {"limit": limit}
-        resp = self._request(
-            "GET", f"/api/v1/chaos/events/{namespace}", params=params
-        )
+        resp = self._request("GET", f"/api/v1/chaos/events/{namespace}", params=params)
         data = resp.json()
         if isinstance(data, dict):
             return data.get("events") or []
@@ -638,9 +618,7 @@ class AsyncChaosAPI(AsyncAPIBase):
 
         POST /api/v1/chaos/profiles/:id/test
         """
-        resp = await self._request(
-            "POST", f"/api/v1/chaos/profiles/{profile_id}/test"
-        )
+        resp = await self._request("POST", f"/api/v1/chaos/profiles/{profile_id}/test")
         return resp.json()
 
     async def connect_profile(self, profile_id: str) -> dict[str, Any]:
@@ -723,9 +701,7 @@ class AsyncChaosAPI(AsyncAPIBase):
 
         GET /api/v1/chaos/experiments/:id
         """
-        resp = await self._request(
-            "GET", f"/api/v1/chaos/experiments/{experiment_id}"
-        )
+        resp = await self._request("GET", f"/api/v1/chaos/experiments/{experiment_id}")
         return resp.json()
 
     async def create(self, experiment: dict[str, Any]) -> dict[str, Any]:
@@ -733,9 +709,7 @@ class AsyncChaosAPI(AsyncAPIBase):
 
         POST /api/v1/chaos/experiments
         """
-        resp = await self._request(
-            "POST", "/api/v1/chaos/experiments", json=experiment
-        )
+        resp = await self._request("POST", "/api/v1/chaos/experiments", json=experiment)
         return resp.json()
 
     async def update(
@@ -764,18 +738,14 @@ class AsyncChaosAPI(AsyncAPIBase):
 
         POST /api/v1/chaos/experiments/:id/run
         """
-        await self._request(
-            "POST", f"/api/v1/chaos/experiments/{experiment_id}/run"
-        )
+        await self._request("POST", f"/api/v1/chaos/experiments/{experiment_id}/run")
 
     async def abort(self, experiment_id: str) -> None:
         """Abort a running chaos experiment.
 
         POST /api/v1/chaos/experiments/:id/abort
         """
-        await self._request(
-            "POST", f"/api/v1/chaos/experiments/{experiment_id}/abort"
-        )
+        await self._request("POST", f"/api/v1/chaos/experiments/{experiment_id}/abort")
 
     # ── Experiment Results & Metrics ──────────────────────────────────
 
@@ -821,9 +791,7 @@ class AsyncChaosAPI(AsyncAPIBase):
         )
         return resp.json()
 
-    async def download_report(
-        self, experiment_id: str, format: str = "html"
-    ) -> bytes:
+    async def download_report(self, experiment_id: str, format: str = "html") -> bytes:
         """Download an experiment report in the specified format.
 
         GET /api/v1/chaos/experiments/:id/report/download?format=...
@@ -946,9 +914,7 @@ class AsyncChaosAPI(AsyncAPIBase):
         )
         return resp.text
 
-    async def get_deployment_detail(
-        self, namespace: str, name: str
-    ) -> dict[str, Any]:
+    async def get_deployment_detail(self, namespace: str, name: str) -> dict[str, Any]:
         """Get detailed information about a specific deployment.
 
         GET /api/v1/chaos/deployments/:namespace/:name
@@ -1124,9 +1090,7 @@ class AsyncChaosAPI(AsyncAPIBase):
 
     # ── Operator ──────────────────────────────────────────────────────
 
-    async def get_operator_status(
-        self, namespace: str | None = None
-    ) -> dict[str, Any]:
+    async def get_operator_status(self, namespace: str | None = None) -> dict[str, Any]:
         """Get the chaos operator installation status.
 
         GET /api/v1/chaos/operator/status?namespace=...
