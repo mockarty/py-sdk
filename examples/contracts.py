@@ -366,6 +366,113 @@ def full_pact_workflow(client: MockartyClient) -> None:
     print(f"  Pact {pact_id} deleted")
 
 
+def consumer_contract_workflow(client: MockartyClient) -> None:
+    """Create and manage consumer contracts (dependency bundles)."""
+    print("--- Create consumer contract ---")
+    contract = client.contracts.create_consumer_contract({
+        "name": "OrderService",
+        "dependencies": [
+            {
+                "registryEntryId": "user-service-api",
+                "providerName": "UserService",
+                "providerVersion": "latest",
+                "endpoints": [
+                    {
+                        "route": "GET /api/users/{id}",
+                        "protocol": "openapi",
+                        "expectedStatus": [200],
+                        "requiredFields": [
+                            {"path": "$.id", "type": "integer", "required": True},
+                            {"path": "$.email", "type": "string", "required": True},
+                        ],
+                    }
+                ],
+            }
+        ],
+        "tags": ["critical"],
+    })
+    contract_id = contract.get("id", "")
+    print(f"  Created: {contract.get('name')} (v{contract.get('version')})")
+
+    print("--- List consumer contracts ---")
+    contracts = client.contracts.list_consumer_contracts()
+    print(f"  Found {len(contracts)} contracts")
+    for c in contracts:
+        deps = c.get("dependencies", [])
+        print(f"  - {c.get('name')} (v{c.get('version')}, {len(deps)} providers)")
+
+    # Cleanup
+    if contract_id:
+        client.contracts.delete_consumer_contract(contract_id)
+        print(f"  Deleted contract {contract_id}")
+
+
+def can_i_deploy_v2_workflow(client: MockartyClient) -> None:
+    """Bidirectional can-i-deploy checks."""
+    # Consumer check: will my dependencies break me?
+    print("--- Consumer deploy check ---")
+    try:
+        result = client.contracts.can_i_deploy_v2({
+            "role": "consumer",
+            "contractId": "order-service-contract-id",
+        })
+        status = "SAFE" if result.get("deployable") else "BLOCKED"
+        print(f"  [{status}] {result.get('summary')}")
+    except Exception as e:
+        print(f"  Consumer check: {e}")
+
+    # Provider check: will my changes break others?
+    print("--- Provider deploy check ---")
+    try:
+        result = client.contracts.can_i_deploy_v2({
+            "role": "provider",
+            "registryEntryId": "user-service-api",
+            "newSpec": '{"openapi":"3.0.0","info":{"title":"UserService","version":"2.0"},"paths":{}}',
+        })
+        status = "SAFE" if result.get("deployable") else "BLOCKED"
+        affected = result.get("affectedConsumers", [])
+        print(f"  [{status}] {result.get('summary')} ({len(affected)} consumers)")
+    except Exception as e:
+        print(f"  Provider check: {e}")
+
+
+def registry_versions_workflow(client: MockartyClient) -> None:
+    """Work with registry version history."""
+    entry_id = "user-service-api"
+
+    print("--- List registry versions ---")
+    try:
+        versions = client.contracts.list_registry_versions(entry_id)
+        print(f"  Found {len(versions)} versions")
+        for v in versions:
+            current = " (current)" if v.get("isCurrent") else ""
+            print(f"  - v{v.get('version')} by {v.get('createdBy', '?')}{current}")
+
+        # Diff two versions
+        if len(versions) >= 2:
+            print("--- Diff versions ---")
+            diff = client.contracts.diff_registry_versions(
+                entry_id, versions[1]["version"], versions[0]["version"]
+            )
+            summary = diff.get("summary", {})
+            print(f"  Changes: {summary.get('totalChanges', 0)} ({summary.get('breakingChanges', 0)} breaking)")
+    except Exception as e:
+        print(f"  Versions: {e}")
+
+
+def contract_health_check(client: MockartyClient) -> None:
+    """Check contract health status."""
+    print("--- Contract health ---")
+    try:
+        health = client.contracts.health()
+        print(f"  Overall: {health.get('overall')}")
+        items = health.get("items", [])
+        for item in items:
+            print(f"  [{item.get('status')}] {item.get('name')} ({item.get('type')})")
+    except Exception as e:
+        print(f"  Health: {e}")
+
+
 def main() -> None:
     with MockartyClient(base_url=MOCKARTY_URL, api_key=API_KEY) as client:
         print("=== Spec-based Validation ===")
@@ -409,6 +516,22 @@ def main() -> None:
                 client.contracts.delete_pact(pact_id)
             except Exception:
                 pass
+
+        print("=== Consumer Contracts (Dependency Bundles) ===")
+        consumer_contract_workflow(client)
+        print()
+
+        print("=== Can I Deploy V2 (Bidirectional) ===")
+        can_i_deploy_v2_workflow(client)
+        print()
+
+        print("=== Registry Versions ===")
+        registry_versions_workflow(client)
+        print()
+
+        print("=== Contract Health ===")
+        contract_health_check(client)
+        print()
 
         # Uncomment for live provider verification:
         # verify_provider(client)
