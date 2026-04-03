@@ -149,6 +149,28 @@ class ContractAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/contract/detect-drift", json=request)
         return resp.json()
 
+    def detect_graphql_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect GraphQL schema drift via introspection."""
+        resp = self._request(
+            "POST", "/api/v1/contract/detect-drift/graphql", json=request
+        )
+        return resp.json()
+
+    def detect_grpc_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect gRPC service drift via reflection."""
+        resp = self._request("POST", "/api/v1/contract/detect-drift/grpc", json=request)
+        return resp.json()
+
+    def detect_wsdl_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect SOAP/WSDL service drift."""
+        resp = self._request("POST", "/api/v1/contract/detect-drift/wsdl", json=request)
+        return resp.json()
+
+    def detect_mcp_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect MCP server drift."""
+        resp = self._request("POST", "/api/v1/contract/detect-drift/mcp", json=request)
+        return resp.json()
+
     # ── Consumer Contracts (Dependency Bundles) ───────────────────────
 
     def list_consumer_contracts(self) -> list[dict[str, Any]]:
@@ -407,6 +429,20 @@ class AsyncContractAPI(AsyncAPIBase):
         """Detect gRPC service drift via reflection."""
         resp = await self._request(
             "POST", "/api/v1/contract/detect-drift/grpc", json=request
+        )
+        return resp.json()
+
+    async def detect_wsdl_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect SOAP/WSDL service drift."""
+        resp = await self._request(
+            "POST", "/api/v1/contract/detect-drift/wsdl", json=request
+        )
+        return resp.json()
+
+    async def detect_mcp_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Detect MCP server drift."""
+        resp = await self._request(
+            "POST", "/api/v1/contract/detect-drift/mcp", json=request
         )
         return resp.json()
 
