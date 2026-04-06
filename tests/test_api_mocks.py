@@ -393,7 +393,7 @@ class TestStoreAPI:
 
     @respx.mock
     def test_global_delete(self, client: MockartyClient) -> None:
-        route = respx.delete("http://localhost:5770/api/v1/stores/global").mock(
+        route = respx.delete("http://localhost:5770/api/v1/stores/global/counter").mock(
             return_value=httpx.Response(200)
         )
         client.stores.global_delete("counter")
@@ -417,7 +417,7 @@ class TestStoreAPI:
 
     @respx.mock
     def test_chain_delete(self, client: MockartyClient) -> None:
-        route = respx.delete("http://localhost:5770/api/v1/stores/chain/ch-1").mock(
+        route = respx.delete("http://localhost:5770/api/v1/stores/chain/ch-1/step").mock(
             return_value=httpx.Response(200)
         )
         client.stores.chain_delete("ch-1", "step")
@@ -429,15 +429,19 @@ class TestStoreAPI:
             return_value=httpx.Response(200)
         )
         client.stores.global_set_many({"a": 1, "b": 2})
-        assert route.called
+        assert route.call_count == 2
 
     @respx.mock
     def test_global_delete_many(self, client: MockartyClient) -> None:
-        route = respx.delete("http://localhost:5770/api/v1/stores/global").mock(
+        route_a = respx.delete("http://localhost:5770/api/v1/stores/global/a").mock(
+            return_value=httpx.Response(200)
+        )
+        route_b = respx.delete("http://localhost:5770/api/v1/stores/global/b").mock(
             return_value=httpx.Response(200)
         )
         client.stores.global_delete_many(["a", "b"])
-        assert route.called
+        assert route_a.called
+        assert route_b.called
 
 
 # ── HealthAPI ─────────────────────────────────────────────────────────

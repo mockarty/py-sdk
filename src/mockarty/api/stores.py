@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 
@@ -24,25 +25,30 @@ class StoreAPI(SyncAPIBase):
 
     def global_set(self, key: str, value: Any) -> None:
         """Set a key-value pair in the global store."""
-        self._request("POST", "/api/v1/stores/global", json={key: value})
+        self._request("POST", "/api/v1/stores/global", json={
+            "key": key,
+            "value": value,
+        })
 
     def global_set_many(self, entries: dict[str, Any]) -> None:
-        """Set multiple key-value pairs in the global store."""
-        self._request("POST", "/api/v1/stores/global", json=entries)
+        """Set multiple key-value pairs in the global store (one request per key)."""
+        for k, v in entries.items():
+            self.global_set(k, v)
 
     def global_delete(self, key: str) -> None:
         """Delete a key from the global store."""
-        self._request("DELETE", "/api/v1/stores/global", json={"keys": [key]})
+        self._request("DELETE", f"/api/v1/stores/global/{quote(key, safe='')}")
 
     def global_delete_many(self, keys: list[str]) -> None:
         """Delete multiple keys from the global store."""
-        self._request("DELETE", "/api/v1/stores/global", json={"keys": keys})
+        for key in keys:
+            self.global_delete(key)
 
     # ── Chain Store ───────────────────────────────────────────────────
 
     def chain_get(self, chain_id: str) -> dict[str, Any]:
         """Retrieve the chain store for a given chain ID."""
-        resp = self._request("GET", f"/api/v1/stores/chain/{chain_id}")
+        resp = self._request("GET", f"/api/v1/stores/chain/{quote(chain_id, safe='')}")
         data = resp.json()
         if isinstance(data, dict):
             return data
@@ -50,21 +56,27 @@ class StoreAPI(SyncAPIBase):
 
     def chain_set(self, chain_id: str, key: str, value: Any) -> None:
         """Set a key-value pair in a chain store."""
-        self._request("POST", f"/api/v1/stores/chain/{chain_id}", json={key: value})
+        self._request("POST", f"/api/v1/stores/chain/{quote(chain_id, safe='')}", json={
+            "key": key,
+            "value": value,
+        })
 
     def chain_set_many(self, chain_id: str, entries: dict[str, Any]) -> None:
-        """Set multiple key-value pairs in a chain store."""
-        self._request("POST", f"/api/v1/stores/chain/{chain_id}", json=entries)
+        """Set multiple key-value pairs in a chain store (one request per key)."""
+        for k, v in entries.items():
+            self.chain_set(chain_id, k, v)
 
     def chain_delete(self, chain_id: str, key: str) -> None:
         """Delete a key from a chain store."""
         self._request(
-            "DELETE", f"/api/v1/stores/chain/{chain_id}", json={"keys": [key]}
+            "DELETE",
+            f"/api/v1/stores/chain/{quote(chain_id, safe='')}/{quote(key, safe='')}",
         )
 
     def chain_delete_many(self, chain_id: str, keys: list[str]) -> None:
         """Delete multiple keys from a chain store."""
-        self._request("DELETE", f"/api/v1/stores/chain/{chain_id}", json={"keys": keys})
+        for key in keys:
+            self.chain_delete(chain_id, key)
 
 
 class AsyncStoreAPI(AsyncAPIBase):
@@ -82,25 +94,30 @@ class AsyncStoreAPI(AsyncAPIBase):
 
     async def global_set(self, key: str, value: Any) -> None:
         """Set a key-value pair in the global store."""
-        await self._request("POST", "/api/v1/stores/global", json={key: value})
+        await self._request("POST", "/api/v1/stores/global", json={
+            "key": key,
+            "value": value,
+        })
 
     async def global_set_many(self, entries: dict[str, Any]) -> None:
-        """Set multiple key-value pairs in the global store."""
-        await self._request("POST", "/api/v1/stores/global", json=entries)
+        """Set multiple key-value pairs in the global store (one request per key)."""
+        for k, v in entries.items():
+            await self.global_set(k, v)
 
     async def global_delete(self, key: str) -> None:
         """Delete a key from the global store."""
-        await self._request("DELETE", "/api/v1/stores/global", json={"keys": [key]})
+        await self._request("DELETE", f"/api/v1/stores/global/{quote(key, safe='')}")
 
     async def global_delete_many(self, keys: list[str]) -> None:
         """Delete multiple keys from the global store."""
-        await self._request("DELETE", "/api/v1/stores/global", json={"keys": keys})
+        for key in keys:
+            await self.global_delete(key)
 
     # ── Chain Store ───────────────────────────────────────────────────
 
     async def chain_get(self, chain_id: str) -> dict[str, Any]:
         """Retrieve the chain store for a given chain ID."""
-        resp = await self._request("GET", f"/api/v1/stores/chain/{chain_id}")
+        resp = await self._request("GET", f"/api/v1/stores/chain/{quote(chain_id, safe='')}")
         data = resp.json()
         if isinstance(data, dict):
             return data
@@ -109,21 +126,25 @@ class AsyncStoreAPI(AsyncAPIBase):
     async def chain_set(self, chain_id: str, key: str, value: Any) -> None:
         """Set a key-value pair in a chain store."""
         await self._request(
-            "POST", f"/api/v1/stores/chain/{chain_id}", json={key: value}
+            "POST", f"/api/v1/stores/chain/{quote(chain_id, safe='')}", json={
+                "key": key,
+                "value": value,
+            }
         )
 
     async def chain_set_many(self, chain_id: str, entries: dict[str, Any]) -> None:
-        """Set multiple key-value pairs in a chain store."""
-        await self._request("POST", f"/api/v1/stores/chain/{chain_id}", json=entries)
+        """Set multiple key-value pairs in a chain store (one request per key)."""
+        for k, v in entries.items():
+            await self.chain_set(chain_id, k, v)
 
     async def chain_delete(self, chain_id: str, key: str) -> None:
         """Delete a key from a chain store."""
         await self._request(
-            "DELETE", f"/api/v1/stores/chain/{chain_id}", json={"keys": [key]}
+            "DELETE",
+            f"/api/v1/stores/chain/{quote(chain_id, safe='')}/{quote(key, safe='')}",
         )
 
     async def chain_delete_many(self, chain_id: str, keys: list[str]) -> None:
         """Delete multiple keys from a chain store."""
-        await self._request(
-            "DELETE", f"/api/v1/stores/chain/{chain_id}", json={"keys": keys}
-        )
+        for key in keys:
+            await self.chain_delete(chain_id, key)
