@@ -25,10 +25,14 @@ class StoreAPI(SyncAPIBase):
 
     def global_set(self, key: str, value: Any) -> None:
         """Set a key-value pair in the global store."""
-        self._request("POST", "/api/v1/stores/global", json={
-            "key": key,
-            "value": value,
-        })
+        self._request(
+            "POST",
+            "/api/v1/stores/global",
+            json={
+                "key": key,
+                "value": value,
+            },
+        )
 
     def global_set_many(self, entries: dict[str, Any]) -> None:
         """Set multiple key-value pairs in the global store (one request per key)."""
@@ -56,10 +60,14 @@ class StoreAPI(SyncAPIBase):
 
     def chain_set(self, chain_id: str, key: str, value: Any) -> None:
         """Set a key-value pair in a chain store."""
-        self._request("POST", f"/api/v1/stores/chain/{quote(chain_id, safe='')}", json={
-            "key": key,
-            "value": value,
-        })
+        self._request(
+            "POST",
+            f"/api/v1/stores/chain/{quote(chain_id, safe='')}",
+            json={
+                "key": key,
+                "value": value,
+            },
+        )
 
     def chain_set_many(self, chain_id: str, entries: dict[str, Any]) -> None:
         """Set multiple key-value pairs in a chain store (one request per key)."""
@@ -94,10 +102,14 @@ class AsyncStoreAPI(AsyncAPIBase):
 
     async def global_set(self, key: str, value: Any) -> None:
         """Set a key-value pair in the global store."""
-        await self._request("POST", "/api/v1/stores/global", json={
-            "key": key,
-            "value": value,
-        })
+        await self._request(
+            "POST",
+            "/api/v1/stores/global",
+            json={
+                "key": key,
+                "value": value,
+            },
+        )
 
     async def global_set_many(self, entries: dict[str, Any]) -> None:
         """Set multiple key-value pairs in the global store (one request per key)."""
@@ -117,7 +129,9 @@ class AsyncStoreAPI(AsyncAPIBase):
 
     async def chain_get(self, chain_id: str) -> dict[str, Any]:
         """Retrieve the chain store for a given chain ID."""
-        resp = await self._request("GET", f"/api/v1/stores/chain/{quote(chain_id, safe='')}")
+        resp = await self._request(
+            "GET", f"/api/v1/stores/chain/{quote(chain_id, safe='')}"
+        )
         data = resp.json()
         if isinstance(data, dict):
             return data
@@ -126,10 +140,12 @@ class AsyncStoreAPI(AsyncAPIBase):
     async def chain_set(self, chain_id: str, key: str, value: Any) -> None:
         """Set a key-value pair in a chain store."""
         await self._request(
-            "POST", f"/api/v1/stores/chain/{quote(chain_id, safe='')}", json={
+            "POST",
+            f"/api/v1/stores/chain/{quote(chain_id, safe='')}",
+            json={
                 "key": key,
                 "value": value,
-            }
+            },
         )
 
     async def chain_set_many(self, chain_id: str, entries: dict[str, Any]) -> None:

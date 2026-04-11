@@ -56,7 +56,12 @@ from mockarty.models.contract import (
     ContractViolation,
 )
 from mockarty.models.folders import MockFolder
-from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun, QuarantineEntry
+from mockarty.models.fuzzing import (
+    FuzzingConfig,
+    FuzzingResult,
+    FuzzingRun,
+    QuarantineEntry,
+)
 from mockarty.models.generator import (
     GeneratorPreview,
     GeneratorRequest,

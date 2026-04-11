@@ -7,7 +7,12 @@ from __future__ import annotations
 from typing import Any
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
-from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun, QuarantineEntry
+from mockarty.models.fuzzing import (
+    FuzzingConfig,
+    FuzzingResult,
+    FuzzingRun,
+    QuarantineEntry,
+)
 
 
 class FuzzingAPI(SyncAPIBase):
@@ -250,11 +255,15 @@ class FuzzingAPI(SyncAPIBase):
             params["offset"] = offset
         resp = self._request("GET", "/api/v1/fuzzing/quarantine", params=params)
         data = resp.json()
-        entries = [QuarantineEntry.model_validate(e) for e in (data.get("entries") or [])]
+        entries = [
+            QuarantineEntry.model_validate(e) for e in (data.get("entries") or [])
+        ]
         total = data.get("total", len(entries))
         return entries, total
 
-    def create_quarantine(self, entry: QuarantineEntry | dict[str, Any]) -> QuarantineEntry:
+    def create_quarantine(
+        self, entry: QuarantineEntry | dict[str, Any]
+    ) -> QuarantineEntry:
         """Create a new quarantine entry."""
         resp = self._request("POST", "/api/v1/fuzzing/quarantine", json=entry)
         return QuarantineEntry.model_validate(resp.json())
@@ -270,9 +279,7 @@ class FuzzingAPI(SyncAPIBase):
         )
         return resp.json()
 
-    def quarantine_finding(
-        self, finding_id: str, reason: str
-    ) -> QuarantineEntry:
+    def quarantine_finding(self, finding_id: str, reason: str) -> QuarantineEntry:
         """Create a quarantine entry from a single finding."""
         resp = self._request(
             "POST",
@@ -326,7 +333,9 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         self, config_id: str, config: FuzzingConfig | dict[str, Any]
     ) -> FuzzingConfig:
         """Update a fuzzing configuration."""
-        resp = await self._request("PUT", f"/api/v1/fuzzing/configs/{config_id}", json=config)
+        resp = await self._request(
+            "PUT", f"/api/v1/fuzzing/configs/{config_id}", json=config
+        )
         return FuzzingConfig.model_validate(resp.json())
 
     async def delete_config(self, config_id: str) -> None:
@@ -548,7 +557,9 @@ class AsyncFuzzingAPI(AsyncAPIBase):
             params["offset"] = offset
         resp = await self._request("GET", "/api/v1/fuzzing/quarantine", params=params)
         data = resp.json()
-        entries = [QuarantineEntry.model_validate(e) for e in (data.get("entries") or [])]
+        entries = [
+            QuarantineEntry.model_validate(e) for e in (data.get("entries") or [])
+        ]
         total = data.get("total", len(entries))
         return entries, total
 
@@ -570,9 +581,7 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         )
         return resp.json()
 
-    async def quarantine_finding(
-        self, finding_id: str, reason: str
-    ) -> QuarantineEntry:
+    async def quarantine_finding(self, finding_id: str, reason: str) -> QuarantineEntry:
         """Create a quarantine entry from a single finding."""
         resp = await self._request(
             "POST",
