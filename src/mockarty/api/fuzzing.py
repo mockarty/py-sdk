@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
-from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun
+from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun, QuarantineEntry
 
 
 class FuzzingAPI(SyncAPIBase):
@@ -32,6 +32,13 @@ class FuzzingAPI(SyncAPIBase):
     def get_config(self, config_id: str) -> FuzzingConfig:
         """Get a fuzzing configuration by ID."""
         resp = self._request("GET", f"/api/v1/fuzzing/configs/{config_id}")
+        return FuzzingConfig.model_validate(resp.json())
+
+    def update_config(
+        self, config_id: str, config: FuzzingConfig | dict[str, Any]
+    ) -> FuzzingConfig:
+        """Update a fuzzing configuration."""
+        resp = self._request("PUT", f"/api/v1/fuzzing/configs/{config_id}", json=config)
         return FuzzingConfig.model_validate(resp.json())
 
     def delete_config(self, config_id: str) -> None:
@@ -62,6 +69,10 @@ class FuzzingAPI(SyncAPIBase):
         """Get a specific fuzzing test result."""
         resp = self._request("GET", f"/api/v1/fuzzing/results/{result_id}")
         return FuzzingResult.model_validate(resp.json())
+
+    def delete_result(self, result_id: str) -> None:
+        """Delete a fuzzing test result."""
+        self._request("DELETE", f"/api/v1/fuzzing/results/{result_id}")
 
     # ── Summary ────────────────────────────────────────────────────────
 
@@ -130,10 +141,10 @@ class FuzzingAPI(SyncAPIBase):
         )
         return resp.json()
 
-    def export_findings(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Export fuzzing findings."""
+    def export_findings(self, request: dict[str, Any]) -> bytes:
+        """Export fuzzing findings as raw bytes."""
         resp = self._request("POST", "/api/v1/fuzzing/findings/export", json=request)
-        return resp.json()
+        return resp.content
 
     # ── Imports ────────────────────────────────────────────────────────
 
@@ -174,6 +185,11 @@ class FuzzingAPI(SyncAPIBase):
             return data.get("items") or data.get("schedules") or []
         return []
 
+    def get_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Get a specific fuzzing schedule."""
+        resp = self._request("GET", f"/api/v1/fuzzing/schedules/{schedule_id}")
+        return resp.json()
+
     def create_schedule(self, schedule: dict[str, Any]) -> dict[str, Any]:
         """Create a fuzzing schedule."""
         resp = self._request("POST", "/api/v1/fuzzing/schedules", json=schedule)
@@ -191,6 +207,93 @@ class FuzzingAPI(SyncAPIBase):
     def delete_schedule(self, schedule_id: str) -> None:
         """Delete a fuzzing schedule."""
         self._request("DELETE", f"/api/v1/fuzzing/schedules/{schedule_id}")
+
+    # ── Batch Finding Operations ──────────────────────────────────────
+
+    def batch_manual_triage(
+        self,
+        ids: list[str],
+        status: str,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        """Batch manual triage of multiple findings with optional note."""
+        body: dict[str, Any] = {"ids": ids, "status": status}
+        if note is not None:
+            body["note"] = note
+        resp = self._request(
+            "POST", "/api/v1/fuzzing/findings/batch-manual-triage", json=body
+        )
+        return resp.json()
+
+    def batch_delete_findings(self, ids: list[str]) -> dict[str, Any]:
+        """Batch delete multiple fuzzing findings."""
+        resp = self._request(
+            "DELETE", "/api/v1/fuzzing/findings/batch", json={"ids": ids}
+        )
+        return resp.json()
+
+    # ── Quarantine ────────────────────────────────────────────────────
+
+    def list_quarantine(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[QuarantineEntry], int]:
+        """List quarantine entries with pagination.
+
+        Returns a tuple of (entries, total_count).
+        """
+        params: dict[str, Any] = {}
+        if limit > 0:
+            params["limit"] = limit
+        if offset > 0:
+            params["offset"] = offset
+        resp = self._request("GET", "/api/v1/fuzzing/quarantine", params=params)
+        data = resp.json()
+        entries = [QuarantineEntry.model_validate(e) for e in (data.get("entries") or [])]
+        total = data.get("total", len(entries))
+        return entries, total
+
+    def create_quarantine(self, entry: QuarantineEntry | dict[str, Any]) -> QuarantineEntry:
+        """Create a new quarantine entry."""
+        resp = self._request("POST", "/api/v1/fuzzing/quarantine", json=entry)
+        return QuarantineEntry.model_validate(resp.json())
+
+    def delete_quarantine(self, entry_id: str) -> None:
+        """Delete a quarantine entry by ID."""
+        self._request("DELETE", f"/api/v1/fuzzing/quarantine/{entry_id}")
+
+    def batch_delete_quarantine(self, ids: list[str]) -> dict[str, Any]:
+        """Batch delete multiple quarantine entries."""
+        resp = self._request(
+            "POST", "/api/v1/fuzzing/quarantine/batch-delete", json={"ids": ids}
+        )
+        return resp.json()
+
+    def quarantine_finding(
+        self, finding_id: str, reason: str
+    ) -> QuarantineEntry:
+        """Create a quarantine entry from a single finding."""
+        resp = self._request(
+            "POST",
+            "/api/v1/fuzzing/quarantine/from-finding",
+            json={"findingId": finding_id, "reason": reason},
+        )
+        return QuarantineEntry.model_validate(resp.json())
+
+    def batch_quarantine_findings(
+        self, finding_ids: list[str], reason: str
+    ) -> dict[str, Any]:
+        """Create quarantine entries from multiple findings.
+
+        Returns dict with 'created', 'triaged', and 'failed' counts.
+        """
+        resp = self._request(
+            "POST",
+            "/api/v1/fuzzing/quarantine/from-findings",
+            json={"findingIds": finding_ids, "reason": reason},
+        )
+        return resp.json()
 
 
 class AsyncFuzzingAPI(AsyncAPIBase):
@@ -217,6 +320,13 @@ class AsyncFuzzingAPI(AsyncAPIBase):
     async def get_config(self, config_id: str) -> FuzzingConfig:
         """Get a fuzzing configuration by ID."""
         resp = await self._request("GET", f"/api/v1/fuzzing/configs/{config_id}")
+        return FuzzingConfig.model_validate(resp.json())
+
+    async def update_config(
+        self, config_id: str, config: FuzzingConfig | dict[str, Any]
+    ) -> FuzzingConfig:
+        """Update a fuzzing configuration."""
+        resp = await self._request("PUT", f"/api/v1/fuzzing/configs/{config_id}", json=config)
         return FuzzingConfig.model_validate(resp.json())
 
     async def delete_config(self, config_id: str) -> None:
@@ -247,6 +357,10 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         """Get a specific fuzzing test result."""
         resp = await self._request("GET", f"/api/v1/fuzzing/results/{result_id}")
         return FuzzingResult.model_validate(resp.json())
+
+    async def delete_result(self, result_id: str) -> None:
+        """Delete a fuzzing test result."""
+        await self._request("DELETE", f"/api/v1/fuzzing/results/{result_id}")
 
     # ── Summary ────────────────────────────────────────────────────────
 
@@ -321,12 +435,12 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         )
         return resp.json()
 
-    async def export_findings(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Export fuzzing findings."""
+    async def export_findings(self, request: dict[str, Any]) -> bytes:
+        """Export fuzzing findings as raw bytes."""
         resp = await self._request(
             "POST", "/api/v1/fuzzing/findings/export", json=request
         )
-        return resp.json()
+        return resp.content
 
     # ── Imports ────────────────────────────────────────────────────────
 
@@ -369,6 +483,11 @@ class AsyncFuzzingAPI(AsyncAPIBase):
             return data.get("items") or data.get("schedules") or []
         return []
 
+    async def get_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Get a specific fuzzing schedule."""
+        resp = await self._request("GET", f"/api/v1/fuzzing/schedules/{schedule_id}")
+        return resp.json()
+
     async def create_schedule(self, schedule: dict[str, Any]) -> dict[str, Any]:
         """Create a fuzzing schedule."""
         resp = await self._request("POST", "/api/v1/fuzzing/schedules", json=schedule)
@@ -386,3 +505,92 @@ class AsyncFuzzingAPI(AsyncAPIBase):
     async def delete_schedule(self, schedule_id: str) -> None:
         """Delete a fuzzing schedule."""
         await self._request("DELETE", f"/api/v1/fuzzing/schedules/{schedule_id}")
+
+    # ── Batch Finding Operations ──────────────────────────────────────
+
+    async def batch_manual_triage(
+        self,
+        ids: list[str],
+        status: str,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        """Batch manual triage of multiple findings with optional note."""
+        body: dict[str, Any] = {"ids": ids, "status": status}
+        if note is not None:
+            body["note"] = note
+        resp = await self._request(
+            "POST", "/api/v1/fuzzing/findings/batch-manual-triage", json=body
+        )
+        return resp.json()
+
+    async def batch_delete_findings(self, ids: list[str]) -> dict[str, Any]:
+        """Batch delete multiple fuzzing findings."""
+        resp = await self._request(
+            "DELETE", "/api/v1/fuzzing/findings/batch", json={"ids": ids}
+        )
+        return resp.json()
+
+    # ── Quarantine ────────────────────────────────────────────────────
+
+    async def list_quarantine(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[QuarantineEntry], int]:
+        """List quarantine entries with pagination.
+
+        Returns a tuple of (entries, total_count).
+        """
+        params: dict[str, Any] = {}
+        if limit > 0:
+            params["limit"] = limit
+        if offset > 0:
+            params["offset"] = offset
+        resp = await self._request("GET", "/api/v1/fuzzing/quarantine", params=params)
+        data = resp.json()
+        entries = [QuarantineEntry.model_validate(e) for e in (data.get("entries") or [])]
+        total = data.get("total", len(entries))
+        return entries, total
+
+    async def create_quarantine(
+        self, entry: QuarantineEntry | dict[str, Any]
+    ) -> QuarantineEntry:
+        """Create a new quarantine entry."""
+        resp = await self._request("POST", "/api/v1/fuzzing/quarantine", json=entry)
+        return QuarantineEntry.model_validate(resp.json())
+
+    async def delete_quarantine(self, entry_id: str) -> None:
+        """Delete a quarantine entry by ID."""
+        await self._request("DELETE", f"/api/v1/fuzzing/quarantine/{entry_id}")
+
+    async def batch_delete_quarantine(self, ids: list[str]) -> dict[str, Any]:
+        """Batch delete multiple quarantine entries."""
+        resp = await self._request(
+            "POST", "/api/v1/fuzzing/quarantine/batch-delete", json={"ids": ids}
+        )
+        return resp.json()
+
+    async def quarantine_finding(
+        self, finding_id: str, reason: str
+    ) -> QuarantineEntry:
+        """Create a quarantine entry from a single finding."""
+        resp = await self._request(
+            "POST",
+            "/api/v1/fuzzing/quarantine/from-finding",
+            json={"findingId": finding_id, "reason": reason},
+        )
+        return QuarantineEntry.model_validate(resp.json())
+
+    async def batch_quarantine_findings(
+        self, finding_ids: list[str], reason: str
+    ) -> dict[str, Any]:
+        """Create quarantine entries from multiple findings.
+
+        Returns dict with 'created', 'triaged', and 'failed' counts.
+        """
+        resp = await self._request(
+            "POST",
+            "/api/v1/fuzzing/quarantine/from-findings",
+            json={"findingIds": finding_ids, "reason": reason},
+        )
+        return resp.json()

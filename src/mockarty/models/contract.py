@@ -19,8 +19,8 @@ class ContractConfig(BaseModel):
     target_url: Optional[str] = Field(None, alias="targetUrl")
     namespace: Optional[str] = None
     schedule: Optional[str] = None
-    created_at: Optional[int] = Field(None, alias="createdAt")
-    updated_at: Optional[int] = Field(None, alias="updatedAt")
+    created_at: Optional[str] = Field(None, alias="createdAt")
+    updated_at: Optional[str] = Field(None, alias="updatedAt")
 
     model_config = {"populate_by_name": True}
 
@@ -60,7 +60,7 @@ class ContractValidationResult(BaseModel):
     status: Optional[str] = None
     violations: Optional[int] = None
     details: Optional[list[ContractViolation]] = None
-    validated_at: Optional[int] = Field(None, alias="validatedAt")
+    validated_at: Optional[str] = Field(None, alias="validatedAt")
 
     model_config = {"populate_by_name": True}
 
@@ -73,6 +73,6 @@ class ContractResult(BaseModel):
     status: Optional[str] = None
     violations: Optional[int] = None
     details: Optional[list[ContractViolation]] = None
-    created_at: Optional[int] = Field(None, alias="createdAt")
+    created_at: Optional[str] = Field(None, alias="createdAt")
 
     model_config = {"populate_by_name": True}

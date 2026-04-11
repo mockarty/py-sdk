@@ -17,7 +17,7 @@ class RecorderSession(BaseModel):
     target_url: Optional[str] = Field(None, alias="targetUrl")
     status: Optional[str] = None  # idle, recording, stopped
     namespace: Optional[str] = None
-    created_at: Optional[int] = Field(None, alias="createdAt")
+    created_at: Optional[str] = Field(None, alias="createdAt")
     entry_count: Optional[int] = Field(None, alias="entryCount")
 
     model_config = {"populate_by_name": True}

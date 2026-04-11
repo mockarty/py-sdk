@@ -26,11 +26,14 @@ class SyncAPIBase:
         json: Any = None,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        content: bytes | None = None,
     ) -> httpx.Response:
         """Execute an HTTP request and raise on errors."""
         kwargs: dict[str, Any] = {"params": params}
         if json is not None:
             kwargs["json"] = serialize_body(json)
+        if content is not None:
+            kwargs["content"] = content
         if headers:
             kwargs["headers"] = headers
 
@@ -58,11 +61,14 @@ class AsyncAPIBase:
         json: Any = None,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        content: bytes | None = None,
     ) -> httpx.Response:
         """Execute an async HTTP request and raise on errors."""
         kwargs: dict[str, Any] = {"params": params}
         if json is not None:
             kwargs["json"] = serialize_body(json)
+        if content is not None:
+            kwargs["content"] = content
         if headers:
             kwargs["headers"] = headers
 

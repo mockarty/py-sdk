@@ -46,6 +46,7 @@ from mockarty.models.common import (
     RequestLog,
     TestRunResult,
 )
+from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, QuarantineEntry
 from mockarty.models.store import DeleteFromStoreRequest, StoreData, StoreEntry
 
 
@@ -659,3 +660,84 @@ class TestJSONRoundtrip:
         assert restored.priority == 5
         assert restored.tags == ["orders", "shipping"]
         assert restored.extract.g_store["last_order"] == "$.req.id"
+
+
+class TestQuarantineEntry:
+    """Verify QuarantineEntry alias handling and round-trip."""
+
+    def test_from_camel_case(self) -> None:
+        entry = QuarantineEntry.model_validate({
+            "id": "q-1",
+            "fingerprint": "injection|POST /api/users|<script>",
+            "category": "injection",
+            "endpointPattern": "POST /api/users",
+            "title": "XSS false positive",
+            "reason": "Sanitized by middleware",
+            "createdAt": "2023-11-14T22:13:20Z",
+        })
+        assert entry.id == "q-1"
+        assert entry.endpoint_pattern == "POST /api/users"
+        assert entry.created_at == "2023-11-14T22:13:20Z"
+
+    def test_from_snake_case(self) -> None:
+        entry = QuarantineEntry(
+            id="q-2",
+            fingerprint="sqli|GET /search|1=1",
+            endpoint_pattern="GET /search",
+            reason="Safe",
+        )
+        assert entry.endpoint_pattern == "GET /search"
+
+    def test_serialize_to_alias(self) -> None:
+        entry = QuarantineEntry(
+            id="q-3",
+            endpoint_pattern="POST /api",
+            created_at="2023-11-14T22:13:20Z",
+        )
+        dumped = entry.model_dump(by_alias=True, exclude_none=True)
+        assert "endpointPattern" in dumped
+        assert "createdAt" in dumped
+        assert dumped["endpointPattern"] == "POST /api"
+
+    def test_roundtrip(self) -> None:
+        original = QuarantineEntry(
+            id="q-rt",
+            fingerprint="xss|POST /|<img>",
+            category="xss",
+            endpoint_pattern="POST /",
+            title="Known FP",
+            reason="Sanitized",
+            created_at="2023-11-14T22:13:20Z",
+        )
+        json_str = json.dumps(original.model_dump(by_alias=True, exclude_none=True))
+        restored = QuarantineEntry.model_validate(json.loads(json_str))
+        assert restored.id == original.id
+        assert restored.fingerprint == original.fingerprint
+        assert restored.endpoint_pattern == original.endpoint_pattern
+        assert restored.created_at == original.created_at
+
+
+class TestFuzzingModels:
+    """Verify FuzzingConfig and FuzzingResult alias handling."""
+
+    def test_config_from_camel_case(self) -> None:
+        config = FuzzingConfig.model_validate({
+            "id": "cfg-1",
+            "targetBaseUrl": "http://localhost:8080",
+            "strategy": "smart",
+        })
+        assert config.target_base_url == "http://localhost:8080"
+        assert config.strategy == "smart"
+
+    def test_result_from_camel_case(self) -> None:
+        result = FuzzingResult.model_validate({
+            "id": "res-1",
+            "configId": "cfg-1",
+            "startedAt": "2023-11-14T22:13:20Z",
+            "completedAt": "2023-11-14T22:18:20Z",
+            "totalRequests": 5000,
+            "totalFindings": 3,
+        })
+        assert result.config_id == "cfg-1"
+        assert result.started_at == "2023-11-14T22:13:20Z"
+        assert result.total_requests == 5000

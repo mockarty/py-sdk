@@ -7,6 +7,8 @@ Demonstrates:
   - Recorder configurations: save, list, export, delete
   - CA certificate management for HTTPS recording
   - Entry annotation and replay
+  - Session-level replay against a different target
+  - Correlation engine: discover dynamic-value flow between entries
   - Traffic modifications
   - Port allocation status
 """
@@ -217,6 +219,82 @@ def annotate_and_replay_entries(client: MockartyClient, session_id: str) -> None
 
 
 # ---------------------------------------------------------------------------
+# Session-level replay against a different target
+# ---------------------------------------------------------------------------
+
+def replay_session_against_target(client: MockartyClient, session_id: str) -> None:
+    """Re-run captured entries against a different target.
+
+    Useful for verifying staging vs production parity, smoke-testing a
+    new deployment with realistic traffic, or running regression checks
+    after backend refactors. The summary tells you how many entries
+    matched, mismatched, failed, or were skipped.
+    """
+    summary = client.recorder.replay_session(
+        session_id,
+        options={
+            "targetUrl": "https://staging.example.com",
+            "concurrency": 5,
+            "timeoutMs": 5000,
+            "followRedirects": True,
+        },
+    )
+    print(
+        "Replay summary: "
+        f"total={summary.get('totalEntries')} "
+        f"matched={summary.get('matched')} "
+        f"mismatched={summary.get('mismatched')} "
+        f"failed={summary.get('failed')} "
+        f"skipped={summary.get('skipped')}"
+    )
+    for r in (summary.get("results") or [])[:5]:
+        marker = "OK" if r.get("statusMatch") else "DIFF"
+        print(
+            f"  [{marker}] {r.get('replayedUrl')} "
+            f"-> {r.get('newStatus')} (was {r.get('originalStatus')}) "
+            f"[{r.get('durationMs')}ms]"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Correlation engine: discover dynamic-value flow
+# ---------------------------------------------------------------------------
+
+def correlate_session_values(client: MockartyClient, session_id: str) -> None:
+    """Discover dynamic values that flow between entries.
+
+    The correlation engine scans every captured entry for values that
+    appear in one response (JSON, headers, Set-Cookie) and are then
+    re-used by a later request (URL, header, body, form, cookie).
+    The output highlights tokens, IDs and CSRF values that need to be
+    extracted at runtime instead of being hard-coded from the original
+    capture.
+    """
+    report = client.recorder.correlate_session(
+        session_id,
+        options={
+            "minValueLength": 6,
+            "excludeNumeric": False,  # numeric IDs are valuable in REST flows
+            "maxCorrelationsPerSource": 50,
+        },
+    )
+    correlations = report.get("correlations") or []
+    print(
+        f"Correlation report: {len(correlations)} correlations across "
+        f"{report.get('totalEntries')} entries"
+    )
+    for i, c in enumerate(correlations[:5]):
+        src = c.get("source") or {}
+        targets = c.get("targets") or []
+        print(
+            f"  [{c.get('valueType')}] {src.get('section')}={c.get('value')!r} "
+            f"(confidence {c.get('confidence', 0):.2f}, {len(targets)} targets)"
+        )
+    if len(correlations) > 5:
+        print(f"  ... ({len(correlations) - 5} more)")
+
+
+# ---------------------------------------------------------------------------
 # Traffic Modifications
 # ---------------------------------------------------------------------------
 
@@ -314,9 +392,21 @@ def full_recording_workflow(client: MockartyClient) -> None:
     mocks = client.recorder.generate_mocks(session_id)
     print(f"7. Generated {len(mocks)} mocks")
 
-    # 8. Cleanup
+    # 8. Replay the whole session against a different target
+    try:
+        replay_session_against_target(client, session_id)
+    except Exception as exc:  # noqa: BLE001 -- demo, surface errors as text
+        print(f"8. Session replay skipped: {exc}")
+
+    # 9. Look for dynamic values that flow between entries
+    try:
+        correlate_session_values(client, session_id)
+    except Exception as exc:  # noqa: BLE001
+        print(f"9. Correlation skipped: {exc}")
+
+    # 10. Cleanup
     client.recorder.delete(session_id)
-    print("8. Session deleted")
+    print("10. Session deleted")
 
 
 def main() -> None:

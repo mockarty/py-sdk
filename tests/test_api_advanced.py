@@ -10,12 +10,11 @@ import respx
 
 from mockarty import MockartyClient
 from mockarty.models.contract import ContractConfig, ContractValidationResult
-from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun
+from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun, QuarantineEntry
 from mockarty.models.generator import GeneratorPreview, GeneratorRequest, GeneratorResponse
 from mockarty.models.imports import ImportResult
 from mockarty.models.mock import Mock
 from mockarty.models.recorder import RecorderEntry, RecorderSession
-from mockarty.models.templates import TemplateFile
 from mockarty.models.testrun import TestRun
 
 
@@ -139,9 +138,8 @@ class TestFuzzingAPI:
                 json={
                     "id": "fuzz-cfg-1",
                     "name": "Pet API Fuzz",
-                    "targetUrl": "http://localhost:8080",
-                    "duration": "5m",
-                    "workers": 4,
+                    "targetBaseUrl": "http://localhost:8080",
+                    "strategy": "smart",
                 },
             )
         )
@@ -149,15 +147,14 @@ class TestFuzzingAPI:
         config = client.fuzzing.create_config(
             FuzzingConfig(
                 name="Pet API Fuzz",
-                target_url="http://localhost:8080",
-                duration="5m",
-                workers=4,
+                target_base_url="http://localhost:8080",
+                strategy="smart",
             )
         )
         assert isinstance(config, FuzzingConfig)
         assert config.id == "fuzz-cfg-1"
-        assert config.target_url == "http://localhost:8080"
-        assert config.workers == 4
+        assert config.target_base_url == "http://localhost:8080"
+        assert config.strategy == "smart"
 
     @respx.mock
     def test_list_configs_array(self, client: MockartyClient) -> None:
@@ -200,6 +197,19 @@ class TestFuzzingAPI:
         assert config.name == "My Config"
 
     @respx.mock
+    def test_update_config(self, client: MockartyClient) -> None:
+        respx.put("http://localhost:5770/api/v1/fuzzing/configs/cfg-1").mock(
+            return_value=httpx.Response(
+                200,
+                json={"id": "cfg-1", "name": "Updated Config", "targetBaseUrl": "http://new-target:8080"},
+            )
+        )
+
+        config = client.fuzzing.update_config("cfg-1", {"name": "Updated Config"})
+        assert isinstance(config, FuzzingConfig)
+        assert config.name == "Updated Config"
+
+    @respx.mock
     def test_delete_config(self, client: MockartyClient) -> None:
         route = respx.delete("http://localhost:5770/api/v1/fuzzing/configs/cfg-1").mock(
             return_value=httpx.Response(200)
@@ -215,7 +225,7 @@ class TestFuzzingAPI:
             )
         )
 
-        run = client.fuzzing.start({"targetUrl": "http://localhost:8080"})
+        run = client.fuzzing.start({"targetBaseUrl": "http://localhost:8080"})
         assert isinstance(run, FuzzingRun)
         assert run.id == "run-1"
         assert run.status == "running"
@@ -239,7 +249,7 @@ class TestFuzzingAPI:
                         "configId": "cfg-1",
                         "status": "completed",
                         "totalRequests": 5000,
-                        "findings": 3,
+                        "totalFindings": 3,
                     }
                 ],
             )
@@ -249,7 +259,7 @@ class TestFuzzingAPI:
         assert len(results) == 1
         assert isinstance(results[0], FuzzingResult)
         assert results[0].total_requests == 5000
-        assert results[0].findings == 3
+        assert results[0].total_findings == 3
 
     @respx.mock
     def test_get_result(self, client: MockartyClient) -> None:
@@ -260,16 +270,187 @@ class TestFuzzingAPI:
                     "id": "res-1",
                     "configId": "cfg-1",
                     "status": "completed",
-                    "startedAt": 1700000000,
-                    "finishedAt": 1700000300,
+                    "startedAt": "2023-11-14T22:13:20Z",
+                    "completedAt": "2023-11-14T22:18:20Z",
                 },
             )
         )
 
         result = client.fuzzing.get_result("res-1")
         assert result.config_id == "cfg-1"
-        assert result.started_at == 1700000000
-        assert result.finished_at == 1700000300
+        assert result.started_at == "2023-11-14T22:13:20Z"
+        assert result.completed_at == "2023-11-14T22:18:20Z"
+
+    @respx.mock
+    def test_delete_result(self, client: MockartyClient) -> None:
+        route = respx.delete("http://localhost:5770/api/v1/fuzzing/results/res-1").mock(
+            return_value=httpx.Response(200)
+        )
+        client.fuzzing.delete_result("res-1")
+        assert route.called
+
+    @respx.mock
+    def test_get_schedule(self, client: MockartyClient) -> None:
+        respx.get("http://localhost:5770/api/v1/fuzzing/schedules/sched-1").mock(
+            return_value=httpx.Response(
+                200,
+                json={"id": "sched-1", "name": "Nightly Fuzz", "cronExpression": "0 2 * * *", "enabled": True},
+            )
+        )
+
+        schedule = client.fuzzing.get_schedule("sched-1")
+        assert schedule["id"] == "sched-1"
+        assert schedule["name"] == "Nightly Fuzz"
+
+    @respx.mock
+    def test_export_findings_returns_bytes(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/findings/export").mock(
+            return_value=httpx.Response(200, content=b'[{"id":"f-1"}]')
+        )
+
+        data = client.fuzzing.export_findings({"format": "json"})
+        assert isinstance(data, bytes)
+        assert b"f-1" in data
+
+    # ── Batch finding operations ──────────────────────────────────────
+
+    @respx.mock
+    def test_batch_manual_triage(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/findings/batch-manual-triage").mock(
+            return_value=httpx.Response(200, json={"updated": 3})
+        )
+
+        result = client.fuzzing.batch_manual_triage(
+            ["f-1", "f-2", "f-3"],
+            status="false_positive",
+            note="All benign",
+        )
+        assert result["updated"] == 3
+
+    @respx.mock
+    def test_batch_manual_triage_without_note(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/findings/batch-manual-triage").mock(
+            return_value=httpx.Response(200, json={"updated": 2})
+        )
+
+        result = client.fuzzing.batch_manual_triage(
+            ["f-1", "f-2"], status="confirmed"
+        )
+        assert result["updated"] == 2
+
+    @respx.mock
+    def test_batch_delete_findings(self, client: MockartyClient) -> None:
+        respx.delete("http://localhost:5770/api/v1/fuzzing/findings/batch").mock(
+            return_value=httpx.Response(200, json={"deleted": 2})
+        )
+
+        result = client.fuzzing.batch_delete_findings(["f-1", "f-2"])
+        assert result["deleted"] == 2
+
+    # ── Quarantine ────────────────────────────────────────────────────
+
+    @respx.mock
+    def test_list_quarantine(self, client: MockartyClient) -> None:
+        respx.get("http://localhost:5770/api/v1/fuzzing/quarantine").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "entries": [
+                        {
+                            "id": "q-1",
+                            "fingerprint": "injection|POST /users|<script>",
+                            "category": "injection",
+                            "endpointPattern": "POST /users",
+                            "title": "XSS false positive",
+                            "reason": "Sanitized by middleware",
+                            "createdAt": "2023-11-14T22:13:20Z",
+                        }
+                    ],
+                    "total": 1,
+                },
+            )
+        )
+
+        entries, total = client.fuzzing.list_quarantine(limit=10, offset=0)
+        assert total == 1
+        assert len(entries) == 1
+        assert isinstance(entries[0], QuarantineEntry)
+        assert entries[0].id == "q-1"
+        assert entries[0].fingerprint == "injection|POST /users|<script>"
+        assert entries[0].endpoint_pattern == "POST /users"
+
+    @respx.mock
+    def test_create_quarantine(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/quarantine").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "q-new",
+                    "fingerprint": "sqli|GET /search|1 OR 1=1",
+                    "category": "sqli",
+                    "reason": "Parameterized queries prevent injection",
+                },
+            )
+        )
+
+        entry = client.fuzzing.create_quarantine({
+            "fingerprint": "sqli|GET /search|1 OR 1=1",
+            "category": "sqli",
+            "reason": "Parameterized queries prevent injection",
+        })
+        assert isinstance(entry, QuarantineEntry)
+        assert entry.id == "q-new"
+
+    @respx.mock
+    def test_delete_quarantine(self, client: MockartyClient) -> None:
+        route = respx.delete("http://localhost:5770/api/v1/fuzzing/quarantine/q-1").mock(
+            return_value=httpx.Response(200)
+        )
+        client.fuzzing.delete_quarantine("q-1")
+        assert route.called
+
+    @respx.mock
+    def test_batch_delete_quarantine(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/quarantine/batch-delete").mock(
+            return_value=httpx.Response(200, json={"deleted": 3})
+        )
+
+        result = client.fuzzing.batch_delete_quarantine(["q-1", "q-2", "q-3"])
+        assert result["deleted"] == 3
+
+    @respx.mock
+    def test_quarantine_finding(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/quarantine/from-finding").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "q-from-f",
+                    "fingerprint": "xss|POST /api|<img onerror>",
+                    "reason": "False positive",
+                },
+            )
+        )
+
+        entry = client.fuzzing.quarantine_finding("f-123", reason="False positive")
+        assert isinstance(entry, QuarantineEntry)
+        assert entry.id == "q-from-f"
+        assert entry.reason == "False positive"
+
+    @respx.mock
+    def test_batch_quarantine_findings(self, client: MockartyClient) -> None:
+        respx.post("http://localhost:5770/api/v1/fuzzing/quarantine/from-findings").mock(
+            return_value=httpx.Response(
+                200,
+                json={"created": 2, "triaged": 2, "failed": 0},
+            )
+        )
+
+        result = client.fuzzing.batch_quarantine_findings(
+            ["f-1", "f-2"], reason="Bulk quarantine"
+        )
+        assert result["created"] == 2
+        assert result["triaged"] == 2
+        assert result["failed"] == 0
 
 
 # ── ContractAPI ──────────────────────────────────────────────────────
@@ -534,6 +715,131 @@ class TestRecorderAPI:
         assert isinstance(mocks[0], Mock)
         assert mocks[0].id == "rec-mock-1"
 
+    @respx.mock
+    def test_replay_session_passes_options(self, client: MockartyClient) -> None:
+        # Capture the request body so we can assert the options dict was
+        # forwarded as-is to the server.
+        captured: dict[str, object] = {}
+
+        def _handler(request: httpx.Request) -> httpx.Response:
+            import json as _json
+            captured.update(_json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "sessionId": "sess-1",
+                    "totalEntries": 3,
+                    "matched": 2,
+                    "mismatched": 0,
+                    "failed": 1,
+                    "skipped": 0,
+                    "results": [],
+                },
+            )
+
+        respx.post("http://localhost:5770/api/v1/recorder/sess-1/replay").mock(
+            side_effect=_handler
+        )
+
+        summary = client.recorder.replay_session(
+            "sess-1",
+            options={
+                "targetUrl": "http://staging.example.com",
+                "concurrency": 5,
+                "timeoutMs": 5000,
+                "entryIds": ["e-1", "e-2"],
+            },
+        )
+        assert summary["matched"] == 2
+        assert summary["failed"] == 1
+        assert captured["targetUrl"] == "http://staging.example.com"
+        assert captured["concurrency"] == 5
+        assert captured["entryIds"] == ["e-1", "e-2"]
+
+    @respx.mock
+    def test_replay_session_nil_options_sends_empty_object(
+        self, client: MockartyClient
+    ) -> None:
+        # When called without options the SDK still sends an object body so
+        # the server's JSON decoder doesn't see a null payload.
+        captured: dict[str, object] = {}
+
+        def _handler(request: httpx.Request) -> httpx.Response:
+            import json as _json
+            captured.update(_json.loads(request.content))
+            return httpx.Response(
+                200, json={"sessionId": "sess-1", "totalEntries": 0}
+            )
+
+        respx.post("http://localhost:5770/api/v1/recorder/sess-1/replay").mock(
+            side_effect=_handler
+        )
+        summary = client.recorder.replay_session("sess-1")
+        assert summary["totalEntries"] == 0
+        # captured is empty dict, but the body itself was a JSON object
+        assert captured == {}
+
+    @respx.mock
+    def test_correlate_session(self, client: MockartyClient) -> None:
+        captured: dict[str, object] = {}
+
+        def _handler(request: httpx.Request) -> httpx.Response:
+            import json as _json
+            captured.update(_json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "sessionId": "sess-1",
+                    "totalEntries": 4,
+                    "correlations": [
+                        {
+                            "value": "tok-abc-1234",
+                            "valueType": "token",
+                            "confidence": 0.95,
+                            "source": {
+                                "entryId": "e-1",
+                                "section": "response.body.json",
+                            },
+                            "targets": [
+                                {
+                                    "entryId": "e-2",
+                                    "section": "request.header",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            )
+
+        respx.post(
+            "http://localhost:5770/api/v1/recorder/sess-1/correlate"
+        ).mock(side_effect=_handler)
+
+        report = client.recorder.correlate_session(
+            "sess-1",
+            options={
+                "minValueLength": 8,
+                "excludeNumeric": True,
+            },
+        )
+        assert report["totalEntries"] == 4
+        assert len(report["correlations"]) == 1
+        assert report["correlations"][0]["valueType"] == "token"
+        assert captured["minValueLength"] == 8
+        assert captured["excludeNumeric"] is True
+
+    @respx.mock
+    def test_correlate_session_server_error(self, client: MockartyClient) -> None:
+        respx.post(
+            "http://localhost:5770/api/v1/recorder/sess-1/correlate"
+        ).mock(
+            return_value=httpx.Response(400, json={"error": "minValueLength out of range"})
+        )
+        with pytest.raises(Exception):
+            client.recorder.correlate_session(
+                "sess-1", options={"minValueLength": 99999}
+            )
+
 
 # ── TemplateAPI ──────────────────────────────────────────────────────
 
@@ -546,55 +852,57 @@ class TestTemplateAPI:
         respx.get("http://localhost:5770/api/v1/templates").mock(
             return_value=httpx.Response(
                 200,
-                json=[
-                    {"name": "user_response.json", "size": 256, "updatedAt": 1700000000},
-                    {"name": "error_response.json", "size": 128, "updatedAt": 1700000100},
-                ],
+                json={
+                    "templates": ["user_response.json", "error_response.json"],
+                    "namespace": "sandbox",
+                    "total": 2,
+                    "limit": 50,
+                    "offset": 0,
+                },
             )
         )
 
         templates = client.templates.list()
-        assert len(templates) == 2
-        assert isinstance(templates[0], TemplateFile)
-        assert templates[0].name == "user_response.json"
-        assert templates[0].size == 256
-        assert templates[0].updated_at == 1700000000
+        assert templates == ["user_response.json", "error_response.json"]
 
     @respx.mock
-    def test_list_templates_envelope(self, client: MockartyClient) -> None:
+    def test_list_templates_bare_list(self, client: MockartyClient) -> None:
         respx.get("http://localhost:5770/api/v1/templates").mock(
-            return_value=httpx.Response(
-                200,
-                json={"templates": [{"name": "tmpl.json"}]},
-            )
+            return_value=httpx.Response(200, json=["a.json", "b.json"])
         )
-
-        templates = client.templates.list()
-        assert len(templates) == 1
+        assert client.templates.list() == ["a.json", "b.json"]
 
     @respx.mock
     def test_get_template(self, client: MockartyClient) -> None:
         respx.get("http://localhost:5770/api/v1/templates/user_response.json").mock(
             return_value=httpx.Response(
-                200, json={"content": '{"name": "$.fake.FirstName"}'}
+                200,
+                content=b'{"name": "$.fake.FirstName"}',
+                headers={"content-type": "application/json"},
             )
         )
 
         content = client.templates.get("user_response.json")
-        assert '$.fake.FirstName' in content
+        assert b"$.fake.FirstName" in content
 
     @respx.mock
-    def test_create_template(self, client: MockartyClient) -> None:
-        respx.post("http://localhost:5770/api/v1/templates").mock(
+    def test_upload_template(self, client: MockartyClient) -> None:
+        route = respx.post(
+            "http://localhost:5770/api/v1/templates/new_template.json"
+        ).mock(
             return_value=httpx.Response(
                 200,
-                json={"name": "new_template.json", "size": 64, "updatedAt": 1700000200},
+                json={
+                    "message": "Template uploaded successfully",
+                    "fileName": "new_template.json",
+                    "namespace": "sandbox",
+                },
             )
         )
 
-        template = client.templates.create("new_template.json", '{"key": "value"}')
-        assert isinstance(template, TemplateFile)
-        assert template.name == "new_template.json"
+        client.templates.upload("new_template.json", '{"key": "value"}')
+        assert route.called
+        assert route.calls[0].request.content == b'{"key": "value"}'
 
     @respx.mock
     def test_delete_template(self, client: MockartyClient) -> None:
@@ -732,8 +1040,8 @@ class TestTestRunAPI:
                     "id": "run-1",
                     "collectionId": "col-1",
                     "status": "passed",
-                    "startedAt": 1700000000,
-                    "finishedAt": 1700000005,
+                    "startedAt": "2023-11-14T22:13:20Z",
+                    "completedAt": "2023-11-14T22:13:25Z",
                     "environment": "staging",
                 },
             )
@@ -742,7 +1050,7 @@ class TestTestRunAPI:
         run = client.test_runs.get("run-1")
         assert run.id == "run-1"
         assert run.collection_id == "col-1"
-        assert run.started_at == 1700000000
+        assert run.started_at == "2023-11-14T22:13:20Z"
         assert run.environment == "staging"
 
     @respx.mock

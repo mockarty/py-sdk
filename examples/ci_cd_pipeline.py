@@ -283,18 +283,35 @@ def stage_fuzzing(client: MockartyClient, result: PipelineResult) -> bool:
     """
     print("\n--- Stage 5: Fuzzing ---")
     try:
-        fuzz_result = client.fuzzing.quick_fuzz({
-            "targetUrl": f"{MOCKARTY_URL}/api/users",
+        # quick_fuzz schedules an async run and returns the task/result IDs.
+        submit = client.fuzzing.quick_fuzz({
+            "url": f"{MOCKARTY_URL}/api/users",
             "method": "POST",
-            "headers": {"Content-Type": "application/json"},
-            "body": {"name": "test", "email": "test@example.com"},
-            "duration": "30s",
-            "workers": 2,
+            "customHeaders": {"Content-Type": "application/json"},
+            "body": '{"name": "test", "email": "test@example.com"}',
+            "preset": "standard",
         })
+        result_id = submit.get("resultId")
+        if not result_id:
+            result.record("fuzzing", False, "quick_fuzz did not return a resultId")
+            return False
 
-        findings = fuzz_result.get("findings", 0)
-        critical = fuzz_result.get("criticalFindings", 0)
-        total_reqs = fuzz_result.get("totalRequests", 0)
+        # Poll the fuzz result until it reaches a terminal state.
+        terminal = {"completed", "failed", "cancelled", "stopped"}
+        fuzz_result = None
+        for _ in range(30):  # ~30s budget in CI
+            fuzz_result = client.fuzzing.get_result(result_id)
+            if (fuzz_result.status or "").lower() in terminal:
+                break
+            time.sleep(1)
+
+        if fuzz_result is None:
+            result.record("fuzzing", False, "no fuzz result available")
+            return False
+
+        findings = fuzz_result.total_findings or 0
+        critical = fuzz_result.critical_findings or 0
+        total_reqs = fuzz_result.total_requests or 0
 
         result.record(
             "fuzzing",
@@ -302,7 +319,7 @@ def stage_fuzzing(client: MockartyClient, result: PipelineResult) -> bool:
             f"Requests: {total_reqs}, findings: {findings}, critical: {critical}",
         )
 
-        # If there are findings, get the summary
+        # Show a preview of the findings if any were reported.
         if findings > 0:
             fuzz_findings = client.fuzzing.list_findings()
             for f in fuzz_findings[:3]:
@@ -397,15 +414,19 @@ def stage_export_results(client: MockartyClient, result: PipelineResult) -> bool
 
         # System stats
         stats = client.stats.get_stats()
-        print(f"  Total requests during pipeline: {stats.get('totalRequests')}")
+        print(
+            f"  Mocks: total={stats.get('totalMocks')} "
+            f"active={stats.get('activeMocks')} calls={stats.get('totalCalls')} "
+            f"undefined={stats.get('undefinedCount')}"
+        )
 
         # Export fuzzing findings
         if fuzzing_results:
-            export = client.fuzzing.export_findings({
+            export_bytes = client.fuzzing.export_findings({
                 "format": "json",
                 "severity": ["critical", "high"],
             })
-            print(f"  Exported {export.get('count', 0)} fuzzing findings")
+            print(f"  Exported fuzzing findings: {len(export_bytes)} bytes")
 
         # Export collection results
         collections = client.collections.list()

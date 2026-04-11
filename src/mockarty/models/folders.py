@@ -17,7 +17,7 @@ class MockFolder(BaseModel):
     namespace: Optional[str] = None
     parent_id: Optional[str] = Field(None, alias="parentId")
     mock_count: Optional[int] = Field(None, alias="mockCount")
-    created_at: Optional[int] = Field(None, alias="createdAt")
-    updated_at: Optional[int] = Field(None, alias="updatedAt")
+    created_at: Optional[str] = Field(None, alias="createdAt")
+    updated_at: Optional[str] = Field(None, alias="updatedAt")
 
     model_config = {"populate_by_name": True}

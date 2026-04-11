@@ -133,6 +133,63 @@ class RecorderAPI(SyncAPIBase):
         )
         return resp.json()
 
+    # ── Session-level replay & correlation ─────────────────────────────
+
+    def replay_session(
+        self,
+        session_id: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Replay every (or selected) captured entry against a target.
+
+        Re-runs entries against either their original URL or a different
+        target (e.g. point a production capture at staging) and returns a
+        summary with match/mismatch/fail/skip counts.
+
+        Options keys (all optional):
+            targetUrl (str):       base URL to replay against; defaults to original
+            concurrency (int):     parallel replay workers (default 1)
+            timeoutMs (int):       per-request timeout in ms (0 = server default)
+            entryIds (list[str]):  replay only these entry IDs
+            includeNonHttp (bool): include WS/SSE entries
+            followRedirects (bool): follow HTTP redirects during replay
+        """
+        body = options or {}
+        resp = self._request(
+            "POST",
+            f"/api/v1/recorder/{session_id}/replay",
+            json=body,
+        )
+        return resp.json()
+
+    def correlate_session(
+        self,
+        session_id: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Discover dynamic-value flow between captured entries.
+
+        Runs the deterministic value-matching correlation engine: scans
+        each entry's response (JSON, headers, Set-Cookie) for values that
+        are then re-used in a later entry's request (URL, header, body,
+        form, cookie). The output highlights tokens, IDs, and CSRF values
+        that need to be extracted at runtime.
+
+        Options keys (all optional):
+            minValueLength (int):           minimum value length to consider
+            maxValueLength (int):           maximum value length
+            excludeNumeric (bool):          skip numeric-only values
+            maxCorrelationsPerSource (int): cap targets per source value
+            entryIds (list[str]):           limit scan to these entry IDs
+        """
+        body = options or {}
+        resp = self._request(
+            "POST",
+            f"/api/v1/recorder/{session_id}/correlate",
+            json=body,
+        )
+        return resp.json()
+
     # ── Modifications ──────────────────────────────────────────────────
 
     def get_modifications(self, session_id: str) -> dict[str, Any]:
@@ -282,6 +339,42 @@ class AsyncRecorderAPI(AsyncAPIBase):
         resp = await self._request(
             "POST",
             f"/api/v1/recorder/{session_id}/entries/{entry_id}/replay",
+        )
+        return resp.json()
+
+    # ── Session-level replay & correlation ─────────────────────────────
+
+    async def replay_session(
+        self,
+        session_id: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Replay every (or selected) captured entry against a target.
+
+        See ``RecorderAPI.replay_session`` for the options dict shape.
+        """
+        body = options or {}
+        resp = await self._request(
+            "POST",
+            f"/api/v1/recorder/{session_id}/replay",
+            json=body,
+        )
+        return resp.json()
+
+    async def correlate_session(
+        self,
+        session_id: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Discover dynamic-value flow between captured entries.
+
+        See ``RecorderAPI.correlate_session`` for the options dict shape.
+        """
+        body = options or {}
+        resp = await self._request(
+            "POST",
+            f"/api/v1/recorder/{session_id}/correlate",
+            json=body,
         )
         return resp.json()
 

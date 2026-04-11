@@ -56,7 +56,7 @@ from mockarty.models.contract import (
     ContractViolation,
 )
 from mockarty.models.folders import MockFolder
-from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun
+from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun, QuarantineEntry
 from mockarty.models.generator import (
     GeneratorPreview,
     GeneratorRequest,
@@ -78,8 +78,6 @@ from mockarty.models.store import (
     StoreData,
     StoreEntry,
 )
-from mockarty.models.tags import Tag
-from mockarty.models.templates import TemplateFile
 from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
@@ -141,6 +139,7 @@ __all__ = [
     "FuzzingConfig",
     "FuzzingResult",
     "FuzzingRun",
+    "QuarantineEntry",
     # Generator models
     "GeneratorPreview",
     "GeneratorRequest",
@@ -162,10 +161,6 @@ __all__ = [
     "DeleteFromStoreRequest",
     "StoreData",
     "StoreEntry",
-    # Tag models
-    "Tag",
-    # Template models
-    "TemplateFile",
     # Test run models
     "TestRun",
     # Undefined request models

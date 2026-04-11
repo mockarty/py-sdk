@@ -19,8 +19,8 @@ class TestRun(BaseModel):
     passed_tests: Optional[int] = Field(None, alias="passedTests")
     failed_tests: Optional[int] = Field(None, alias="failedTests")
     duration: Optional[int] = None
-    started_at: Optional[int] = Field(None, alias="startedAt")
-    finished_at: Optional[int] = Field(None, alias="finishedAt")
+    started_at: Optional[str] = Field(None, alias="startedAt")
+    completed_at: Optional[str] = Field(None, alias="completedAt")
     environment: Optional[str] = None
 
     model_config = {"populate_by_name": True}

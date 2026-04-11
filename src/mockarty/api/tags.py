@@ -5,44 +5,65 @@
 from __future__ import annotations
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
-from mockarty.models.tags import Tag
 
 
 class TagAPI(SyncAPIBase):
-    """Synchronous Tag API resource."""
+    """Synchronous Tag API resource.
 
-    def list(self) -> list[Tag]:
-        """List all tags in the current namespace."""
-        resp = self._request("GET", "/api/v1/tags")
+    Tags are stored as a flat list of strings attached to mocks.
+    The server returns them as plain string values, not objects.
+    """
+
+    def list(self, namespace: str | None = None) -> list[str]:
+        """List all tags in the given namespace (or the client's default)."""
+        params: dict[str, str] = {}
+        if namespace is not None:
+            params["namespace"] = namespace
+        resp = self._request("GET", "/api/v1/tags", params=params or None)
         data = resp.json()
         if isinstance(data, list):
-            return [Tag.model_validate(t) for t in data]
+            return [str(t) for t in data if t]
         if isinstance(data, dict):
-            items = data.get("items") or data.get("tags") or []
-            return [Tag.model_validate(t) for t in items]
+            items = data.get("tags") or data.get("items") or []
+            return [str(t) for t in items if t]
         return []
 
-    def create(self, name: str) -> Tag:
-        """Create a new tag."""
-        resp = self._request("POST", "/api/v1/tags", json={"name": name})
-        return Tag.model_validate(resp.json())
+    def create(self, name: str, namespace: str | None = None) -> str:
+        """Register a tag so it appears in autocomplete before being used on a mock."""
+        body: dict[str, str] = {"tag": name}
+        if namespace is not None:
+            body["namespace"] = namespace
+        resp = self._request("POST", "/api/v1/tags", json=body)
+        data = resp.json() if resp.content else {}
+        if isinstance(data, dict) and isinstance(data.get("tag"), str):
+            return data["tag"]
+        return name
 
 
 class AsyncTagAPI(AsyncAPIBase):
     """Asynchronous Tag API resource."""
 
-    async def list(self) -> list[Tag]:
-        """List all tags in the current namespace."""
-        resp = await self._request("GET", "/api/v1/tags")
+    async def list(self, namespace: str | None = None) -> list[str]:
+        """List all tags in the given namespace (or the client's default)."""
+        params: dict[str, str] = {}
+        if namespace is not None:
+            params["namespace"] = namespace
+        resp = await self._request("GET", "/api/v1/tags", params=params or None)
         data = resp.json()
         if isinstance(data, list):
-            return [Tag.model_validate(t) for t in data]
+            return [str(t) for t in data if t]
         if isinstance(data, dict):
-            items = data.get("items") or data.get("tags") or []
-            return [Tag.model_validate(t) for t in items]
+            items = data.get("tags") or data.get("items") or []
+            return [str(t) for t in items if t]
         return []
 
-    async def create(self, name: str) -> Tag:
-        """Create a new tag."""
-        resp = await self._request("POST", "/api/v1/tags", json={"name": name})
-        return Tag.model_validate(resp.json())
+    async def create(self, name: str, namespace: str | None = None) -> str:
+        """Register a tag so it appears in autocomplete before being used on a mock."""
+        body: dict[str, str] = {"tag": name}
+        if namespace is not None:
+            body["namespace"] = namespace
+        resp = await self._request("POST", "/api/v1/tags", json=body)
+        data = resp.json() if resp.content else {}
+        if isinstance(data, dict) and isinstance(data.get("tag"), str):
+            return data["tag"]
+        return name

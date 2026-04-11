@@ -27,17 +27,16 @@ def create_fuzzing_config(client: MockartyClient) -> str:
     """Create a fuzzing configuration targeting an API.
 
     Fuzzing configs define:
-      - target_url: the API endpoint to fuzz
-      - spec_url or spec: OpenAPI spec for understanding valid inputs
-      - duration: how long to run (e.g., "5m", "1h")
-      - workers: number of concurrent workers
+      - target_base_url: the base URL of the API to fuzz
+      - source_type: how targets are discovered (e.g., "openapi", "manual")
+      - strategy: fuzzing strategy (e.g., "smart", "random")
+      - payload_categories: types of payloads to use
     """
     config = FuzzingConfig(
         name="User API Fuzzing",
-        target_url="http://localhost:5770/api/users",
-        spec_url="http://localhost:5770/swagger/doc.json",
-        duration="5m",
-        workers=4,
+        target_base_url="http://localhost:5770",
+        source_type="openapi",
+        strategy="smart",
     )
     created = client.fuzzing.create_config(config)
     print(f"Created fuzzing config: {created.id} ({created.name})")
@@ -48,32 +47,9 @@ def create_config_from_spec_string(client: MockartyClient) -> str:
     """Create a fuzzing config with an inline OpenAPI spec."""
     config = FuzzingConfig(
         name="Inline Spec Fuzzing",
-        target_url="http://localhost:5770/api/products",
-        spec="""{
-            "openapi": "3.0.0",
-            "info": {"title": "Products", "version": "1.0"},
-            "paths": {
-                "/api/products": {
-                    "post": {
-                        "requestBody": {
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "name": {"type": "string"},
-                                            "price": {"type": "number"}
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }""",
-        duration="2m",
-        workers=2,
+        target_base_url="http://localhost:5770",
+        source_type="manual",
+        strategy="smart",
     )
     created = client.fuzzing.create_config(config)
     print(f"Created inline fuzzing config: {created.id}")
@@ -85,7 +61,7 @@ def list_fuzzing_configs(client: MockartyClient) -> None:
     configs = client.fuzzing.list_configs()
     print(f"Found {len(configs)} fuzzing configs:")
     for cfg in configs:
-        print(f"  - {cfg.id}: {cfg.name} (target={cfg.target_url})")
+        print(f"  - {cfg.id}: {cfg.name} (target={cfg.target_base_url})")
 
 
 # ---------------------------------------------------------------------------
@@ -114,16 +90,15 @@ def quick_fuzz_endpoint(client: MockartyClient) -> None:
     a specific endpoint before going deeper.
     """
     result = client.fuzzing.quick_fuzz({
-        "targetUrl": "http://localhost:5770/api/products",
+        "url": "http://localhost:5770/api/products",
         "method": "POST",
-        "headers": {"Content-Type": "application/json"},
-        "body": {"name": "Test Product", "price": 19.99},
-        "duration": "30s",
-        "workers": 2,
+        "customHeaders": {"Content-Type": "application/json"},
+        "body": '{"name": "Test Product", "price": 19.99}',
+        "preset": "standard",
     })
     print(f"Quick fuzz result: {result.get('status')}")
     print(f"  Requests sent: {result.get('totalRequests')}")
-    print(f"  Findings:      {result.get('findings')}")
+    print(f"  Findings:      {result.get('totalFindings')}")
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +113,7 @@ def view_fuzzing_results(client: MockartyClient) -> None:
         print(f"  - {result.id}:")
         print(f"    Status:          {result.status}")
         print(f"    Total requests:  {result.total_requests}")
-        print(f"    Findings:        {result.findings}")
+        print(f"    Findings:        {result.total_findings}")
 
 
 def view_result_details(client: MockartyClient, result_id: str) -> None:
@@ -147,9 +122,9 @@ def view_result_details(client: MockartyClient, result_id: str) -> None:
     print(f"Fuzzing result: {result.id}")
     print(f"  Status:         {result.status}")
     print(f"  Total requests: {result.total_requests}")
-    print(f"  Findings:       {result.findings}")
+    print(f"  Findings:       {result.total_findings}")
     print(f"  Started:        {result.started_at}")
-    print(f"  Finished:       {result.finished_at}")
+    print(f"  Completed:      {result.completed_at}")
 
 
 def view_fuzzing_summary(client: MockartyClient) -> None:
@@ -162,8 +137,8 @@ def view_fuzzing_summary(client: MockartyClient) -> None:
     print("Fuzzing summary:")
     print(f"  Total runs:     {summary.get('totalRuns')}")
     print(f"  Total findings: {summary.get('totalFindings')}")
-    print(f"  Critical:       {summary.get('criticalFindings')}")
-    print(f"  High:           {summary.get('highFindings')}")
+    print(f"  Critical:       {summary.get('criticalCount')}")
+    print(f"  High:           {summary.get('highCount')}")
 
 
 # ---------------------------------------------------------------------------
@@ -293,19 +268,129 @@ def batch_triage_findings(client: MockartyClient) -> None:
     print(f"  Updated: {result.get('updated')}")
 
 
+def batch_manual_triage_findings(client: MockartyClient) -> None:
+    """Batch manual triage with an optional note.
+
+    Unlike batch_triage, this variant allows attaching a note and
+    supports the 'quarantined' status for auto-suppression.
+    """
+    findings = client.fuzzing.list_findings()
+    if len(findings) < 2:
+        print("Need at least 2 findings for batch manual triage.")
+        return
+
+    ids = [f["id"] for f in findings[:3]]
+    result = client.fuzzing.batch_manual_triage(
+        ids,
+        status="false_positive",
+        note="Confirmed benign by manual review",
+    )
+    print(f"Batch manual triaged: updated={result.get('updated')}")
+
+
+def batch_delete_findings_example(client: MockartyClient) -> None:
+    """Batch delete multiple findings at once."""
+    findings = client.fuzzing.list_findings()
+    if not findings:
+        print("No findings to delete.")
+        return
+
+    ids = [f["id"] for f in findings[:2]]
+    result = client.fuzzing.batch_delete_findings(ids)
+    print(f"Batch deleted: {result.get('deleted')} findings")
+
+
+# ---------------------------------------------------------------------------
+# Quarantine
+# ---------------------------------------------------------------------------
+
+def manage_quarantine(client: MockartyClient) -> None:
+    """Manage quarantine entries for known false-positive patterns.
+
+    Quarantined fingerprints are automatically filtered from future
+    findings, reducing noise in fuzzing reports.
+    """
+    # List existing quarantine entries
+    entries, total = client.fuzzing.list_quarantine(limit=10, offset=0)
+    print(f"Quarantine entries ({total} total):")
+    for e in entries:
+        print(f"  - {e.id}: {e.fingerprint} reason={e.reason}")
+
+    # Create a quarantine entry manually
+    entry = client.fuzzing.create_quarantine({
+        "fingerprint": 'injection|POST /api/users|<script>alert(1)</script>',
+        "category": "injection",
+        "endpointPattern": "POST /api/users",
+        "title": "Known XSS false positive",
+        "reason": "Input is sanitized by middleware before reaching handler",
+    })
+    print(f"Created quarantine: {entry.id}")
+
+    # Delete a single quarantine entry
+    client.fuzzing.delete_quarantine(entry.id)
+    print(f"Deleted quarantine: {entry.id}")
+
+
+def quarantine_from_findings(client: MockartyClient) -> None:
+    """Create quarantine entries directly from findings.
+
+    This is the fastest way to suppress false positives —
+    the fingerprint is computed automatically from the finding.
+    """
+    findings = client.fuzzing.list_findings()
+    if not findings:
+        print("No findings available for quarantine.")
+        return
+
+    # Quarantine a single finding
+    qe = client.fuzzing.quarantine_finding(
+        finding_id=findings[0]["id"],
+        reason="Confirmed false positive during manual review",
+    )
+    print(f"Quarantined finding → entry {qe.id}")
+
+    # Batch quarantine multiple findings
+    if len(findings) >= 2:
+        ids = [f["id"] for f in findings[:3]]
+        result = client.fuzzing.batch_quarantine_findings(
+            finding_ids=ids,
+            reason="Bulk quarantine: all benign scanner artifacts",
+        )
+        print(
+            f"Batch quarantine: created={result.get('created')} "
+            f"triaged={result.get('triaged')} failed={result.get('failed')}"
+        )
+
+
+def batch_delete_quarantine_example(client: MockartyClient) -> None:
+    """Batch delete multiple quarantine entries."""
+    entries, _ = client.fuzzing.list_quarantine(limit=100)
+    if len(entries) < 2:
+        print("Need at least 2 quarantine entries for batch delete.")
+        return
+
+    ids = [e.id for e in entries[:2]]
+    result = client.fuzzing.batch_delete_quarantine(ids)
+    print(f"Batch deleted: {result.get('deleted')} quarantine entries")
+
+
 def export_findings_report(client: MockartyClient) -> None:
     """Export fuzzing findings for external reporting or compliance.
 
     Exports can be filtered by severity, status, or date range.
+    The result is raw bytes (e.g. JSON or CSV file content).
     """
-    result = client.fuzzing.export_findings({
+    data = client.fuzzing.export_findings({
         "format": "json",
         "severity": ["critical", "high"],
         "status": ["confirmed", "new"],
     })
-    print(f"Exported findings: {result.get('count')} items")
-    print(f"  Format:   {result.get('format')}")
-    print(f"  Download: {result.get('downloadUrl')}")
+    print(f"Exported findings: {len(data)} bytes")
+
+    # Save to a file
+    with open("findings_export.json", "wb") as f:
+        f.write(data)
+    print("  Saved to findings_export.json")
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +455,7 @@ def manage_fuzzing_schedules(client: MockartyClient) -> None:
     schedule = client.fuzzing.create_schedule({
         "name": "Nightly API Fuzz",
         "configId": "fuzz-config-users",
-        "cron": "0 2 * * *",  # Every day at 2 AM
+        "cronExpression": "0 2 * * *",  # Every day at 2 AM
         "enabled": True,
         "notifyOnFindings": True,
     })
@@ -382,15 +467,15 @@ def manage_fuzzing_schedules(client: MockartyClient) -> None:
     print(f"Fuzzing schedules ({len(schedules)}):")
     for s in schedules:
         status = "enabled" if s.get("enabled") else "disabled"
-        print(f"  - {s.get('id')}: {s.get('name')} [{status}] cron={s.get('cron')}")
+        print(f"  - {s.get('id')}: {s.get('name')} [{status}] cron={s.get('cronExpression')}")
 
     # Update a schedule (e.g., change to weekly)
     updated = client.fuzzing.update_schedule(schedule_id, {
         "name": "Weekly API Fuzz",
-        "cron": "0 2 * * 1",  # Every Monday at 2 AM
+        "cronExpression": "0 2 * * 1",  # Every Monday at 2 AM
         "enabled": True,
     })
-    print(f"Updated schedule: {updated.get('name')} cron={updated.get('cron')}")
+    print(f"Updated schedule: {updated.get('name')} cron={updated.get('cronExpression')}")
 
     # Delete the schedule
     client.fuzzing.delete_schedule(schedule_id)
@@ -439,7 +524,19 @@ def main() -> None:
         print()
         batch_triage_findings(client)
         print()
+        batch_manual_triage_findings(client)
+        print()
+        batch_delete_findings_example(client)
+        print()
         export_findings_report(client)
+        print()
+
+        print("=== Quarantine ===")
+        manage_quarantine(client)
+        print()
+        quarantine_from_findings(client)
+        print()
+        batch_delete_quarantine_example(client)
         print()
 
         print("=== Imports ===")

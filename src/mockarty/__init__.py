@@ -39,12 +39,15 @@ from mockarty.errors import (
     MockartyConflictError,
     MockartyConnectionError,
     MockartyError,
+    MockartyExternalError,
     MockartyForbiddenError,
     MockartyNotFoundError,
     MockartyRateLimitError,
     MockartyServerError,
     MockartyTimeoutError,
     MockartyUnauthorizedError,
+    MockartyUnavailableError,
+    MockartyValidationError,
 )
 from mockarty.models.common import (
     Collection,
@@ -124,12 +127,10 @@ from mockarty.models.mock import (
 )
 from mockarty.models.recorder import RecorderEntry, RecorderSession
 from mockarty.models.store import DeleteFromStoreRequest, StoreData, StoreEntry
-from mockarty.models.tags import Tag
-from mockarty.models.templates import TemplateFile
 from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
-__version__ = "0.1.0"
+__version__ = "0.2.2"
 
 __all__ = [
     # Clients
@@ -218,14 +219,10 @@ __all__ = [
     # Recorder models
     "RecorderSession",
     "RecorderEntry",
-    # Template models
-    "TemplateFile",
     # Import models
     "ImportResult",
     # Test run models
     "TestRun",
-    # Tag models
-    "Tag",
     # Folder models
     "MockFolder",
     # Undefined request models
@@ -252,12 +249,15 @@ __all__ = [
     # Errors
     "MockartyError",
     "MockartyAPIError",
+    "MockartyValidationError",
     "MockartyNotFoundError",
     "MockartyUnauthorizedError",
     "MockartyForbiddenError",
     "MockartyConflictError",
     "MockartyRateLimitError",
     "MockartyServerError",
+    "MockartyUnavailableError",
+    "MockartyExternalError",
     "MockartyConnectionError",
     "MockartyTimeoutError",
 ]
