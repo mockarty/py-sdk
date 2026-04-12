@@ -130,7 +130,7 @@ from mockarty.models.store import DeleteFromStoreRequest, StoreData, StoreEntry
 from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
-__version__ = "0.2.3"
+__version__ = "0.3.0"
 
 __all__ = [
     # Clients

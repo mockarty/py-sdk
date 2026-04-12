@@ -40,9 +40,19 @@ class RecorderAPI(SyncAPIBase):
         resp = self._request("POST", f"/api/v1/recorder/{session_id}/stop")
         return RecorderSession.model_validate(resp.json())
 
+    def restart(self, session_id: str) -> RecorderSession:
+        """Restart a recording session (stops and starts it again)."""
+        resp = self._request("POST", f"/api/v1/recorder/{session_id}/restart")
+        return RecorderSession.model_validate(resp.json())
+
     def delete(self, session_id: str) -> None:
         """Delete a recording session."""
         self._request("DELETE", f"/api/v1/recorder/{session_id}")
+
+    def export_session(self, session_id: str) -> bytes:
+        """Export a recording session as HAR (raw bytes)."""
+        resp = self._request("POST", f"/api/v1/recorder/{session_id}/export")
+        return resp.content
 
     def entries(self, session_id: str) -> list[RecorderEntry]:
         """List recorded entries for a session."""
@@ -247,9 +257,19 @@ class AsyncRecorderAPI(AsyncAPIBase):
         resp = await self._request("POST", f"/api/v1/recorder/{session_id}/stop")
         return RecorderSession.model_validate(resp.json())
 
+    async def restart(self, session_id: str) -> RecorderSession:
+        """Restart a recording session (stops and starts it again)."""
+        resp = await self._request("POST", f"/api/v1/recorder/{session_id}/restart")
+        return RecorderSession.model_validate(resp.json())
+
     async def delete(self, session_id: str) -> None:
         """Delete a recording session."""
         await self._request("DELETE", f"/api/v1/recorder/{session_id}")
+
+    async def export_session(self, session_id: str) -> bytes:
+        """Export a recording session as HAR (raw bytes)."""
+        resp = await self._request("POST", f"/api/v1/recorder/{session_id}/export")
+        return resp.content
 
     async def entries(self, session_id: str) -> list[RecorderEntry]:
         """List recorded entries for a session."""
