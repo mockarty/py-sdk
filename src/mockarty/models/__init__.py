@@ -48,12 +48,19 @@ from mockarty.models.contexts import (
     SSERequestContext,
 )
 from mockarty.models.contract import (
+    CheckCompatibilityRequest,
     Contract,
     ContractConfig,
     ContractResult,
     ContractValidationRequest,
     ContractValidationResult,
     ContractViolation,
+    DriftDetectionRequest,
+    PactMessageContent,
+    PactMessageInteraction,
+    PactProviderState,
+    PactVerifyRequest,
+    ValidatePayloadRequest,
 )
 from mockarty.models.folders import MockFolder
 from mockarty.models.fuzzing import (
@@ -121,12 +128,19 @@ __all__ = [
     "Page",
     "RequestLog",
     # Contract models
+    "CheckCompatibilityRequest",
     "Contract",
     "ContractConfig",
     "ContractResult",
     "ContractValidationRequest",
     "ContractValidationResult",
     "ContractViolation",
+    "DriftDetectionRequest",
+    "PactMessageContent",
+    "PactMessageInteraction",
+    "PactProviderState",
+    "PactVerifyRequest",
+    "ValidatePayloadRequest",
     # Context models
     "GraphQLRequestContext",
     "GrpcRequestContext",

@@ -8,10 +8,14 @@ from typing import Any
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 from mockarty.models.contract import (
+    CheckCompatibilityRequest,
     ContractConfig,
     ContractResult,
     ContractValidationRequest,
     ContractValidationResult,
+    DriftDetectionRequest,
+    PactVerifyRequest,
+    ValidatePayloadRequest,
 )
 from mockarty.models.mock import Mock
 
@@ -28,20 +32,26 @@ class ContractAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/contract/validate-mocks", json=request)
         return ContractValidationResult.model_validate(resp.json())
 
-    def verify_provider(self, request: dict[str, Any]) -> ContractValidationResult:
+    def verify_provider(
+        self, request: ContractValidationRequest | dict[str, Any]
+    ) -> ContractValidationResult:
         """Verify a provider against a contract."""
         resp = self._request("POST", "/api/v1/contract/verify-provider", json=request)
         return ContractValidationResult.model_validate(resp.json())
 
-    def check_compatibility(self, request: dict[str, Any]) -> ContractValidationResult:
-        """Check compatibility between specs."""
+    def check_compatibility(
+        self, request: CheckCompatibilityRequest | dict[str, Any]
+    ) -> ContractValidationResult:
+        """Check backward compatibility between two spec versions."""
         resp = self._request(
             "POST", "/api/v1/contract/check-compatibility", json=request
         )
         return ContractValidationResult.model_validate(resp.json())
 
-    def validate_payload(self, request: dict[str, Any]) -> ContractValidationResult:
-        """Validate a payload against a specification."""
+    def validate_payload(
+        self, request: ValidatePayloadRequest | dict[str, Any]
+    ) -> ContractValidationResult:
+        """Validate a single JSON payload against a spec schema."""
         resp = self._request("POST", "/api/v1/contract/validate-payload", json=request)
         return ContractValidationResult.model_validate(resp.json())
 
@@ -107,7 +117,9 @@ class ContractAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/contract/pacts", json=pact)
         return resp.json()
 
-    def verify_pact(self, request: dict[str, Any]) -> dict[str, Any]:
+    def verify_pact(
+        self, request: PactVerifyRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Verify a pact contract against a provider."""
         resp = self._request("POST", "/api/v1/contract/pacts/verify", json=request)
         return resp.json()
@@ -144,31 +156,280 @@ class ContractAPI(SyncAPIBase):
             return data.get("items") or data.get("verifications") or []
         return []
 
-    def detect_drift(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Detect API drift between spec and implementation."""
+    def detect_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
+        """Detect API drift between mocks and live service."""
         resp = self._request("POST", "/api/v1/contract/detect-drift", json=request)
         return resp.json()
 
-    def detect_graphql_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    def detect_graphql_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect GraphQL schema drift via introspection."""
         resp = self._request(
             "POST", "/api/v1/contract/detect-drift/graphql", json=request
         )
         return resp.json()
 
-    def detect_grpc_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    def detect_grpc_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect gRPC service drift via reflection."""
         resp = self._request("POST", "/api/v1/contract/detect-drift/grpc", json=request)
         return resp.json()
 
-    def detect_wsdl_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    def detect_wsdl_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect SOAP/WSDL service drift."""
         resp = self._request("POST", "/api/v1/contract/detect-drift/wsdl", json=request)
         return resp.json()
 
-    def detect_mcp_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    def detect_mcp_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect MCP server drift."""
         resp = self._request("POST", "/api/v1/contract/detect-drift/mcp", json=request)
+        return resp.json()
+
+    # ── API Registry ────────────────────────────────────────────────
+
+    def list_registry(
+        self, query: str = "", spec_type: str = ""
+    ) -> list[dict[str, Any]]:
+        """List published APIs in the registry."""
+        params: dict[str, str] = {}
+        if query:
+            params["q"] = query
+        if spec_type:
+            params["specType"] = spec_type
+        resp = self._request("GET", "/api/v1/contract/registry", params=params)
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    def get_registry_entry(self, entry_id: str) -> dict[str, Any]:
+        """Get a single registry entry by ID."""
+        resp = self._request("GET", f"/api/v1/contract/registry/{entry_id}")
+        return resp.json()
+
+    def publish_to_registry(
+        self,
+        service_name: str,
+        spec_type: str = "openapi",
+        version: str = "",
+        description: str = "",
+        visibility: str = "public",
+        spec_content: str | None = None,
+        spec_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Publish an API specification to the internal registry."""
+        body: dict[str, Any] = {
+            "serviceName": service_name,
+            "specType": spec_type,
+            "visibility": visibility,
+        }
+        if version:
+            body["version"] = version
+        if description:
+            body["description"] = description
+        if spec_content:
+            body["specContent"] = spec_content
+        if spec_url:
+            body["specUrl"] = spec_url
+        resp = self._request("POST", "/api/v1/contract/registry", json=body)
+        return resp.json()
+
+    def update_registry_entry(
+        self, entry_id: str, update: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Update an existing registry entry."""
+        resp = self._request(
+            "PUT", f"/api/v1/contract/registry/{entry_id}", json=update
+        )
+        return resp.json()
+
+    def delete_registry_entry(self, entry_id: str) -> None:
+        """Delete a registry entry."""
+        self._request("DELETE", f"/api/v1/contract/registry/{entry_id}")
+
+    def generate_mocks_from_registry(self, entry_id: str) -> dict[str, Any]:
+        """Generate Mockarty mocks from a registry entry's specification."""
+        resp = self._request(
+            "POST", f"/api/v1/contract/registry/{entry_id}/generate-mocks"
+        )
+        return resp.json()
+
+    def check_impact(self, entry_id: str, new_spec_content: str) -> dict[str, Any]:
+        """Check which subscribers would be affected by a spec change."""
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/check-impact",
+            json={"newSpecContent": new_spec_content},
+        )
+        return resp.json()
+
+    # ── Subscriptions ───────────────────────────────────────────────
+
+    def list_subscriptions(self) -> list[dict[str, Any]]:
+        """List current namespace's subscriptions to APIs."""
+        resp = self._request("GET", "/api/v1/contract/subscriptions")
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    def subscribe(
+        self,
+        registry_entry_id: str,
+        service_name: str,
+        watch_endpoints: list[str] | None = None,
+        notify_on_breaking: bool = True,
+        auto_block: bool = False,
+    ) -> dict[str, Any]:
+        """Subscribe to an API from the registry."""
+        body: dict[str, Any] = {
+            "serviceName": service_name,
+            "notifyOnBreaking": notify_on_breaking,
+            "autoBlock": auto_block,
+        }
+        if watch_endpoints:
+            body["watchEndpoints"] = watch_endpoints
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{registry_entry_id}/subscribe",
+            json=body,
+        )
+        return resp.json()
+
+    def unsubscribe(self, subscription_id: str) -> None:
+        """Remove a subscription."""
+        self._request("DELETE", f"/api/v1/contract/subscriptions/{subscription_id}")
+
+    def list_subscribers(self, registry_entry_id: str) -> list[dict[str, Any]]:
+        """List who subscribes to a specific API."""
+        resp = self._request(
+            "GET", f"/api/v1/contract/registry/{registry_entry_id}/subscribers"
+        )
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    # ── Change Requests ─────────────────────────────────────────────
+
+    def create_change_request(
+        self, registry_entry_id: str, new_spec_content: str, new_version: str = ""
+    ) -> dict[str, Any]:
+        """Submit a spec change for review by affected subscribers."""
+        body: dict[str, Any] = {"newSpecContent": new_spec_content}
+        if new_version:
+            body["newVersion"] = new_version
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{registry_entry_id}/change-requests",
+            json=body,
+        )
+        return resp.json()
+
+    def list_change_requests(self, registry_entry_id: str) -> list[dict[str, Any]]:
+        """List change requests for a registry entry."""
+        resp = self._request(
+            "GET", f"/api/v1/contract/registry/{registry_entry_id}/change-requests"
+        )
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    def approve_change_request(self, cr_id: str, comment: str = "") -> dict[str, Any]:
+        """Approve a change request."""
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/change-requests/{cr_id}/approve",
+            json={"comment": comment},
+        )
+        return resp.json()
+
+    def reject_change_request(self, cr_id: str, comment: str = "") -> dict[str, Any]:
+        """Reject a change request."""
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/change-requests/{cr_id}/reject",
+            json={"comment": comment},
+        )
+        return resp.json()
+
+    def pending_change_requests(self) -> list[dict[str, Any]]:
+        """List change requests awaiting my team's approval."""
+        resp = self._request("GET", "/api/v1/contract/change-requests/pending")
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    # ── Trends, Participants, Reviews ───────────────────────────────
+
+    def get_trends(self, days: int = 60) -> list[dict[str, Any]]:
+        """Get validation trend data for the past N days."""
+        resp = self._request("GET", f"/api/v1/contract/trends?days={days}")
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    def get_participants(self) -> list[str]:
+        """Get unique consumer/provider names from pacts for autocomplete."""
+        resp = self._request("GET", "/api/v1/contract/pacts/participants")
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    def validate_from_registry(self, entry_id: str) -> dict[str, Any]:
+        """Validate mocks against a registry entry specification."""
+        resp = self._request("POST", f"/api/v1/contract/registry/{entry_id}/validate")
+        return resp.json()
+
+    def submit_for_review(self, entry_id: str, reviewer_id: str = "") -> dict[str, Any]:
+        """Submit a registry entry for review."""
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/submit-review",
+            json={"reviewerId": reviewer_id},
+        )
+        return resp.json()
+
+    def approve_review(self, entry_id: str, comment: str = "") -> dict[str, Any]:
+        """Approve a registry entry review."""
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/approve-review",
+            json={"comment": comment},
+        )
+        return resp.json()
+
+    def reject_review(self, entry_id: str, comment: str = "") -> dict[str, Any]:
+        """Reject a registry entry review."""
+        resp = self._request(
+            "POST",
+            f"/api/v1/contract/registry/{entry_id}/reject-review",
+            json={"comment": comment},
+        )
+        return resp.json()
+
+    def assign_reviewer(self, entry_id: str, reviewer_id: str) -> dict[str, Any]:
+        """Assign a reviewer to a registry entry."""
+        resp = self._request(
+            "PUT",
+            f"/api/v1/contract/registry/{entry_id}/reviewer",
+            json={"reviewerId": reviewer_id},
+        )
+        return resp.json()
+
+    def get_registry_version(self, entry_id: str, version: int) -> dict[str, Any]:
+        """Get a specific version of a registry entry."""
+        resp = self._request(
+            "GET", f"/api/v1/contract/registry/{entry_id}/versions/{version}"
+        )
+        return resp.json()
+
+    def get_consumer_contract_version(
+        self, contract_id: str, version: int
+    ) -> dict[str, Any]:
+        """Get a specific version of a consumer contract."""
+        resp = self._request(
+            "GET",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{version}",
+        )
         return resp.json()
 
     # ── Consumer Contracts (Dependency Bundles) ───────────────────────
@@ -266,6 +527,65 @@ class ContractAPI(SyncAPIBase):
         resp = self._request("GET", "/api/v1/contract/health")
         return resp.json()
 
+    # ── Missing endpoints added for full API parity ───────────────────
+
+    def bdct_verify(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Run bidirectional contract testing (Pact vs provider spec)."""
+        return self._request(
+            "POST", "/api/v1/contract/bdct/verify", json=request
+        ).json()
+
+    def parse_json_fields(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Parse field trees from inline spec content."""
+        return self._request(
+            "POST", "/api/v1/contract/parse-json-fields", json=request
+        ).json()
+
+    def diff_consumer_contract(
+        self, contract_id: str, request: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Compare a consumer contract against another."""
+        return self._request(
+            "POST",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/diff",
+            json=request,
+        ).json()
+
+    def diff_consumer_contract_versions(
+        self, contract_id: str, v1: int, v2: int
+    ) -> dict[str, Any]:
+        """Diff two versions of a consumer contract."""
+        return self._request(
+            "GET",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{v1}/diff/{v2}",
+        ).json()
+
+    def list_registry_namespaces(self) -> list[str]:
+        """List namespaces that have registry entries."""
+        return self._request("GET", "/api/v1/contract/registry/namespaces").json()
+
+    def analyze_findings(self, request: dict[str, Any]) -> dict[str, Any]:
+        """AI-assisted analysis of contract findings."""
+        return self._request(
+            "POST", "/api/v1/contract/findings/analyze", json=request
+        ).json()
+
+    def auto_triage_findings(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Auto-triage contract findings by severity."""
+        return self._request(
+            "POST", "/api/v1/contract/findings/auto-triage", json=request
+        ).json()
+
+    def export_findings(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Export contract findings."""
+        return self._request(
+            "POST", "/api/v1/contract/findings/export", json=request
+        ).json()
+
+    def run_config(self, config_id: str) -> dict[str, Any]:
+        """Trigger immediate execution of a contract schedule."""
+        return self._request("POST", f"/api/v1/contract/configs/{config_id}/run").json()
+
 
 class AsyncContractAPI(AsyncAPIBase):
     """Asynchronous Contract API resource."""
@@ -282,7 +602,7 @@ class AsyncContractAPI(AsyncAPIBase):
         return ContractValidationResult.model_validate(resp.json())
 
     async def verify_provider(
-        self, request: dict[str, Any]
+        self, request: ContractValidationRequest | dict[str, Any]
     ) -> ContractValidationResult:
         """Verify a provider against a contract."""
         resp = await self._request(
@@ -291,18 +611,18 @@ class AsyncContractAPI(AsyncAPIBase):
         return ContractValidationResult.model_validate(resp.json())
 
     async def check_compatibility(
-        self, request: dict[str, Any]
+        self, request: CheckCompatibilityRequest | dict[str, Any]
     ) -> ContractValidationResult:
-        """Check compatibility between specs."""
+        """Check backward compatibility between two spec versions."""
         resp = await self._request(
             "POST", "/api/v1/contract/check-compatibility", json=request
         )
         return ContractValidationResult.model_validate(resp.json())
 
     async def validate_payload(
-        self, request: dict[str, Any]
+        self, request: ValidatePayloadRequest | dict[str, Any]
     ) -> ContractValidationResult:
-        """Validate a payload against a specification."""
+        """Validate a single JSON payload against a spec schema."""
         resp = await self._request(
             "POST", "/api/v1/contract/validate-payload", json=request
         )
@@ -372,7 +692,9 @@ class AsyncContractAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/contract/pacts", json=pact)
         return resp.json()
 
-    async def verify_pact(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def verify_pact(
+        self, request: PactVerifyRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Verify a pact contract against a provider."""
         resp = await self._request(
             "POST", "/api/v1/contract/pacts/verify", json=request
@@ -411,35 +733,45 @@ class AsyncContractAPI(AsyncAPIBase):
             return data.get("items") or data.get("verifications") or []
         return []
 
-    async def detect_drift(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Detect API drift between spec and implementation."""
+    async def detect_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
+        """Detect API drift between mocks and live service."""
         resp = await self._request(
             "POST", "/api/v1/contract/detect-drift", json=request
         )
         return resp.json()
 
-    async def detect_graphql_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def detect_graphql_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect GraphQL schema drift via introspection."""
         resp = await self._request(
             "POST", "/api/v1/contract/detect-drift/graphql", json=request
         )
         return resp.json()
 
-    async def detect_grpc_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def detect_grpc_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect gRPC service drift via reflection."""
         resp = await self._request(
             "POST", "/api/v1/contract/detect-drift/grpc", json=request
         )
         return resp.json()
 
-    async def detect_wsdl_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def detect_wsdl_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect SOAP/WSDL service drift."""
         resp = await self._request(
             "POST", "/api/v1/contract/detect-drift/wsdl", json=request
         )
         return resp.json()
 
-    async def detect_mcp_drift(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def detect_mcp_drift(
+        self, request: DriftDetectionRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect MCP server drift."""
         resp = await self._request(
             "POST", "/api/v1/contract/detect-drift/mcp", json=request
@@ -855,4 +1187,70 @@ class AsyncContractAPI(AsyncAPIBase):
     async def health(self) -> dict[str, Any]:
         """Get contract health status for the current namespace."""
         resp = await self._request("GET", "/api/v1/contract/health")
+        return resp.json()
+
+    # ── Missing endpoints added for full API parity ───────────────────
+
+    async def bdct_verify(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Run bidirectional contract testing (Pact vs provider spec)."""
+        resp = await self._request("POST", "/api/v1/contract/bdct/verify", json=request)
+        return resp.json()
+
+    async def parse_json_fields(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Parse field trees from inline spec content."""
+        resp = await self._request(
+            "POST", "/api/v1/contract/parse-json-fields", json=request
+        )
+        return resp.json()
+
+    async def diff_consumer_contract(
+        self, contract_id: str, request: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Compare a consumer contract against another."""
+        resp = await self._request(
+            "POST",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/diff",
+            json=request,
+        )
+        return resp.json()
+
+    async def diff_consumer_contract_versions(
+        self, contract_id: str, v1: int, v2: int
+    ) -> dict[str, Any]:
+        """Diff two versions of a consumer contract."""
+        resp = await self._request(
+            "GET",
+            f"/api/v1/contract/consumer-contracts/{contract_id}/versions/{v1}/diff/{v2}",
+        )
+        return resp.json()
+
+    async def list_registry_namespaces(self) -> list[str]:
+        """List namespaces that have registry entries."""
+        resp = await self._request("GET", "/api/v1/contract/registry/namespaces")
+        return resp.json()
+
+    async def analyze_findings(self, request: dict[str, Any]) -> dict[str, Any]:
+        """AI-assisted analysis of contract findings."""
+        resp = await self._request(
+            "POST", "/api/v1/contract/findings/analyze", json=request
+        )
+        return resp.json()
+
+    async def auto_triage_findings(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Auto-triage contract findings by severity."""
+        resp = await self._request(
+            "POST", "/api/v1/contract/findings/auto-triage", json=request
+        )
+        return resp.json()
+
+    async def export_findings(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Export contract findings."""
+        resp = await self._request(
+            "POST", "/api/v1/contract/findings/export", json=request
+        )
+        return resp.json()
+
+    async def run_config(self, config_id: str) -> dict[str, Any]:
+        """Trigger immediate execution of a contract schedule."""
+        resp = await self._request("POST", f"/api/v1/contract/configs/{config_id}/run")
         return resp.json()
