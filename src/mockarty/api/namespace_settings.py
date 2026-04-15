@@ -16,7 +16,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
 
     def list_users(self, namespace: str) -> list[dict[str, Any]]:
         """List users in a namespace."""
-        resp = self._request("GET", f"/api/v1/namespaces/{namespace}/settings/users")
+        resp = self._request("GET", f"/api/v1/namespaces/{namespace}/users")
         data = resp.json()
         if isinstance(data, list):
             return data
@@ -28,7 +28,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
         """Add a user to a namespace with a given role."""
         resp = self._request(
             "POST",
-            f"/api/v1/namespaces/{namespace}/settings/users",
+            f"/api/v1/namespaces/{namespace}/users",
             json={"userId": user_id, "role": role},
         )
         return resp.json()
@@ -37,7 +37,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
         """Remove a user from a namespace."""
         self._request(
             "DELETE",
-            f"/api/v1/namespaces/{namespace}/settings/users/{user_id}",
+            f"/api/v1/namespaces/{namespace}/users/{user_id}",
         )
 
     def update_user_role(
@@ -46,7 +46,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
         """Update a user's role in a namespace."""
         resp = self._request(
             "PUT",
-            f"/api/v1/namespaces/{namespace}/settings/users/{user_id}",
+            f"/api/v1/namespaces/{namespace}/users/{user_id}/role",
             json={"role": role},
         )
         return resp.json()
@@ -55,7 +55,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
 
     def get_cleanup_policy(self, namespace: str) -> dict[str, Any]:
         """Get the cleanup policy for a namespace."""
-        resp = self._request("GET", f"/api/v1/namespaces/{namespace}/settings/cleanup")
+        resp = self._request("GET", f"/api/v1/namespaces/{namespace}/cleanup-policy")
         return resp.json()
 
     def update_cleanup_policy(
@@ -64,7 +64,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
         """Update the cleanup policy for a namespace."""
         resp = self._request(
             "PUT",
-            f"/api/v1/namespaces/{namespace}/settings/cleanup",
+            f"/api/v1/namespaces/{namespace}/cleanup-policy",
             json=policy,
         )
         return resp.json()
@@ -73,7 +73,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
 
     def list_webhooks(self, namespace: str) -> list[dict[str, Any]]:
         """List webhooks configured for a namespace."""
-        resp = self._request("GET", f"/api/v1/namespaces/{namespace}/settings/webhooks")
+        resp = self._request("GET", f"/api/v1/namespaces/{namespace}/webhooks")
         data = resp.json()
         if isinstance(data, list):
             return data
@@ -85,7 +85,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
         """Create a webhook for a namespace."""
         resp = self._request(
             "POST",
-            f"/api/v1/namespaces/{namespace}/settings/webhooks",
+            f"/api/v1/namespaces/{namespace}/webhooks",
             json=webhook,
         )
         return resp.json()
@@ -94,7 +94,7 @@ class NamespaceSettingsAPI(SyncAPIBase):
         """Delete a webhook from a namespace."""
         self._request(
             "DELETE",
-            f"/api/v1/namespaces/{namespace}/settings/webhooks/{webhook_id}",
+            f"/api/v1/namespaces/{namespace}/webhooks/{webhook_id}",
         )
 
 
@@ -106,7 +106,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
     async def list_users(self, namespace: str) -> list[dict[str, Any]]:
         """List users in a namespace."""
         resp = await self._request(
-            "GET", f"/api/v1/namespaces/{namespace}/settings/users"
+            "GET", f"/api/v1/namespaces/{namespace}/users"
         )
         data = resp.json()
         if isinstance(data, list):
@@ -119,7 +119,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
         """Add a user to a namespace with a given role."""
         resp = await self._request(
             "POST",
-            f"/api/v1/namespaces/{namespace}/settings/users",
+            f"/api/v1/namespaces/{namespace}/users",
             json={"userId": user_id, "role": role},
         )
         return resp.json()
@@ -128,7 +128,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
         """Remove a user from a namespace."""
         await self._request(
             "DELETE",
-            f"/api/v1/namespaces/{namespace}/settings/users/{user_id}",
+            f"/api/v1/namespaces/{namespace}/users/{user_id}",
         )
 
     async def update_user_role(
@@ -137,7 +137,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
         """Update a user's role in a namespace."""
         resp = await self._request(
             "PUT",
-            f"/api/v1/namespaces/{namespace}/settings/users/{user_id}",
+            f"/api/v1/namespaces/{namespace}/users/{user_id}/role",
             json={"role": role},
         )
         return resp.json()
@@ -147,7 +147,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
     async def get_cleanup_policy(self, namespace: str) -> dict[str, Any]:
         """Get the cleanup policy for a namespace."""
         resp = await self._request(
-            "GET", f"/api/v1/namespaces/{namespace}/settings/cleanup"
+            "GET", f"/api/v1/namespaces/{namespace}/cleanup-policy"
         )
         return resp.json()
 
@@ -157,7 +157,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
         """Update the cleanup policy for a namespace."""
         resp = await self._request(
             "PUT",
-            f"/api/v1/namespaces/{namespace}/settings/cleanup",
+            f"/api/v1/namespaces/{namespace}/cleanup-policy",
             json=policy,
         )
         return resp.json()
@@ -167,7 +167,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
     async def list_webhooks(self, namespace: str) -> list[dict[str, Any]]:
         """List webhooks configured for a namespace."""
         resp = await self._request(
-            "GET", f"/api/v1/namespaces/{namespace}/settings/webhooks"
+            "GET", f"/api/v1/namespaces/{namespace}/webhooks"
         )
         data = resp.json()
         if isinstance(data, list):
@@ -182,7 +182,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
         """Create a webhook for a namespace."""
         resp = await self._request(
             "POST",
-            f"/api/v1/namespaces/{namespace}/settings/webhooks",
+            f"/api/v1/namespaces/{namespace}/webhooks",
             json=webhook,
         )
         return resp.json()
@@ -191,5 +191,5 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
         """Delete a webhook from a namespace."""
         await self._request(
             "DELETE",
-            f"/api/v1/namespaces/{namespace}/settings/webhooks/{webhook_id}",
+            f"/api/v1/namespaces/{namespace}/webhooks/{webhook_id}",
         )

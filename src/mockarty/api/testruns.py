@@ -32,10 +32,16 @@ class TestRunAPI(SyncAPIBase):
         self._request("DELETE", f"/api/v1/api-tester/test-runs/{run_id}")
 
     def list_by_collection(self, collection_id: str) -> list[TestRun]:
-        """List test runs for a specific collection."""
-        resp = self._request(
-            "GET", f"/api/v1/api-tester/collections/{collection_id}/test-runs"
-        )
+        """List test runs filtered by collection ID (client-side filter)."""
+        all_runs = self.list()
+        return [r for r in all_runs if getattr(r, "collection_id", None) == collection_id]
+
+    def list_active(self) -> list[TestRun]:
+        """List active (pending/running) test runs in the current namespace.
+
+        Polled by the UI Runs Tray; useful for CI gating on parallel runs.
+        """
+        resp = self._request("GET", "/api/v1/test-runs/active")
         data = resp.json()
         if isinstance(data, list):
             return [TestRun.model_validate(r) for r in data]
@@ -69,10 +75,13 @@ class AsyncTestRunAPI(AsyncAPIBase):
         await self._request("DELETE", f"/api/v1/api-tester/test-runs/{run_id}")
 
     async def list_by_collection(self, collection_id: str) -> list[TestRun]:
-        """List test runs for a specific collection."""
-        resp = await self._request(
-            "GET", f"/api/v1/api-tester/collections/{collection_id}/test-runs"
-        )
+        """List test runs filtered by collection ID (client-side filter)."""
+        all_runs = await self.list()
+        return [r for r in all_runs if getattr(r, "collection_id", None) == collection_id]
+
+    async def list_active(self) -> list[TestRun]:
+        """List active (pending/running) test runs in the current namespace."""
+        resp = await self._request("GET", "/api/v1/test-runs/active")
         data = resp.json()
         if isinstance(data, list):
             return [TestRun.model_validate(r) for r in data]

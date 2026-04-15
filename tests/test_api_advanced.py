@@ -1063,12 +1063,15 @@ class TestTestRunAPI:
 
     @respx.mock
     def test_list_by_collection(self, client: MockartyClient) -> None:
-        respx.get("http://localhost:5770/api/v1/api-tester/collections/col-1/test-runs").mock(
+        # Backend has no per-collection test-runs endpoint; SDK filters client-side
+        # over the full list returned by /api-tester/test-runs.
+        respx.get("http://localhost:5770/api/v1/api-tester/test-runs").mock(
             return_value=httpx.Response(
                 200,
                 json=[
                     {"id": "run-1", "collectionId": "col-1", "status": "passed"},
                     {"id": "run-2", "collectionId": "col-1", "status": "failed"},
+                    {"id": "run-3", "collectionId": "col-2", "status": "passed"},
                 ],
             )
         )
@@ -1076,6 +1079,24 @@ class TestTestRunAPI:
         runs = client.test_runs.list_by_collection("col-1")
         assert len(runs) == 2
         assert all(r.collection_id == "col-1" for r in runs)
+
+    @respx.mock
+    def test_list_active(self, client: MockartyClient) -> None:
+        respx.get("http://localhost:5770/api/v1/test-runs/active").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "runs": [
+                        {"id": "00000000-0000-0000-0000-000000000001", "status": "running"},
+                        {"id": "00000000-0000-0000-0000-000000000002", "status": "pending"},
+                    ]
+                },
+            )
+        )
+
+        runs = client.test_runs.list_active()
+        assert len(runs) == 2
+        assert runs[0].status == "running"
 
 
 # ── Client property access ───────────────────────────────────────────
