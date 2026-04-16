@@ -105,9 +105,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
 
     async def list_users(self, namespace: str) -> list[dict[str, Any]]:
         """List users in a namespace."""
-        resp = await self._request(
-            "GET", f"/api/v1/namespaces/{namespace}/users"
-        )
+        resp = await self._request("GET", f"/api/v1/namespaces/{namespace}/users")
         data = resp.json()
         if isinstance(data, list):
             return data
@@ -166,9 +164,7 @@ class AsyncNamespaceSettingsAPI(AsyncAPIBase):
 
     async def list_webhooks(self, namespace: str) -> list[dict[str, Any]]:
         """List webhooks configured for a namespace."""
-        resp = await self._request(
-            "GET", f"/api/v1/namespaces/{namespace}/webhooks"
-        )
+        resp = await self._request("GET", f"/api/v1/namespaces/{namespace}/webhooks")
         data = resp.json()
         if isinstance(data, list):
             return data

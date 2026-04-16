@@ -34,7 +34,9 @@ class TestRunAPI(SyncAPIBase):
     def list_by_collection(self, collection_id: str) -> list[TestRun]:
         """List test runs filtered by collection ID (client-side filter)."""
         all_runs = self.list()
-        return [r for r in all_runs if getattr(r, "collection_id", None) == collection_id]
+        return [
+            r for r in all_runs if getattr(r, "collection_id", None) == collection_id
+        ]
 
     def list_active(self) -> list[TestRun]:
         """List active (pending/running) test runs in the current namespace.
@@ -77,7 +79,9 @@ class AsyncTestRunAPI(AsyncAPIBase):
     async def list_by_collection(self, collection_id: str) -> list[TestRun]:
         """List test runs filtered by collection ID (client-side filter)."""
         all_runs = await self.list()
-        return [r for r in all_runs if getattr(r, "collection_id", None) == collection_id]
+        return [
+            r for r in all_runs if getattr(r, "collection_id", None) == collection_id
+        ]
 
     async def list_active(self) -> list[TestRun]:
         """List active (pending/running) test runs in the current namespace."""
