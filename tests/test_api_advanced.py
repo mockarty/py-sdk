@@ -1032,6 +1032,52 @@ class TestTestRunAPI:
         assert len(runs) == 1
 
     @respx.mock
+    def test_list_runs_mode_filter(self, client: MockartyClient) -> None:
+        """Migration 033: mode + referenceId filters hit the unified feed."""
+        route = respx.get(
+            "http://localhost:5770/api/v1/api-tester/test-runs"
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "runs": [
+                        {
+                            "id": "fuzz-run-1",
+                            "mode": "fuzz",
+                            "referenceId": "cfg-42",
+                            "status": "running",
+                        }
+                    ]
+                },
+            )
+        )
+
+        runs = client.test_runs.list(mode="fuzz", reference_id="cfg-42", limit=25)
+        assert len(runs) == 1
+        assert runs[0].mode == "fuzz"
+        assert runs[0].reference_id == "cfg-42"
+
+        # The query params must be forwarded to the server
+        assert route.called
+        url = route.calls[-1].request.url
+        assert url.params.get("mode") == "fuzz"
+        assert url.params.get("referenceId") == "cfg-42"
+        assert url.params.get("limit") == "25"
+
+    @respx.mock
+    def test_list_by_mode_wrapper(self, client: MockartyClient) -> None:
+        """list_by_mode delegates to list with the mode argument."""
+        route = respx.get(
+            "http://localhost:5770/api/v1/api-tester/test-runs"
+        ).mock(
+            return_value=httpx.Response(200, json={"runs": []})
+        )
+
+        client.test_runs.list_by_mode("chaos")
+        assert route.called
+        assert route.calls[-1].request.url.params.get("mode") == "chaos"
+
+    @respx.mock
     def test_get_run(self, client: MockartyClient) -> None:
         respx.get("http://localhost:5770/api/v1/api-tester/test-runs/run-1").mock(
             return_value=httpx.Response(

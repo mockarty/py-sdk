@@ -35,7 +35,9 @@ from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
 from mockarty.api.tags import TagAPI
 from mockarty.api.templates import TemplateAPI
+from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
+from mockarty.api.trash import TrashAPI
 from mockarty.api.undefined import UndefinedAPI
 
 
@@ -101,6 +103,7 @@ class MockartyClient:
         self._templates: TemplateAPI | None = None
         self._imports: ImportAPI | None = None
         self._test_runs: TestRunAPI | None = None
+        self._test_plans: TestPlansAPI | None = None
         self._tags: TagAPI | None = None
         self._folders: FolderAPI | None = None
         self._undefined: UndefinedAPI | None = None
@@ -109,6 +112,7 @@ class MockartyClient:
         self._namespace_settings: NamespaceSettingsAPI | None = None
         self._proxy: ProxyAPI | None = None
         self._environments: EnvironmentAPI | None = None
+        self._trash: TrashAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -154,6 +158,7 @@ class MockartyClient:
         self._templates = None
         self._imports = None
         self._test_runs = None
+        self._test_plans = None
         self._tags = None
         self._folders = None
         self._undefined = None
@@ -162,6 +167,7 @@ class MockartyClient:
         self._namespace_settings = None
         self._proxy = None
         self._environments = None
+        self._trash = None
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -264,6 +270,13 @@ class MockartyClient:
         return self._test_runs
 
     @property
+    def test_plans(self) -> TestPlansAPI:
+        """Test Plans API — master orchestrator for heterogeneous runs."""
+        if self._test_plans is None:
+            self._test_plans = TestPlansAPI(self._http, self._namespace)
+        return self._test_plans
+
+    @property
     def tags(self) -> TagAPI:
         """Tag management API."""
         if self._tags is None:
@@ -318,3 +331,10 @@ class MockartyClient:
         if self._environments is None:
             self._environments = EnvironmentAPI(self._http, self._namespace)
         return self._environments
+
+    @property
+    def trash(self) -> TrashAPI:
+        """Recycle Bin / Soft-Delete API (list, restore, purge)."""
+        if self._trash is None:
+            self._trash = TrashAPI(self._http, self._namespace)
+        return self._trash

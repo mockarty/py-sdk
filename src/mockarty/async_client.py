@@ -35,7 +35,9 @@ from mockarty.api.stats import AsyncStatsAPI
 from mockarty.api.stores import AsyncStoreAPI
 from mockarty.api.tags import AsyncTagAPI
 from mockarty.api.templates import AsyncTemplateAPI
+from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
+from mockarty.api.trash import AsyncTrashAPI
 from mockarty.api.undefined import AsyncUndefinedAPI
 
 
@@ -95,6 +97,7 @@ class AsyncMockartyClient:
         self._templates: AsyncTemplateAPI | None = None
         self._imports: AsyncImportAPI | None = None
         self._test_runs: AsyncTestRunAPI | None = None
+        self._test_plans: AsyncTestPlansAPI | None = None
         self._tags: AsyncTagAPI | None = None
         self._folders: AsyncFolderAPI | None = None
         self._undefined: AsyncUndefinedAPI | None = None
@@ -103,6 +106,7 @@ class AsyncMockartyClient:
         self._namespace_settings: AsyncNamespaceSettingsAPI | None = None
         self._proxy: AsyncProxyAPI | None = None
         self._environments: AsyncEnvironmentAPI | None = None
+        self._trash: AsyncTrashAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -148,6 +152,7 @@ class AsyncMockartyClient:
         self._templates = None
         self._imports = None
         self._test_runs = None
+        self._test_plans = None
         self._tags = None
         self._folders = None
         self._undefined = None
@@ -156,6 +161,7 @@ class AsyncMockartyClient:
         self._namespace_settings = None
         self._proxy = None
         self._environments = None
+        self._trash = None
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -258,6 +264,13 @@ class AsyncMockartyClient:
         return self._test_runs
 
     @property
+    def test_plans(self) -> AsyncTestPlansAPI:
+        """Test Plans API — master orchestrator for heterogeneous runs."""
+        if self._test_plans is None:
+            self._test_plans = AsyncTestPlansAPI(self._http, self._namespace)
+        return self._test_plans
+
+    @property
     def tags(self) -> AsyncTagAPI:
         """Tag management API."""
         if self._tags is None:
@@ -314,3 +327,10 @@ class AsyncMockartyClient:
         if self._environments is None:
             self._environments = AsyncEnvironmentAPI(self._http, self._namespace)
         return self._environments
+
+    @property
+    def trash(self) -> AsyncTrashAPI:
+        """Recycle Bin / Soft-Delete API (list, restore, purge)."""
+        if self._trash is None:
+            self._trash = AsyncTrashAPI(self._http, self._namespace)
+        return self._trash

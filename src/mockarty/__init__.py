@@ -30,6 +30,17 @@ from mockarty.api.namespace_settings import (
 from mockarty.api.proxy import AsyncProxyAPI, ProxyAPI
 from mockarty.api.stats import AsyncStatsAPI, StatsAPI
 from mockarty.api.tags import AsyncTagAPI, TagAPI
+from mockarty.api.testplans import (
+    AsyncTestPlansAPI,
+    PlanNotFoundError,
+    PreconditionFailedError,
+    RunCancelledError,
+    RunFailedError,
+    TestPlanError,
+    TestPlansAPI,
+    WebhookDeliveryError,
+)
+from mockarty.api.trash import AsyncTrashAPI, PurgeConfirmationError, TrashAPI
 from mockarty.api.undefined import AsyncUndefinedAPI, UndefinedAPI
 from mockarty.async_client import AsyncMockartyClient
 from mockarty.builders.mock_builder import MockBuilder, OneOfBuilder
@@ -127,7 +138,38 @@ from mockarty.models.mock import (
 )
 from mockarty.models.recorder import RecorderEntry, RecorderSession
 from mockarty.models.store import DeleteFromStoreRequest, StoreData, StoreEntry
+from mockarty.models.testplan import (
+    AdHocItem,
+    AdHocRunResponse,
+    AllureReport,
+    CreateAdHocRunRequest,
+    ItemSummary,
+    PatchPlanRequest,
+    PlanItemState,
+    PlanRunStatus,
+    RunEvent,
+    Schedule,
+    TestPlan,
+    TestPlanItem,
+    TestPlanRun,
+    Webhook,
+)
 from mockarty.models.testrun import TestRun
+from mockarty.models.trash import (
+    TRASH_PURGE_CONFIRMATION_PHRASE,
+    BulkPurgeOutcome,
+    BulkPurgeResult,
+    BulkRestoreOutcome,
+    BulkRestoreResult,
+    PurgeNowResult,
+    RestoreResult,
+    TrashItem,
+    TrashListResult,
+    TrashSettings,
+    TrashSettingsUpdate,
+    TrashSummary,
+    TrashSummaryCount,
+)
 from mockarty.models.undefined import UndefinedRequest
 
 __version__ = "0.3.0"
@@ -223,6 +265,22 @@ __all__ = [
     "ImportResult",
     # Test run models
     "TestRun",
+    # Test plan models
+    "TestPlan",
+    "TestPlanItem",
+    "TestPlanRun",
+    "PlanItemState",
+    "PlanRunStatus",
+    "Schedule",
+    "Webhook",
+    "RunEvent",
+    "ItemSummary",
+    # Test plan TP-6b models
+    "PatchPlanRequest",
+    "AdHocItem",
+    "CreateAdHocRunRequest",
+    "AdHocRunResponse",
+    "AllureReport",
     # Folder models
     "MockFolder",
     # Undefined request models
@@ -246,6 +304,32 @@ __all__ = [
     "AsyncProxyAPI",
     "EnvironmentAPI",
     "AsyncEnvironmentAPI",
+    "TestPlansAPI",
+    "AsyncTestPlansAPI",
+    "TrashAPI",
+    "AsyncTrashAPI",
+    # Trash models
+    "TRASH_PURGE_CONFIRMATION_PHRASE",
+    "TrashItem",
+    "TrashListResult",
+    "TrashSummary",
+    "TrashSummaryCount",
+    "TrashSettings",
+    "TrashSettingsUpdate",
+    "RestoreResult",
+    "BulkRestoreOutcome",
+    "BulkRestoreResult",
+    "BulkPurgeOutcome",
+    "BulkPurgeResult",
+    "PurgeNowResult",
+    "PurgeConfirmationError",
+    # Test plan errors
+    "TestPlanError",
+    "PlanNotFoundError",
+    "RunFailedError",
+    "RunCancelledError",
+    "WebhookDeliveryError",
+    "PreconditionFailedError",
     # Errors
     "MockartyError",
     "MockartyAPIError",
