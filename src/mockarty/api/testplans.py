@@ -28,6 +28,7 @@ from mockarty.models.testplan import (
     Schedule,
     TestPlan,
     TestPlanRun,
+    UnifiedReport,
     Webhook,
 )
 
@@ -588,6 +589,111 @@ class TestPlansAPI(SyncAPIBase):
             for chunk in response.iter_bytes():
                 dest.write(chunk)
 
+    def get_run_report_junit(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> bytes:
+        """Fetch the JUnit XML report for a namespace-scoped run.
+
+        Uses ``GET /api/v1/namespaces/:namespace/test-plans/:planRef/runs/:runId/report.junit.xml``.
+
+        The returned bytes are standards-compliant JUnit suitable for
+        Jenkins, GitLab, GitHub Actions — feed them into any ``testcase``
+        publisher.
+        """
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.junit.xml"
+        )
+        resp = self._request("GET", path, headers={"Accept": "application/xml"})
+        return resp.content
+
+    def get_run_report_markdown(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> bytes:
+        """Fetch the Markdown summary report for a namespace-scoped run.
+
+        Uses ``GET /api/v1/namespaces/:namespace/test-plans/:planRef/runs/:runId/report.md``.
+
+        Suitable for Slack attachments, email bodies, wiki pastes.
+        """
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.md"
+        )
+        resp = self._request("GET", path, headers={"Accept": "text/markdown"})
+        return resp.content
+
+    def get_run_report_unified(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> UnifiedReport:
+        """Fetch the native Mockarty-shape JSON report for a namespace-scoped run.
+
+        Uses ``GET /api/v1/namespaces/:namespace/test-plans/:planRef/runs/:runId/report.unified.json``.
+
+        The raw JSON body is preserved in :attr:`UnifiedReport.raw` so
+        callers can run a second decode pass with domain-specific types if
+        the server evolves the wire schema before the SDK is updated.
+        """
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.unified.json"
+        )
+        resp = self._request("GET", path, headers={"Accept": "application/json"})
+        body = resp.json() if resp.content else {}
+        report = UnifiedReport.model_validate(body) if body else UnifiedReport()
+        report.raw = resp.content
+        return report
+
+    def get_run_report_html(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> bytes:
+        """Fetch the standalone, print-friendly HTML report.
+
+        Uses ``GET /api/v1/namespaces/:namespace/test-plans/:planRef/runs/:runId/report.html``.
+
+        Returns a self-contained HTML document (inlined CSS, no external
+        assets) suitable for air-gapped environments. Users can open it in
+        any browser and print to PDF via the browser's Save-as-PDF dialog.
+        """
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.html"
+        )
+        resp = self._request("GET", path, headers={"Accept": "text/html"})
+        return resp.content
+
 
 # ---------------------------------------------------------------------------
 # Async API
@@ -911,3 +1017,90 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             response.raise_for_status()
             async for chunk in response.aiter_bytes():
                 dest.write(chunk)
+
+    async def get_run_report_junit(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> bytes:
+        """Async twin of :meth:`TestPlansAPI.get_run_report_junit`."""
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.junit.xml"
+        )
+        resp = await self._request(
+            "GET", path, headers={"Accept": "application/xml"}
+        )
+        return resp.content
+
+    async def get_run_report_markdown(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> bytes:
+        """Async twin of :meth:`TestPlansAPI.get_run_report_markdown`."""
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.md"
+        )
+        resp = await self._request(
+            "GET", path, headers={"Accept": "text/markdown"}
+        )
+        return resp.content
+
+    async def get_run_report_unified(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> UnifiedReport:
+        """Async twin of :meth:`TestPlansAPI.get_run_report_unified`."""
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.unified.json"
+        )
+        resp = await self._request(
+            "GET", path, headers={"Accept": "application/json"}
+        )
+        body = resp.json() if resp.content else {}
+        report = UnifiedReport.model_validate(body) if body else UnifiedReport()
+        report.raw = resp.content
+        return report
+
+    async def get_run_report_html(
+        self,
+        plan_ref: str,
+        run_id: str,
+        *,
+        namespace: Optional[str] = None,
+    ) -> bytes:
+        """Async twin of :meth:`TestPlansAPI.get_run_report_html`."""
+        key = _plan_ref(plan_ref)
+        if not (run_id or "").strip():
+            raise ValueError("run_id must not be empty")
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/test-plans/{key}"
+            f"/runs/{quote(run_id, safe='')}/report.html"
+        )
+        resp = await self._request(
+            "GET", path, headers={"Accept": "text/html"}
+        )
+        return resp.content

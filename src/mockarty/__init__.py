@@ -152,6 +152,9 @@ from mockarty.models.testplan import (
     TestPlan,
     TestPlanItem,
     TestPlanRun,
+    UnifiedItemResult,
+    UnifiedReport,
+    UnifiedReportCounts,
     Webhook,
 )
 from mockarty.models.testrun import TestRun
@@ -281,6 +284,9 @@ __all__ = [
     "CreateAdHocRunRequest",
     "AdHocRunResponse",
     "AllureReport",
+    "UnifiedReport",
+    "UnifiedReportCounts",
+    "UnifiedItemResult",
     # Folder models
     "MockFolder",
     # Undefined request models

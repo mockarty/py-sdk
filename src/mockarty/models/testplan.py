@@ -34,6 +34,18 @@ ITEM_TYPES = (
     ITEM_TYPE_TEST_PLAN,
 )
 
+#: Typed plan-level execution strategies. Mirrors the server's
+#: ``testplan.ExecutionMode*`` constants (introduced in migration 077).
+EXECUTION_MODE_FIFO = "fifo"
+EXECUTION_MODE_PARALLEL = "parallel"
+EXECUTION_MODE_DAG = "dag"
+
+EXECUTION_MODES = (
+    EXECUTION_MODE_FIFO,
+    EXECUTION_MODE_PARALLEL,
+    EXECUTION_MODE_DAG,
+)
+
 
 class TestPlanItem(BaseModel):
     """A single step within a Test Plan.
@@ -69,7 +81,11 @@ class TestPlan(BaseModel):
     namespace: str
     name: str
     description: Optional[str] = None
-    schedule: Optional[str] = None  # legacy mode column
+    schedule: Optional[str] = None  # legacy mode column (kept for backward-compat)
+    # Typed execution mode introduced in migration 077. One of "fifo" /
+    # "parallel" / "dag". Empty defers to ExecutionMode auto-detect on
+    # the server (Gates → DAG, otherwise FIFO).
+    execution_mode: Optional[str] = Field(default=None, alias="executionMode")
     items: list[TestPlanItem]
     created_at: Optional[str] = Field(default=None, alias="createdAt")
     updated_at: Optional[str] = Field(default=None, alias="updatedAt")
@@ -202,6 +218,10 @@ class PatchPlanRequest(BaseModel):
     ``schedule_cron`` accepts the same vocabulary as ``TestPlan.schedule``:
     empty string (FIFO), the sentinel modes ``parallel`` / ``dag``, or a
     5-/6-field cron expression.
+
+    ``execution_mode`` is the typed, post-077 successor — pass ``"fifo"``,
+    ``"parallel"`` or ``"dag"``. Prefer it over the schedule_cron sentinel
+    forms; cron expressions still belong in ``schedule_cron``.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -209,6 +229,7 @@ class PatchPlanRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     schedule_cron: Optional[str] = Field(default=None, alias="schedule_cron")
+    execution_mode: Optional[str] = Field(default=None, alias="execution_mode")
     enabled: Optional[bool] = None
 
 
@@ -281,4 +302,63 @@ class AllureReport(BaseModel):
     items: list[ItemSummary] = Field(default_factory=list)
     summary: Optional[dict[str, Any]] = None
     labels: Optional[dict[str, str]] = None
+    raw: Optional[bytes] = Field(default=None, exclude=True)
+
+
+class UnifiedReportCounts(BaseModel):
+    """Per-status item tallies in a :class:`UnifiedReport`."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total: int = 0
+    passed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    broken: int = 0
+
+
+class UnifiedItemResult(BaseModel):
+    """One result entry inside a :class:`UnifiedReport`.
+
+    Mirrors ``internal/testplan.AllureResult``. Unknown fields round-trip
+    through :attr:`UnifiedReport.raw` for callers who need them.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    name: Optional[str] = None
+    uuid: Optional[str] = None
+    history_id: Optional[str] = Field(default=None, alias="historyId")
+    full_name: Optional[str] = Field(default=None, alias="fullName")
+    description: Optional[str] = None
+    status: Optional[str] = None
+    stage: Optional[str] = None
+    status_details: Optional[dict[str, Any]] = Field(default=None, alias="statusDetails")
+    labels: Optional[list[dict[str, Any]]] = None
+    parameters: Optional[list[dict[str, Any]]] = None
+    attachments: Optional[list[dict[str, Any]]] = None
+    start: Optional[int] = None
+    stop: Optional[int] = None
+
+
+class UnifiedReport(BaseModel):
+    """Native Mockarty-shape report served by the ``.unified.json`` endpoint.
+
+    The server serialises the same fields for every language SDK (Go /
+    Python / Java). ``raw`` preserves the wire bytes so callers can decode
+    into custom types if the server adds new fields before the SDK is
+    updated.
+    """
+
+    __test__ = False  # pytest: not a test class
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    started_at: Optional[str] = Field(default=None, alias="startedAt")
+    plan_name: Optional[str] = Field(default=None, alias="planName")
+    run_id: Optional[str] = Field(default=None, alias="runId")
+    results: list[UnifiedItemResult] = Field(default_factory=list)
+    counts: UnifiedReportCounts = Field(default_factory=UnifiedReportCounts)
+    generated_at: Optional[int] = Field(default=None, alias="generatedAt")
+    duration_ms: Optional[int] = Field(default=None, alias="durationMs")
     raw: Optional[bytes] = Field(default=None, exclude=True)

@@ -29,6 +29,7 @@ from mockarty import (
     TestPlan,
     TestPlanItem,
     TestPlanRun,
+    UnifiedReport,
     Webhook,
     WebhookDeliveryError,
 )
@@ -572,6 +573,22 @@ _REPORT_URL = (
 _REPORT_ZIP_URL = (
     f"http://localhost:5770/api/v1/namespaces/{_NS}/test-plans/plan-1/runs/run-1/report.zip"
 )
+_REPORT_JUNIT_URL = (
+    f"http://localhost:5770/api/v1/namespaces/{_NS}/test-plans/plan-1"
+    "/runs/run-1/report.junit.xml"
+)
+_REPORT_MD_URL = (
+    f"http://localhost:5770/api/v1/namespaces/{_NS}/test-plans/plan-1"
+    "/runs/run-1/report.md"
+)
+_REPORT_UNIFIED_URL = (
+    f"http://localhost:5770/api/v1/namespaces/{_NS}/test-plans/plan-1"
+    "/runs/run-1/report.unified.json"
+)
+_REPORT_HTML_URL = (
+    f"http://localhost:5770/api/v1/namespaces/{_NS}/test-plans/plan-1"
+    "/runs/run-1/report.html"
+)
 
 
 class TestPatch:
@@ -738,6 +755,91 @@ class TestRunReport:
         client.test_plans.get_run_report_zip("plan-1", "run-1", buf)
         assert buf.getvalue().startswith(b"PK")
 
+    @respx.mock
+    def test_get_run_report_junit(self, client: MockartyClient) -> None:
+        xml = b'<?xml version="1.0"?><testsuites name="plan-1"/>'
+        respx.get(_REPORT_JUNIT_URL).mock(
+            return_value=httpx.Response(
+                200, content=xml, headers={"Content-Type": "application/xml"}
+            )
+        )
+        data = client.test_plans.get_run_report_junit("plan-1", "run-1")
+        assert data == xml
+
+    def test_get_run_report_junit_rejects_empty_run(
+        self, client: MockartyClient
+    ) -> None:
+        with pytest.raises(ValueError):
+            client.test_plans.get_run_report_junit("plan-1", "")
+
+    @respx.mock
+    def test_get_run_report_markdown(self, client: MockartyClient) -> None:
+        body = b"# Test Plan Run\n\n- items: 3\n"
+        respx.get(_REPORT_MD_URL).mock(
+            return_value=httpx.Response(
+                200, content=body, headers={"Content-Type": "text/markdown"}
+            )
+        )
+        data = client.test_plans.get_run_report_markdown("plan-1", "run-1")
+        assert data == body
+
+    @respx.mock
+    def test_get_run_report_unified(self, client: MockartyClient) -> None:
+        respx.get(_REPORT_UNIFIED_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "planName": "plan-1",
+                    "runId": "run-1",
+                    "startedAt": "2026-04-20T00:00:00Z",
+                    "counts": {
+                        "total": 3,
+                        "passed": 2,
+                        "failed": 1,
+                        "skipped": 0,
+                        "broken": 0,
+                    },
+                    "results": [
+                        {"uuid": "u-1", "name": "step-1", "status": "passed"}
+                    ],
+                    "durationMs": 1234,
+                    "generatedAt": 1_700_000_000,
+                },
+            )
+        )
+        rep = client.test_plans.get_run_report_unified("plan-1", "run-1")
+        assert isinstance(rep, UnifiedReport)
+        assert rep.plan_name == "plan-1"
+        assert rep.run_id == "run-1"
+        assert rep.counts.total == 3
+        assert rep.counts.passed == 2
+        assert rep.counts.failed == 1
+        assert rep.duration_ms == 1234
+        assert rep.raw is not None and b"planName" in rep.raw
+
+    def test_get_run_report_unified_rejects_empty_run(
+        self, client: MockartyClient
+    ) -> None:
+        with pytest.raises(ValueError):
+            client.test_plans.get_run_report_unified("plan-1", "")
+
+    @respx.mock
+    def test_get_run_report_html(self, client: MockartyClient) -> None:
+        body = b"<!DOCTYPE html><html><body>Run run-1</body></html>"
+        respx.get(_REPORT_HTML_URL).mock(
+            return_value=httpx.Response(
+                200, content=body, headers={"Content-Type": "text/html; charset=utf-8"}
+            )
+        )
+        data = client.test_plans.get_run_report_html("plan-1", "run-1")
+        assert data == body
+
+    def test_get_run_report_html_rejects_empty_run(
+        self, client: MockartyClient
+    ) -> None:
+        with pytest.raises(ValueError):
+            client.test_plans.get_run_report_html("plan-1", "")
+
 
 @pytest.mark.asyncio
 class TestAsyncNamespaceScoped:
@@ -824,3 +926,82 @@ class TestAsyncNamespaceScoped:
                 buf = io.BytesIO()
                 await c.test_plans.get_run_report_zip("plan-1", "run-1", buf)
                 assert buf.getvalue().startswith(b"PK")
+
+    async def test_get_run_report_junit_async(self) -> None:
+        async with AsyncMockartyClient(
+            base_url="http://localhost:5770",
+            api_key="mk_test",
+            namespace=_NS,
+            max_retries=0,
+        ) as c:
+            with respx.mock(base_url="http://localhost:5770") as router:
+                router.get(
+                    f"/api/v1/namespaces/{_NS}/test-plans/plan-1"
+                    "/runs/run-1/report.junit.xml"
+                ).mock(
+                    return_value=httpx.Response(
+                        200, content=b'<?xml version="1.0"?><testsuites/>'
+                    )
+                )
+                data = await c.test_plans.get_run_report_junit("plan-1", "run-1")
+                assert data.startswith(b"<?xml")
+
+    async def test_get_run_report_markdown_async(self) -> None:
+        async with AsyncMockartyClient(
+            base_url="http://localhost:5770",
+            api_key="mk_test",
+            namespace=_NS,
+            max_retries=0,
+        ) as c:
+            with respx.mock(base_url="http://localhost:5770") as router:
+                router.get(
+                    f"/api/v1/namespaces/{_NS}/test-plans/plan-1"
+                    "/runs/run-1/report.md"
+                ).mock(return_value=httpx.Response(200, content=b"# Run"))
+                data = await c.test_plans.get_run_report_markdown("plan-1", "run-1")
+                assert data == b"# Run"
+
+    async def test_get_run_report_unified_async(self) -> None:
+        async with AsyncMockartyClient(
+            base_url="http://localhost:5770",
+            api_key="mk_test",
+            namespace=_NS,
+            max_retries=0,
+        ) as c:
+            with respx.mock(base_url="http://localhost:5770") as router:
+                router.get(
+                    f"/api/v1/namespaces/{_NS}/test-plans/plan-1"
+                    "/runs/run-1/report.unified.json"
+                ).mock(
+                    return_value=httpx.Response(
+                        200,
+                        json={
+                            "planName": "plan-1",
+                            "runId": "run-1",
+                            "counts": {"total": 1, "passed": 1},
+                        },
+                    )
+                )
+                rep = await c.test_plans.get_run_report_unified("plan-1", "run-1")
+                assert rep.plan_name == "plan-1"
+                assert rep.counts.total == 1
+                assert rep.counts.passed == 1
+
+    async def test_get_run_report_html_async(self) -> None:
+        async with AsyncMockartyClient(
+            base_url="http://localhost:5770",
+            api_key="mk_test",
+            namespace=_NS,
+            max_retries=0,
+        ) as c:
+            with respx.mock(base_url="http://localhost:5770") as router:
+                router.get(
+                    f"/api/v1/namespaces/{_NS}/test-plans/plan-1"
+                    "/runs/run-1/report.html"
+                ).mock(
+                    return_value=httpx.Response(
+                        200, content=b"<!DOCTYPE html><html></html>"
+                    )
+                )
+                data = await c.test_plans.get_run_report_html("plan-1", "run-1")
+                assert data.startswith(b"<!DOCTYPE html>")
