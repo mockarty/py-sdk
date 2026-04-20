@@ -30,7 +30,9 @@ from mockarty.api.mocks import MockAPI
 from mockarty.api.namespace_settings import NamespaceSettingsAPI
 from mockarty.api.namespaces import NamespaceAPI
 from mockarty.api.perf import PerfAPI
+from mockarty.api.prompts import PromptsAPI
 from mockarty.api.proxy import ProxyAPI
+from mockarty.api.secrets import SecretsAPI
 from mockarty.api.recorder import RecorderAPI
 from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
@@ -115,6 +117,8 @@ class MockartyClient:
         self._environments: EnvironmentAPI | None = None
         self._entity_search: EntitySearchAPI | None = None
         self._trash: TrashAPI | None = None
+        self._secrets: SecretsAPI | None = None
+        self._prompts: PromptsAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -171,6 +175,8 @@ class MockartyClient:
         self._environments = None
         self._entity_search = None
         self._trash = None
+        self._secrets = None
+        self._prompts = None
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -201,6 +207,20 @@ class MockartyClient:
         if self._stores is None:
             self._stores = StoreAPI(self._http, self._namespace)
         return self._stores
+
+    @property
+    def secrets(self) -> SecretsAPI:
+        """Secrets Storage API (encrypted key/value stores, optional Vault backend)."""
+        if self._secrets is None:
+            self._secrets = SecretsAPI(self._http, self._namespace)
+        return self._secrets
+
+    @property
+    def prompts(self) -> PromptsAPI:
+        """Prompts Storage API (managed AI prompts with FIFO-20 versioning)."""
+        if self._prompts is None:
+            self._prompts = PromptsAPI(self._http, self._namespace)
+        return self._prompts
 
     @property
     def collections(self) -> CollectionAPI:

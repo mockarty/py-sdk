@@ -20,7 +20,9 @@ from mockarty.api.namespace_settings import (
 )
 from mockarty.api.namespaces import AsyncNamespaceAPI, NamespaceAPI
 from mockarty.api.perf import AsyncPerfAPI, PerfAPI
+from mockarty.api.prompts import AsyncPromptsAPI, PromptsAPI
 from mockarty.api.proxy import AsyncProxyAPI, ProxyAPI
+from mockarty.api.secrets import AsyncSecretsAPI, SecretsAPI
 from mockarty.api.recorder import AsyncRecorderAPI, RecorderAPI
 from mockarty.api.stats import AsyncStatsAPI, StatsAPI
 from mockarty.api.stores import AsyncStoreAPI, StoreAPI
@@ -46,7 +48,9 @@ __all__ = [
     "AsyncNamespaceAPI",
     "AsyncNamespaceSettingsAPI",
     "AsyncPerfAPI",
+    "AsyncPromptsAPI",
     "AsyncProxyAPI",
+    "AsyncSecretsAPI",
     "AsyncRecorderAPI",
     "AsyncStatsAPI",
     "AsyncStoreAPI",
@@ -68,7 +72,9 @@ __all__ = [
     "NamespaceAPI",
     "NamespaceSettingsAPI",
     "PerfAPI",
+    "PromptsAPI",
     "ProxyAPI",
+    "SecretsAPI",
     "RecorderAPI",
     "StatsAPI",
     "StoreAPI",

@@ -30,7 +30,9 @@ from mockarty.api.mocks import AsyncMockAPI
 from mockarty.api.namespace_settings import AsyncNamespaceSettingsAPI
 from mockarty.api.namespaces import AsyncNamespaceAPI
 from mockarty.api.perf import AsyncPerfAPI
+from mockarty.api.prompts import AsyncPromptsAPI
 from mockarty.api.proxy import AsyncProxyAPI
+from mockarty.api.secrets import AsyncSecretsAPI
 from mockarty.api.recorder import AsyncRecorderAPI
 from mockarty.api.stats import AsyncStatsAPI
 from mockarty.api.stores import AsyncStoreAPI
@@ -109,6 +111,8 @@ class AsyncMockartyClient:
         self._environments: AsyncEnvironmentAPI | None = None
         self._entity_search: AsyncEntitySearchAPI | None = None
         self._trash: AsyncTrashAPI | None = None
+        self._secrets: AsyncSecretsAPI | None = None
+        self._prompts: AsyncPromptsAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -165,6 +169,8 @@ class AsyncMockartyClient:
         self._environments = None
         self._entity_search = None
         self._trash = None
+        self._secrets = None
+        self._prompts = None
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -195,6 +201,20 @@ class AsyncMockartyClient:
         if self._stores is None:
             self._stores = AsyncStoreAPI(self._http, self._namespace)
         return self._stores
+
+    @property
+    def secrets(self) -> AsyncSecretsAPI:
+        """Secrets Storage API (async)."""
+        if self._secrets is None:
+            self._secrets = AsyncSecretsAPI(self._http, self._namespace)
+        return self._secrets
+
+    @property
+    def prompts(self) -> AsyncPromptsAPI:
+        """Prompts Storage API (async)."""
+        if self._prompts is None:
+            self._prompts = AsyncPromptsAPI(self._http, self._namespace)
+        return self._prompts
 
     @property
     def collections(self) -> AsyncCollectionAPI:
