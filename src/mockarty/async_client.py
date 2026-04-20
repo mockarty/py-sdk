@@ -19,6 +19,7 @@ from mockarty.api.agent_tasks import AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
+from mockarty.api.entity_search import AsyncEntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI
 from mockarty.api.fuzzing import AsyncFuzzingAPI
@@ -106,6 +107,7 @@ class AsyncMockartyClient:
         self._namespace_settings: AsyncNamespaceSettingsAPI | None = None
         self._proxy: AsyncProxyAPI | None = None
         self._environments: AsyncEnvironmentAPI | None = None
+        self._entity_search: AsyncEntitySearchAPI | None = None
         self._trash: AsyncTrashAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
@@ -161,6 +163,7 @@ class AsyncMockartyClient:
         self._namespace_settings = None
         self._proxy = None
         self._environments = None
+        self._entity_search = None
         self._trash = None
 
     # ── API resources ─────────────────────────────────────────────────
@@ -327,6 +330,13 @@ class AsyncMockartyClient:
         if self._environments is None:
             self._environments = AsyncEnvironmentAPI(self._http, self._namespace)
         return self._environments
+
+    @property
+    def entity_search(self) -> AsyncEntitySearchAPI:
+        """Unified entity-search API (resolve names → IDs across all types)."""
+        if self._entity_search is None:
+            self._entity_search = AsyncEntitySearchAPI(self._http, self._namespace)
+        return self._entity_search
 
     @property
     def trash(self) -> AsyncTrashAPI:

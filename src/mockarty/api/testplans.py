@@ -21,6 +21,7 @@ from mockarty.errors import MockartyAPIError, MockartyError
 from mockarty.models.testplan import (
     AdHocRunResponse,
     AllureReport,
+    CompareResult,
     CreateAdHocRunRequest,
     PatchPlanRequest,
     PlanRunStatus,
@@ -288,6 +289,27 @@ class TestPlansAPI(SyncAPIBase):
         body = resp.json()
         items = body.get("items", []) if isinstance(body, dict) else body
         return [TestPlanRun.model_validate(r) for r in items]
+
+    def compare_runs(self, run_a: str, run_b: str) -> CompareResult:
+        """Diff two Test Plan runs.
+
+        Both runs MUST live in the caller's namespace (the server returns 404
+        on cross-tenant probes — same no-leak semantics as ``get_run``).
+        Comparing runs of different plans IS allowed; ``CompareResult.summary
+        .different_plans`` flags the case so callers can render a banner.
+        Pass the older/baseline run as ``run_a`` and the newer/target run as
+        ``run_b`` to keep regression / improvement signs intuitive.
+        """
+        if not run_a or not run_b:
+            raise MockartyError("run_a and run_b are required")
+        if run_a == run_b:
+            raise MockartyError("run_a and run_b must differ")
+        resp = self._request(
+            "GET",
+            f"{_BASE}/runs/compare",
+            params={"run_a": run_a, "run_b": run_b},
+        )
+        return CompareResult.model_validate(resp.json())
 
     def wait_for_run(
         self,
@@ -802,6 +824,19 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         body = resp.json()
         items = body.get("items", []) if isinstance(body, dict) else body
         return [TestPlanRun.model_validate(r) for r in items]
+
+    async def compare_runs(self, run_a: str, run_b: str) -> CompareResult:
+        """Async sibling of :py:meth:`TestPlansAPI.compare_runs`."""
+        if not run_a or not run_b:
+            raise MockartyError("run_a and run_b are required")
+        if run_a == run_b:
+            raise MockartyError("run_a and run_b must differ")
+        resp = await self._request(
+            "GET",
+            f"{_BASE}/runs/compare",
+            params={"run_a": run_a, "run_b": run_b},
+        )
+        return CompareResult.model_validate(resp.json())
 
     async def wait_for_run(
         self,

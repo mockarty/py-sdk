@@ -19,6 +19,7 @@ from mockarty.api.agent_tasks import AgentTaskAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
+from mockarty.api.entity_search import EntitySearchAPI
 from mockarty.api.environments import EnvironmentAPI
 from mockarty.api.folders import FolderAPI
 from mockarty.api.fuzzing import FuzzingAPI
@@ -112,6 +113,7 @@ class MockartyClient:
         self._namespace_settings: NamespaceSettingsAPI | None = None
         self._proxy: ProxyAPI | None = None
         self._environments: EnvironmentAPI | None = None
+        self._entity_search: EntitySearchAPI | None = None
         self._trash: TrashAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
@@ -167,6 +169,7 @@ class MockartyClient:
         self._namespace_settings = None
         self._proxy = None
         self._environments = None
+        self._entity_search = None
         self._trash = None
 
     # ── API resources ─────────────────────────────────────────────────
@@ -331,6 +334,13 @@ class MockartyClient:
         if self._environments is None:
             self._environments = EnvironmentAPI(self._http, self._namespace)
         return self._environments
+
+    @property
+    def entity_search(self) -> EntitySearchAPI:
+        """Unified entity-search API (resolve names → IDs across all types)."""
+        if self._entity_search is None:
+            self._entity_search = EntitySearchAPI(self._http, self._namespace)
+        return self._entity_search
 
     @property
     def trash(self) -> TrashAPI:

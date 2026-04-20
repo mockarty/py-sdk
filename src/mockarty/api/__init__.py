@@ -6,6 +6,7 @@ from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
+from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
 from mockarty.api.fuzzing import AsyncFuzzingAPI, FuzzingAPI
@@ -34,6 +35,7 @@ __all__ = [
     "AsyncChaosAPI",
     "AsyncCollectionAPI",
     "AsyncContractAPI",
+    "AsyncEntitySearchAPI",
     "AsyncEnvironmentAPI",
     "AsyncFolderAPI",
     "AsyncFuzzingAPI",
@@ -55,6 +57,7 @@ __all__ = [
     "ChaosAPI",
     "CollectionAPI",
     "ContractAPI",
+    "EntitySearchAPI",
     "EnvironmentAPI",
     "FolderAPI",
     "FuzzingAPI",

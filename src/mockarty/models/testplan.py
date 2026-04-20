@@ -362,3 +362,115 @@ class UnifiedReport(BaseModel):
     generated_at: Optional[int] = Field(default=None, alias="generatedAt")
     duration_ms: Optional[int] = Field(default=None, alias="durationMs")
     raw: Optional[bytes] = Field(default=None, exclude=True)
+
+
+# -----------------------------------------------------------------------------
+# Compare runs (Phase-4 task #82)
+# -----------------------------------------------------------------------------
+
+
+class CompareItemSide(BaseModel):
+    """Per-run snapshot of a single item in a compare result."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    started_at: Optional[str] = Field(default=None, alias="startedAt")
+    completed_at: Optional[str] = Field(default=None, alias="completedAt")
+    status: Optional[str] = None
+    skip_reason: Optional[str] = Field(default=None, alias="skipReason")
+    error: Optional[str] = None
+    duration_ms: int = Field(default=0, alias="durationMs")
+    attempts: int = 0
+    present: bool = False
+
+
+class CompareItemDiff(BaseModel):
+    """Per-item delta classification.
+
+    ``regression_type`` is one of ``unchanged``, ``pass_to_fail``,
+    ``fail_to_pass``, ``skipped_to_ran``, ``ran_to_skipped``,
+    ``fail_to_fail``, ``pass_to_pass``, ``added``, ``removed``.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    regression_type: str = Field(default="unchanged", alias="regressionType")
+    duration_delta_ms: int = Field(default=0, alias="durationDeltaMs")
+    status_changed: bool = Field(default=False, alias="statusChanged")
+    is_regression: bool = Field(default=False, alias="isRegression")
+    is_improvement: bool = Field(default=False, alias="isImprovement")
+    duration_worsened: bool = Field(default=False, alias="durationWorsened")
+
+
+class CompareItem(BaseModel):
+    """One row in the compare diff (state on each side + delta)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    a: CompareItemSide = Field(default_factory=CompareItemSide)
+    b: CompareItemSide = Field(default_factory=CompareItemSide)
+    diff: CompareItemDiff = Field(default_factory=CompareItemDiff)
+    type: Optional[str] = None
+    name: Optional[str] = None
+    item_uid: str = Field(alias="itemUid")
+
+
+class CompareRunSide(BaseModel):
+    """Per-run envelope (counts, duration, plan name)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    started_at: Optional[str] = Field(default=None, alias="startedAt")
+    completed_at: Optional[str] = Field(default=None, alias="completedAt")
+    plan_name: Optional[str] = Field(default=None, alias="planName")
+    status: Optional[str] = None
+    namespace: Optional[str] = None
+    id: Optional[str] = None
+    plan_id: Optional[str] = Field(default=None, alias="planId")
+    plan_numeric_id: int = Field(default=0, alias="planNumericId")
+    total_items: int = Field(default=0, alias="totalItems")
+    completed_items: int = Field(default=0, alias="completedItems")
+    failed_items: int = Field(default=0, alias="failedItems")
+    passed_items: int = Field(default=0, alias="passedItems")
+    skipped_items: int = Field(default=0, alias="skippedItems")
+    duration_ms: int = Field(default=0, alias="durationMs")
+
+
+class CompareItemRef(BaseModel):
+    """Compact pointer to an item used in summary added/removed lists."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    type: Optional[str] = None
+    name: Optional[str] = None
+    item_uid: str = Field(alias="itemUid")
+
+
+class CompareSummary(BaseModel):
+    """Aggregate counters — useful when CI just wants a single number."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    added_items: list[CompareItemRef] = Field(default_factory=list, alias="addedItems")
+    removed_items: list[CompareItemRef] = Field(default_factory=list, alias="removedItems")
+    total_a: int = Field(default=0, alias="totalA")
+    total_b: int = Field(default=0, alias="totalB")
+    pass_to_fail: int = Field(default=0, alias="passToFail")
+    fail_to_pass: int = Field(default=0, alias="failToPass")
+    skipped_to_ran: int = Field(default=0, alias="skippedToRan")
+    ran_to_skipped: int = Field(default=0, alias="ranToSkipped")
+    regressions: int = 0
+    improvements: int = 0
+    unchanged_items: int = Field(default=0, alias="unchangedItems")
+    different_plans: bool = Field(default=False, alias="differentPlans")
+
+
+class CompareResult(BaseModel):
+    """Full diff envelope returned by GET /test-plans/runs/compare."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    run_a: CompareRunSide = Field(default_factory=CompareRunSide, alias="runA")
+    run_b: CompareRunSide = Field(default_factory=CompareRunSide, alias="runB")
+    items: list[CompareItem] = Field(default_factory=list)
+    summary: CompareSummary = Field(default_factory=CompareSummary)

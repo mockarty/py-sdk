@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
+from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
 from mockarty.api.namespace_settings import (
@@ -99,6 +100,18 @@ from mockarty.models.chaos import (
     TimelineEvent,
 )
 from mockarty.models.condition import AssertAction, Condition
+from mockarty.models.entity_search import (
+    ENTITY_SEARCH_DEFAULT_LIMIT,
+    ENTITY_SEARCH_MAX_LIMIT,
+    ENTITY_TYPE_CHAOS_EXPERIMENT,
+    ENTITY_TYPE_CONTRACT_PACT,
+    ENTITY_TYPE_FUZZ_CONFIG,
+    ENTITY_TYPE_MOCK,
+    ENTITY_TYPE_PERF_CONFIG,
+    ENTITY_TYPE_TEST_PLAN,
+    EntitySearchResponse,
+    EntitySearchResult,
+)
 from mockarty.models.contexts import (
     GraphQLRequestContext,
     GrpcRequestContext,
@@ -310,6 +323,19 @@ __all__ = [
     "AsyncProxyAPI",
     "EnvironmentAPI",
     "AsyncEnvironmentAPI",
+    "EntitySearchAPI",
+    "AsyncEntitySearchAPI",
+    # Entity-search models + constants
+    "EntitySearchResponse",
+    "EntitySearchResult",
+    "ENTITY_SEARCH_DEFAULT_LIMIT",
+    "ENTITY_SEARCH_MAX_LIMIT",
+    "ENTITY_TYPE_CHAOS_EXPERIMENT",
+    "ENTITY_TYPE_CONTRACT_PACT",
+    "ENTITY_TYPE_FUZZ_CONFIG",
+    "ENTITY_TYPE_MOCK",
+    "ENTITY_TYPE_PERF_CONFIG",
+    "ENTITY_TYPE_TEST_PLAN",
     "TestPlansAPI",
     "AsyncTestPlansAPI",
     "TrashAPI",
