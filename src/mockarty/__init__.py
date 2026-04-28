@@ -170,7 +170,7 @@ from mockarty.models.testplan import (
     UnifiedReportCounts,
     Webhook,
 )
-from mockarty.models.testrun import TestRun
+from mockarty.models.testrun import MergedRunList, MergedRunView, MergedTestRun, TestRun
 from mockarty.models.trash import (
     TRASH_PURGE_CONFIRMATION_PHRASE,
     BulkPurgeOutcome,
@@ -280,6 +280,9 @@ __all__ = [
     # Import models
     "ImportResult",
     # Test run models
+    "MergedRunList",
+    "MergedRunView",
+    "MergedTestRun",
     "TestRun",
     # Test plan models
     "TestPlan",

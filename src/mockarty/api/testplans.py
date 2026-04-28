@@ -425,6 +425,137 @@ class TestPlansAPI(SyncAPIBase):
             msg = body.get("error") or f"status={body.get('status')}"
             raise WebhookDeliveryError(f"webhook {webhook_id!r}: {msg}")
 
+    # ── T10: manual-flow surface ──────────────────────────────────────
+
+    def run_manual(
+        self,
+        id_or_numeric: str,
+        *,
+        execution_mode_override: Optional[str] = None,
+        record_detailed: bool = False,
+        notify_on_completion: bool = False,
+        notify_emails: Optional[list[str]] = None,
+        items: Optional[list[int]] = None,
+        mode: Optional[str] = None,
+    ) -> TestPlanRun:
+        """Trigger a Plan run with the T6/T7/T8 manual-flow knobs.
+
+        Args:
+            id_or_numeric: Plan UUID or numeric id (``#42`` / ``42`` both work).
+            execution_mode_override: ``"manual"`` forces every test_case item to
+                gate for human verdict; ``"auto"`` forces unattended; ``None`` /
+                ``""`` keeps the per-item default.
+            record_detailed: Persist per-item HAR-shaped traces (T6).
+            notify_on_completion: Fire a completion email at the end of the run.
+            notify_emails: Recipients for the completion email. Empty falls back
+                to plan-scoped subscribers.
+            items: Subset of 1-based item orders to execute. ``None`` = all.
+            mode: Orchestration override (sequential / parallel / dag / timed).
+        """
+        if execution_mode_override not in (None, "", "manual", "auto"):
+            raise ValueError(
+                "execution_mode_override must be 'manual', 'auto', or None"
+            )
+        key = _normalize_id(id_or_numeric)
+        body: dict[str, Any] = {}
+        if execution_mode_override:
+            body["executionModeOverride"] = execution_mode_override
+        if record_detailed:
+            body["recordDetailed"] = True
+        if notify_on_completion:
+            body["notifyOnCompletion"] = True
+        if notify_emails:
+            body["notifyEmails"] = list(notify_emails)
+        if items:
+            body["items"] = list(items)
+        if mode:
+            body["mode"] = mode
+        resp = self._request("POST", f"{_BASE}/{key}/run", json=body or None)
+        payload = resp.json()
+        return TestPlanRun(
+            id=payload.get("runId"),
+            plan_id=payload.get("planId"),
+            status=payload.get("status"),
+        )
+
+    def resolve_step(
+        self,
+        case_run_id: str,
+        step_uid: str,
+        *,
+        resolution: str,
+        note: Optional[str] = None,
+        note_fmt: Optional[str] = None,
+        attachment_ids: Optional[list[str]] = None,
+        extracted: Optional[dict[str, Any]] = None,
+        namespace: Optional[str] = None,
+    ) -> None:
+        """Push a verdict for a manual_pending TCM case-run step.
+
+        Hits ``POST /api/v1/namespaces/:ns/tcm/case-runs/:runId/steps/:stepUid/resolve``.
+
+        Args:
+            case_run_id: TCM case-run UUID (NOT plan-run id — get the case-run
+                id from the awaiting-manual list).
+            step_uid: Step UID (case-step UID, not a UUID).
+            resolution: ``"pass"`` | ``"fail"`` | ``"skip"``.
+            note: Free-form note recorded with the verdict.
+            note_fmt: ``"markdown"`` (default) or ``"plain"``.
+            attachment_ids: Pre-uploaded attachment UUIDs.
+            extracted: Free-form key/value bag persisted with the resolution.
+            namespace: Falls back to the client default.
+        """
+        if resolution not in ("pass", "fail", "skip"):
+            raise ValueError("resolution must be 'pass', 'fail', or 'skip'")
+        ns = self._resolve_namespace(namespace)
+        body: dict[str, Any] = {"resolution": resolution}
+        if note is not None:
+            body["note"] = note
+        if note_fmt:
+            body["noteFmt"] = note_fmt
+        if attachment_ids:
+            body["attachments"] = list(attachment_ids)
+        if extracted:
+            body["extracted"] = extracted
+        path = (
+            f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}"
+            f"/steps/{quote(step_uid, safe='')}/resolve"
+        )
+        self._request("POST", path, json=body)
+
+    def _case_run_action(
+        self, case_run_id: str, action: str, *, namespace: Optional[str] = None
+    ) -> None:
+        ns = self._resolve_namespace(namespace)
+        path = (
+            f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}/{action}"
+        )
+        self._request("POST", path)
+
+    def pause_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        """Pause an in-flight TCM case-run."""
+        self._case_run_action(case_run_id, "pause", namespace=namespace)
+
+    def resume_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        """Resume a paused TCM case-run."""
+        self._case_run_action(case_run_id, "resume", namespace=namespace)
+
+    def cancel_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        """Cancel a TCM case-run (terminal)."""
+        self._case_run_action(case_run_id, "cancel", namespace=namespace)
+
+    def rerun_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        """Re-execute a TCM case-run with the same case definition."""
+        self._case_run_action(case_run_id, "rerun", namespace=namespace)
+
     # ── TP-6b: namespace-scoped endpoints ─────────────────────────────
 
     def _resolve_namespace(self, namespace: Optional[str]) -> str:
@@ -809,6 +940,112 @@ class AsyncTestPlansAPI(AsyncAPIBase):
 
     async def cancel_run(self, run_id: str) -> None:
         await self._request("POST", f"{_BASE}/runs/{run_id}/cancel")
+
+    # ── T10: manual-flow surface (async) ──────────────────────────────
+
+    async def run_manual(
+        self,
+        id_or_numeric: str,
+        *,
+        execution_mode_override: Optional[str] = None,
+        record_detailed: bool = False,
+        notify_on_completion: bool = False,
+        notify_emails: Optional[list[str]] = None,
+        items: Optional[list[int]] = None,
+        mode: Optional[str] = None,
+    ) -> TestPlanRun:
+        """Async sibling of :py:meth:`TestPlansAPI.run_manual`."""
+        if execution_mode_override not in (None, "", "manual", "auto"):
+            raise ValueError(
+                "execution_mode_override must be 'manual', 'auto', or None"
+            )
+        key = _normalize_id(id_or_numeric)
+        body: dict[str, Any] = {}
+        if execution_mode_override:
+            body["executionModeOverride"] = execution_mode_override
+        if record_detailed:
+            body["recordDetailed"] = True
+        if notify_on_completion:
+            body["notifyOnCompletion"] = True
+        if notify_emails:
+            body["notifyEmails"] = list(notify_emails)
+        if items:
+            body["items"] = list(items)
+        if mode:
+            body["mode"] = mode
+        resp = await self._request(
+            "POST", f"{_BASE}/{key}/run", json=body or None
+        )
+        payload = resp.json()
+        return TestPlanRun(
+            id=payload.get("runId"),
+            plan_id=payload.get("planId"),
+            status=payload.get("status"),
+        )
+
+    async def resolve_step(
+        self,
+        case_run_id: str,
+        step_uid: str,
+        *,
+        resolution: str,
+        note: Optional[str] = None,
+        note_fmt: Optional[str] = None,
+        attachment_ids: Optional[list[str]] = None,
+        extracted: Optional[dict[str, Any]] = None,
+        namespace: Optional[str] = None,
+    ) -> None:
+        """Async sibling of :py:meth:`TestPlansAPI.resolve_step`."""
+        if resolution not in ("pass", "fail", "skip"):
+            raise ValueError("resolution must be 'pass', 'fail', or 'skip'")
+        ns = (namespace or self._namespace or "").strip()
+        if not ns:
+            raise ValueError("namespace is required for this endpoint")
+        body: dict[str, Any] = {"resolution": resolution}
+        if note is not None:
+            body["note"] = note
+        if note_fmt:
+            body["noteFmt"] = note_fmt
+        if attachment_ids:
+            body["attachments"] = list(attachment_ids)
+        if extracted:
+            body["extracted"] = extracted
+        path = (
+            f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}"
+            f"/steps/{quote(step_uid, safe='')}/resolve"
+        )
+        await self._request("POST", path, json=body)
+
+    async def _case_run_action(
+        self, case_run_id: str, action: str, *, namespace: Optional[str]
+    ) -> None:
+        ns = (namespace or self._namespace or "").strip()
+        if not ns:
+            raise ValueError("namespace is required for this endpoint")
+        path = (
+            f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}/{action}"
+        )
+        await self._request("POST", path)
+
+    async def pause_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        await self._case_run_action(case_run_id, "pause", namespace=namespace)
+
+    async def resume_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        await self._case_run_action(case_run_id, "resume", namespace=namespace)
+
+    async def cancel_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        await self._case_run_action(case_run_id, "cancel", namespace=namespace)
+
+    async def rerun_case_run(
+        self, case_run_id: str, *, namespace: Optional[str] = None
+    ) -> None:
+        await self._case_run_action(case_run_id, "rerun", namespace=namespace)
 
     async def list_runs(
         self, plan_id: str, limit: Optional[int] = None, offset: Optional[int] = None

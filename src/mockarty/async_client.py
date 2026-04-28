@@ -26,6 +26,7 @@ from mockarty.api.fuzzing import AsyncFuzzingAPI
 from mockarty.api.generator import AsyncGeneratorAPI
 from mockarty.api.health import AsyncHealthAPI
 from mockarty.api.imports import AsyncImportAPI
+from mockarty.api.me import AsyncMeAPI
 from mockarty.api.mocks import AsyncMockAPI
 from mockarty.api.namespace_settings import AsyncNamespaceSettingsAPI
 from mockarty.api.namespaces import AsyncNamespaceAPI
@@ -113,6 +114,7 @@ class AsyncMockartyClient:
         self._trash: AsyncTrashAPI | None = None
         self._secrets: AsyncSecretsAPI | None = None
         self._prompts: AsyncPromptsAPI | None = None
+        self._me: AsyncMeAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -171,6 +173,7 @@ class AsyncMockartyClient:
         self._trash = None
         self._secrets = None
         self._prompts = None
+        self._me = None
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -292,6 +295,13 @@ class AsyncMockartyClient:
         if self._test_plans is None:
             self._test_plans = AsyncTestPlansAPI(self._http, self._namespace)
         return self._test_plans
+
+    @property
+    def me(self) -> AsyncMeAPI:
+        """Per-caller endpoints (``/api/v1/me/*``)."""
+        if self._me is None:
+            self._me = AsyncMeAPI(self._http, self._namespace)
+        return self._me
 
     @property
     def tags(self) -> AsyncTagAPI:

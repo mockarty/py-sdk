@@ -26,6 +26,7 @@ from mockarty.api.fuzzing import FuzzingAPI
 from mockarty.api.generator import GeneratorAPI
 from mockarty.api.health import HealthAPI
 from mockarty.api.imports import ImportAPI
+from mockarty.api.me import MeAPI
 from mockarty.api.mocks import MockAPI
 from mockarty.api.namespace_settings import NamespaceSettingsAPI
 from mockarty.api.namespaces import NamespaceAPI
@@ -119,6 +120,7 @@ class MockartyClient:
         self._trash: TrashAPI | None = None
         self._secrets: SecretsAPI | None = None
         self._prompts: PromptsAPI | None = None
+        self._me: MeAPI | None = None
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -177,6 +179,7 @@ class MockartyClient:
         self._trash = None
         self._secrets = None
         self._prompts = None
+        self._me = None
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -298,6 +301,18 @@ class MockartyClient:
         if self._test_plans is None:
             self._test_plans = TestPlansAPI(self._http, self._namespace)
         return self._test_plans
+
+    @property
+    def me(self) -> MeAPI:
+        """Per-caller endpoints (``/api/v1/me/*``).
+
+        Currently exposes ``awaiting_manual()`` for the topbar bell-counter
+        / CI guard. Future per-caller routes (preferences, API key listing)
+        will live here too.
+        """
+        if self._me is None:
+            self._me = MeAPI(self._http, self._namespace)
+        return self._me
 
     @property
     def tags(self) -> TagAPI:
