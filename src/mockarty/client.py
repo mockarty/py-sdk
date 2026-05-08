@@ -20,6 +20,7 @@ from mockarty.api.chaos import ChaosAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.entity_search import EntitySearchAPI
+from mockarty.api.external_runs import ExternalRunsAPI
 from mockarty.api.environments import EnvironmentAPI
 from mockarty.api.folders import FolderAPI
 from mockarty.api.fuzzing import FuzzingAPI
@@ -41,7 +42,6 @@ from mockarty.api.tags import TagAPI
 from mockarty.api.templates import TemplateAPI
 from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
-from mockarty.api.trash import TrashAPI
 from mockarty.api.undefined import UndefinedAPI
 
 
@@ -117,7 +117,7 @@ class MockartyClient:
         self._proxy: ProxyAPI | None = None
         self._environments: EnvironmentAPI | None = None
         self._entity_search: EntitySearchAPI | None = None
-        self._trash: TrashAPI | None = None
+        self._external_runs: ExternalRunsAPI | None = None
         self._secrets: SecretsAPI | None = None
         self._prompts: PromptsAPI | None = None
         self._me: MeAPI | None = None
@@ -176,7 +176,7 @@ class MockartyClient:
         self._proxy = None
         self._environments = None
         self._entity_search = None
-        self._trash = None
+        self._external_runs = None
         self._secrets = None
         self._prompts = None
         self._me = None
@@ -378,8 +378,9 @@ class MockartyClient:
         return self._entity_search
 
     @property
-    def trash(self) -> TrashAPI:
-        """Recycle Bin / Soft-Delete API (list, restore, purge)."""
-        if self._trash is None:
-            self._trash = TrashAPI(self._http, self._namespace)
-        return self._trash
+    def external_runs(self) -> ExternalRunsAPI:
+        """External-framework upload API (POST /tcm/external-runs)."""
+        if self._external_runs is None:
+            self._external_runs = ExternalRunsAPI(self._http, self._namespace)
+        return self._external_runs
+

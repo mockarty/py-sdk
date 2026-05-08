@@ -150,79 +150,80 @@ def _upload_case_outcome(
     report: pytest.TestReport,
     case: _ctx.CaseFrame,
 ) -> None:
-    """Synthesize a case-run on the server reflecting the pytest outcome.
+    """POST a synthetic case run reflecting the pytest outcome.
 
-    This is a best-effort facade over the SDK's TCM client. The exact
-    method names below intentionally probe what the live SDK exposes, so
-    a future SDK rename doesn't break the plugin — when the method is
-    absent we silently skip rather than blow up.
+    Goes through ``client.external_runs.report(...)`` which hits
+    ``/api/v1/namespaces/:ns/tcm/external-runs``. The endpoint owns
+    case resolution (UUID > name > auto-create) so the plugin only
+    needs to hand it the bound frame's identifiers + the captured
+    pytest data.
+
+    Best-effort: any error here is swallowed by the caller. Tests must
+    never fail because the upload failed.
     """
-    tcm = getattr(client, "tcm", None)
-    if tcm is None:
-        return  # SDK doesn't ship TCM client surface yet — silent skip
+    runs_api = getattr(client, "external_runs", None)
+    if runs_api is None:
+        return  # SDK predates external_runs — silent skip
+    if case.case_id is None and not case.auto_create:
+        return  # no binding to upload against
 
-    case_id = case.case_id
-    if case_id is None and case.auto_create and case.case_name:
-        case_id = _maybe_create_case(tcm, case.case_name, case.plan_id)
-    if not case_id:
-        return  # no binding; nothing to upload against
+    steps = [
+        {
+            "name": s.get("name", ""),
+            "status": _pytest_step_status(s.get("status", "passed")),
+            "error": s.get("error"),
+            "metadata": s.get("metadata"),
+        }
+        for s in case.steps
+    ]
 
-    status = _pytest_status_to_tcm(report)
-    payload = {
-        "test_id": item.nodeid,
-        "status": status,
-        "duration_ms": int(report.duration * 1000) if report.duration else 0,
-        "stdout": getattr(report, "capstdout", "") or "",
-        "stderr": getattr(report, "capstderr", "") or "",
-        "steps": list(case.steps),
-        "metadata": dict(case.metadata),
-    }
-    if report.longreprtext:
-        payload["error"] = report.longreprtext
+    attachments = [
+        {
+            "name": a["name"],
+            "body": a["body"],
+            "contentType": a.get("content_type", "application/octet-stream"),
+        }
+        for a in case.attachments
+    ]
 
-    # Best-effort dispatch — try the most likely method names in order.
-    if hasattr(tcm, "report_test_outcome"):
-        tcm.report_test_outcome(case_id=case_id, **payload)
-    elif hasattr(tcm, "create_case_run"):
-        tcm.create_case_run(case_id=case_id, **payload)
-    else:
-        return  # SDK surface not yet available — fail-soft
-
-    # Attachments — separate call to keep transport simple.
-    if hasattr(tcm, "upload_attachment") and case.attachments:
-        for att in case.attachments:
-            try:
-                tcm.upload_attachment(
-                    case_id=case_id,
-                    name=att["name"],
-                    body=att["body"],
-                    content_type=att["content_type"],
-                )
-            except Exception:  # pragma: no cover — best-effort
-                pass
-
-
-def _maybe_create_case(
-    tcm: Any, name: str, plan_id: Optional[str]
-) -> Optional[str]:
-    """Create a case via the SDK if ``auto_create=True`` was set."""
-    if not hasattr(tcm, "create_case"):
-        return None
-    try:
-        result = tcm.create_case(name=name, plan_id=plan_id)
-    except Exception:  # pragma: no cover — best-effort
-        return None
-    return getattr(result, "id", None)
+    runs_api.report(
+        status=_pytest_status_to_external(report),
+        case_id=case.case_id,
+        case_name=case.case_name,
+        plan_id=case.plan_id,
+        auto_create=case.auto_create,
+        framework="pytest",
+        framework_version=pytest.__version__,
+        external_id=item.nodeid,
+        test_display_name=item.name,
+        duration_ms=int(report.duration * 1000) if report.duration else 0,
+        error=report.longreprtext if report.longreprtext else None,
+        stdout=getattr(report, "capstdout", "") or None,
+        stderr=getattr(report, "capstderr", "") or None,
+        metadata=dict(case.metadata) if case.metadata else None,
+        steps=steps if steps else None,
+        attachments=attachments if attachments else None,
+    )
 
 
-def _pytest_status_to_tcm(report: pytest.TestReport) -> str:
+def _pytest_status_to_external(report: pytest.TestReport) -> str:
+    """Map a pytest report.outcome to the external-run status enum."""
     if report.passed:
         return "passed"
     if report.failed:
         return "failed"
     if report.skipped:
         return "skipped"
-    return "unknown"
+    # pytest's "unknown" rarely surfaces in practice, but the server
+    # rejects anything outside the enum so map it to failed.
+    return "failed"
+
+
+def _pytest_step_status(s: str) -> str:
+    """Coerce a step's recorded status into the wire enum."""
+    if s in ("passed", "failed", "skipped", "broken"):
+        return s
+    return "failed"
 
 
 _warned_no_client = False

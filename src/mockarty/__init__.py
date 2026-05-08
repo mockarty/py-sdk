@@ -22,6 +22,16 @@ from __future__ import annotations
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
+from mockarty.api.external_runs import (
+    EXTERNAL_RUN_SCHEMA_VERSION,
+    EXTERNAL_STATUS_BROKEN,
+    EXTERNAL_STATUS_CANCELLED,
+    EXTERNAL_STATUS_FAILED,
+    EXTERNAL_STATUS_PASSED,
+    EXTERNAL_STATUS_SKIPPED,
+    AsyncExternalRunsAPI,
+    ExternalRunsAPI,
+)
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
 from mockarty.api.namespace_settings import (
@@ -41,7 +51,6 @@ from mockarty.api.testplans import (
     TestPlansAPI,
     WebhookDeliveryError,
 )
-from mockarty.api.trash import AsyncTrashAPI, PurgeConfirmationError, TrashAPI
 from mockarty.api.undefined import AsyncUndefinedAPI, UndefinedAPI
 from mockarty.async_client import AsyncMockartyClient
 from mockarty.builders.mock_builder import MockBuilder, OneOfBuilder
@@ -171,21 +180,6 @@ from mockarty.models.testplan import (
     Webhook,
 )
 from mockarty.models.testrun import MergedRunList, MergedRunView, MergedTestRun, TestRun
-from mockarty.models.trash import (
-    TRASH_PURGE_CONFIRMATION_PHRASE,
-    BulkPurgeOutcome,
-    BulkPurgeResult,
-    BulkRestoreOutcome,
-    BulkRestoreResult,
-    PurgeNowResult,
-    RestoreResult,
-    TrashItem,
-    TrashListResult,
-    TrashSettings,
-    TrashSettingsUpdate,
-    TrashSummary,
-    TrashSummaryCount,
-)
 from mockarty.models.undefined import UndefinedRequest
 
 __version__ = "0.3.0"
@@ -341,23 +335,14 @@ __all__ = [
     "ENTITY_TYPE_TEST_PLAN",
     "TestPlansAPI",
     "AsyncTestPlansAPI",
-    "TrashAPI",
-    "AsyncTrashAPI",
-    # Trash models
-    "TRASH_PURGE_CONFIRMATION_PHRASE",
-    "TrashItem",
-    "TrashListResult",
-    "TrashSummary",
-    "TrashSummaryCount",
-    "TrashSettings",
-    "TrashSettingsUpdate",
-    "RestoreResult",
-    "BulkRestoreOutcome",
-    "BulkRestoreResult",
-    "BulkPurgeOutcome",
-    "BulkPurgeResult",
-    "PurgeNowResult",
-    "PurgeConfirmationError",
+    "ExternalRunsAPI",
+    "AsyncExternalRunsAPI",
+    "EXTERNAL_RUN_SCHEMA_VERSION",
+    "EXTERNAL_STATUS_PASSED",
+    "EXTERNAL_STATUS_FAILED",
+    "EXTERNAL_STATUS_BROKEN",
+    "EXTERNAL_STATUS_SKIPPED",
+    "EXTERNAL_STATUS_CANCELLED",
     # Test plan errors
     "TestPlanError",
     "PlanNotFoundError",

@@ -20,6 +20,7 @@ from mockarty.api.chaos import AsyncChaosAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
+from mockarty.api.external_runs import AsyncExternalRunsAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI
 from mockarty.api.fuzzing import AsyncFuzzingAPI
@@ -41,7 +42,6 @@ from mockarty.api.tags import AsyncTagAPI
 from mockarty.api.templates import AsyncTemplateAPI
 from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
-from mockarty.api.trash import AsyncTrashAPI
 from mockarty.api.undefined import AsyncUndefinedAPI
 
 
@@ -111,7 +111,7 @@ class AsyncMockartyClient:
         self._proxy: AsyncProxyAPI | None = None
         self._environments: AsyncEnvironmentAPI | None = None
         self._entity_search: AsyncEntitySearchAPI | None = None
-        self._trash: AsyncTrashAPI | None = None
+        self._external_runs: AsyncExternalRunsAPI | None = None
         self._secrets: AsyncSecretsAPI | None = None
         self._prompts: AsyncPromptsAPI | None = None
         self._me: AsyncMeAPI | None = None
@@ -170,7 +170,7 @@ class AsyncMockartyClient:
         self._proxy = None
         self._environments = None
         self._entity_search = None
-        self._trash = None
+        self._external_runs = None
         self._secrets = None
         self._prompts = None
         self._me = None
@@ -369,8 +369,9 @@ class AsyncMockartyClient:
         return self._entity_search
 
     @property
-    def trash(self) -> AsyncTrashAPI:
-        """Recycle Bin / Soft-Delete API (list, restore, purge)."""
-        if self._trash is None:
-            self._trash = AsyncTrashAPI(self._http, self._namespace)
-        return self._trash
+    def external_runs(self) -> AsyncExternalRunsAPI:
+        """External-framework upload API (POST /tcm/external-runs)."""
+        if self._external_runs is None:
+            self._external_runs = AsyncExternalRunsAPI(self._http, self._namespace)
+        return self._external_runs
+
