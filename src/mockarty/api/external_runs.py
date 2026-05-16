@@ -14,6 +14,9 @@ names use camelCase to match the Go struct's JSON tags.
 from __future__ import annotations
 
 import base64
+import glob
+import json
+import os
 from typing import Any, Iterable, Optional
 from urllib.parse import quote
 
@@ -210,6 +213,36 @@ class ExternalRunsAPI(SyncAPIBase):
         resp = self._request("POST", _ns_path(ns), json=body)
         return resp.json() if resp.content else {}
 
+    def upload_allure_dir(
+        self,
+        directory: str,
+        *,
+        namespace: Optional[str] = None,
+        plan_id: Optional[str] = None,
+        framework: str = "allure",
+        auto_create: bool = True,
+        on_error: str = "warn",
+    ) -> list[dict[str, Any]]:
+        """Read an ``allure-results`` directory and POST each result.
+
+        Reads every ``*-result.json`` file produced by either
+        ``allure-pytest`` or our :class:`mockarty.allure_writer.AllureResultsWriter`,
+        translates it into an external-run payload, and posts to TCM.
+        Returns the list of server responses (one per result).
+
+        Args:
+            directory: filesystem path to the ``allure-results`` dir.
+            namespace: target Mockarty namespace (falls back to client default).
+            plan_id: optional plan id to associate every uploaded run with.
+            framework: ``framework`` label on the wire (default ``allure``).
+            auto_create: when True, missing cases are created server-side.
+            on_error: ``warn`` (default) logs + continues; ``raise`` re-raises.
+        """
+        return _upload_allure_dir_impl(
+            self, directory, namespace=namespace, plan_id=plan_id,
+            framework=framework, auto_create=auto_create, on_error=on_error,
+        )
+
 
 class AsyncExternalRunsAPI(AsyncAPIBase):
     """Async counterpart of :class:`ExternalRunsAPI`."""
@@ -262,3 +295,142 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         )
         resp = await self._request("POST", _ns_path(ns), json=body)
         return resp.json() if resp.content else {}
+
+
+# ── Allure → external-run translator ────────────────────────────────────
+
+
+def _upload_allure_dir_impl(
+    api: Any,
+    directory: str,
+    *,
+    namespace: Optional[str],
+    plan_id: Optional[str],
+    framework: str,
+    auto_create: bool,
+    on_error: str,
+) -> list[dict[str, Any]]:
+    """Shared implementation between Sync/Async ExternalRunsAPI.
+
+    Iterates the directory, translates each result JSON via
+    :func:`allure_result_to_external_payload`, then calls
+    :meth:`ExternalRunsAPI.report`. Caller controls error policy.
+    """
+    import warnings as _warnings
+
+    if not os.path.isdir(directory):
+        raise FileNotFoundError(f"allure-results directory not found: {directory}")
+    out: list[dict[str, Any]] = []
+    pattern = os.path.join(directory, "*-result.json")
+    for path in sorted(glob.glob(pattern)):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except Exception as exc:
+            if on_error == "raise":
+                raise
+            _warnings.warn(
+                f"mockarty: failed to read {path}: {exc}",
+                RuntimeWarning, stacklevel=2,
+            )
+            continue
+        kwargs = allure_result_to_external_payload(
+            doc, directory=directory, plan_id=plan_id, framework=framework,
+            auto_create=auto_create,
+        )
+        if namespace:
+            kwargs["namespace"] = namespace
+        try:
+            out.append(api.report(**kwargs))
+        except Exception as exc:
+            if on_error == "raise":
+                raise
+            _warnings.warn(
+                f"mockarty: upload failed for {path}: {exc}",
+                RuntimeWarning, stacklevel=2,
+            )
+    return out
+
+
+def allure_result_to_external_payload(
+    doc: dict[str, Any],
+    *,
+    directory: str,
+    plan_id: Optional[str],
+    framework: str,
+    auto_create: bool,
+) -> dict[str, Any]:
+    """Translate an Allure-2 TestResult dict into kwargs for ``report()``.
+
+    Reads attachment sources off the filesystem (Allure attachments live
+    in the same dir under ``<uuid>-attachment.<ext>``). Skips an
+    attachment whose source is missing rather than failing the upload.
+    """
+    name = doc.get("name") or doc.get("fullName") or "unnamed"
+    full_name = doc.get("fullName")
+    status_raw = (doc.get("status") or "passed").lower()
+    if status_raw not in ("passed", "failed", "broken", "skipped"):
+        status_raw = "failed"
+    # Server enum doesn't know "broken"; map to "failed".
+    wire_status = "failed" if status_raw == "broken" else status_raw
+    start = doc.get("start")
+    stop = doc.get("stop")
+    duration_ms = int(stop) - int(start) if (start and stop) else 0
+    err = None
+    sd = doc.get("statusDetails") or {}
+    if sd.get("message"):
+        err = sd["message"]
+        if sd.get("trace"):
+            err = f"{err}\n{sd['trace']}"
+    # Labels → flat dict keyed by label name (last wins for duplicates).
+    labels = {}
+    for lab in doc.get("labels") or []:
+        try:
+            labels[str(lab["name"])] = str(lab["value"])
+        except Exception:
+            continue
+    # Steps → wire shape (name + status + error).
+    steps: list[dict[str, Any]] = []
+    for s in doc.get("steps") or []:
+        s_status = (s.get("status") or "passed").lower()
+        if s_status == "broken":
+            s_status = "failed"
+        sd_s = s.get("statusDetails") or {}
+        steps.append({
+            "name": s.get("name", ""),
+            "status": s_status if s_status in ("passed", "failed", "skipped", "broken") else "failed",
+            "error": sd_s.get("message"),
+        })
+    # Attachments → load body bytes from filesystem.
+    attachments: list[dict[str, Any]] = []
+    for a in doc.get("attachments") or []:
+        src = a.get("source")
+        if not src:
+            continue
+        path = os.path.join(directory, src)
+        try:
+            with open(path, "rb") as fh:
+                body = fh.read()
+        except OSError:
+            continue
+        attachments.append({
+            "name": a.get("name") or src,
+            "body": body,
+            "contentType": a.get("type") or "application/octet-stream",
+        })
+    return {
+        "status": wire_status,
+        "case_id": doc.get("testCaseId"),
+        "case_name": name,
+        "plan_id": plan_id,
+        "auto_create": auto_create if not doc.get("testCaseId") else False,
+        "framework": framework,
+        "external_id": doc.get("uuid"),
+        "test_display_name": name,
+        "duration_ms": duration_ms,
+        "error": err,
+        "labels": labels or None,
+        "metadata": {"allureFullName": full_name} if full_name else None,
+        "steps": steps or None,
+        "attachments": attachments or None,
+    }
