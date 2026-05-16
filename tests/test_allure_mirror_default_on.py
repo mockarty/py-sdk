@@ -366,3 +366,35 @@ def test_allure_step_without_case_frame_is_silent(listener_active):
     with allure.step("orphan"):
         pass  # must not raise
     assert ctx.current_case() is None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 8) SuppressingCM resets the ContextVar even when the inner CM
+#    raises in __enter__ — regression guard for the recursion guard.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def test_suppressing_cm_resets_contextvar_on_enter_failure():
+    """A failed ``__enter__`` must NOT leak the suppression flag.
+
+    If the recursion guard ContextVar leaks (because we forgot to reset
+    it in the enter-failure branch), the next genuine Allure step in
+    the same context would be silently dropped by the mirror — a
+    silent data-loss bug. Pin the contract here.
+    """
+
+    class _Failing:
+        def __enter__(self):
+            raise RuntimeError("inner enter failed")
+
+        def __exit__(self, *_):  # pragma: no cover — never reached
+            return False
+
+    assert _mirror._suppress_mirror.get() is False
+    cm = _mirror._SuppressingCM(_Failing())
+    with pytest.raises(RuntimeError):
+        cm.__enter__()
+    assert _mirror._suppress_mirror.get() is False, (
+        "ContextVar leaked after inner __enter__ raised — the recursion "
+        "guard would silently drop subsequent Allure step events."
+    )
