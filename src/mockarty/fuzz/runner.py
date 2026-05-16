@@ -285,11 +285,24 @@ class Runner:
         """Best-effort response-to-dict adapter.
 
         Supports httpx-style ``.json()`` and dict-typed responses from
-        stubs / mocks.
+        stubs / mocks. When the underlying response carries an HTTP
+        error status we delegate to the shared error mapper so callers
+        observe typed SDK exceptions (e.g.
+        :class:`mockarty.errors.MockartyValidationError` for 400 with
+        ``code=validation``) instead of a raw ``RuntimeError`` later
+        on missing-field paths.
         """
 
         if isinstance(resp, dict):
             return resp
+        # httpx.Response carries .is_success + .json(); when it isn't
+        # successful we hand it to the SDK error mapper to keep typed
+        # error parity with the rest of the API surface.
+        if getattr(resp, "is_success", True) is False:
+            # Imported lazily to avoid a circular dep on _base_client.
+            from mockarty._base_client import raise_for_status
+
+            raise_for_status(resp)  # always raises
         if hasattr(resp, "json"):
             data = resp.json()
             if isinstance(data, dict):

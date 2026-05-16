@@ -11,6 +11,40 @@ from mockarty.models.common import MockLogs, Page, RequestLog
 from mockarty.models.mock import Mock, SaveMockResponse
 
 
+# Mapping of ``_meta`` keys → top-level Mock field aliases. The admin
+# nests lifecycle/audit timestamps under ``_meta`` on GET responses so
+# the wire shape stays back-compatible with old UI builds, but the SDK
+# exposes them as ordinary attributes. Whenever we model_validate a raw
+# mock response we lift these so callers can do ``mock.closed_at`` after
+# a soft delete (or any other audit-driven flow).
+_META_LIFT: dict[str, str] = {
+    "closedAt": "closedAt",
+    "createdAt": "createdAt",
+    "lastUse": "lastUse",
+    "expireAt": "expireAt",
+}
+
+
+def _unwrap_meta(data: Any) -> Any:
+    """Promote known ``_meta`` keys to top-level so Mock model_validate
+    picks them up via the existing aliases. Non-dict input is returned
+    untouched so list endpoints that already return flat dicts keep
+    working. Always returns a new dict — never mutates the caller's
+    response payload."""
+    if not isinstance(data, dict):
+        return data
+    meta = data.get("_meta")
+    if not isinstance(meta, dict):
+        return data
+    out = dict(data)
+    for src, dst in _META_LIFT.items():
+        # never overwrite an explicit top-level value (defensive against
+        # future server versions that duplicate the field at the root)
+        if dst not in out and src in meta:
+            out[dst] = meta[src]
+    return out
+
+
 class MockAPI(SyncAPIBase):
     """Synchronous Mock API resource."""
 
@@ -18,12 +52,15 @@ class MockAPI(SyncAPIBase):
         """Create a new mock. Returns whether an existing mock was overwritten."""
         resp = self._request("POST", "/api/v1/mocks", json=mock)
         data = resp.json()
+        if isinstance(data, dict) and isinstance(data.get("mock"), dict):
+            data = dict(data)
+            data["mock"] = _unwrap_meta(data["mock"])
         return SaveMockResponse.model_validate(data)
 
     def get(self, mock_id: str) -> Mock:
         """Retrieve a mock by its ID."""
         resp = self._request("GET", f"/api/v1/mocks/{mock_id}")
-        return Mock.model_validate(resp.json())
+        return Mock.model_validate(_unwrap_meta(resp.json()))
 
     def list(
         self,
@@ -48,13 +85,13 @@ class MockAPI(SyncAPIBase):
 
         # The server returns a list of mocks; wrap in Page
         if isinstance(data, list):
-            mocks = [Mock.model_validate(m) for m in data]
+            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in data]
             return Page[Mock](items=mocks, total=len(mocks), offset=offset, limit=limit)
 
         # If server returns a paginated envelope, parse it
         if isinstance(data, dict):
             items = data.get("items") or data.get("mocks") or []
-            mocks = [Mock.model_validate(m) for m in items]
+            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in items]
             return Page[Mock](
                 items=mocks,
                 total=data.get("total", len(mocks)),
@@ -73,13 +110,16 @@ class MockAPI(SyncAPIBase):
             mock.id = mock_id
         resp = self._request("POST", "/api/v1/mocks", json=mock)
         data = resp.json()
+        if isinstance(data, dict) and isinstance(data.get("mock"), dict):
+            data = dict(data)
+            data["mock"] = _unwrap_meta(data["mock"])
         result = SaveMockResponse.model_validate(data)
         return result.mock
 
     def patch(self, mock_id: str, patch: dict[str, Any]) -> Mock:
         """Partially update a mock. Sends only changed fields."""
         resp = self._request("PATCH", f"/api/v1/mocks/{mock_id}", json=patch)
-        return Mock.model_validate(resp.json())
+        return Mock.model_validate(_unwrap_meta(resp.json()))
 
     def delete(self, mock_id: str) -> None:
         """Soft-delete a mock by ID."""
@@ -202,12 +242,15 @@ class AsyncMockAPI(AsyncAPIBase):
         """Create a new mock."""
         resp = await self._request("POST", "/api/v1/mocks", json=mock)
         data = resp.json()
+        if isinstance(data, dict) and isinstance(data.get("mock"), dict):
+            data = dict(data)
+            data["mock"] = _unwrap_meta(data["mock"])
         return SaveMockResponse.model_validate(data)
 
     async def get(self, mock_id: str) -> Mock:
         """Retrieve a mock by its ID."""
         resp = await self._request("GET", f"/api/v1/mocks/{mock_id}")
-        return Mock.model_validate(resp.json())
+        return Mock.model_validate(_unwrap_meta(resp.json()))
 
     async def list(
         self,
@@ -231,12 +274,12 @@ class AsyncMockAPI(AsyncAPIBase):
         data = resp.json()
 
         if isinstance(data, list):
-            mocks = [Mock.model_validate(m) for m in data]
+            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in data]
             return Page[Mock](items=mocks, total=len(mocks), offset=offset, limit=limit)
 
         if isinstance(data, dict):
             items = data.get("items") or data.get("mocks") or []
-            mocks = [Mock.model_validate(m) for m in items]
+            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in items]
             return Page[Mock](
                 items=mocks,
                 total=data.get("total", len(mocks)),
@@ -254,13 +297,16 @@ class AsyncMockAPI(AsyncAPIBase):
             mock.id = mock_id
         resp = await self._request("POST", "/api/v1/mocks", json=mock)
         data = resp.json()
+        if isinstance(data, dict) and isinstance(data.get("mock"), dict):
+            data = dict(data)
+            data["mock"] = _unwrap_meta(data["mock"])
         result = SaveMockResponse.model_validate(data)
         return result.mock
 
     async def patch(self, mock_id: str, patch: dict[str, Any]) -> Mock:
         """Partially update a mock. Sends only changed fields."""
         resp = await self._request("PATCH", f"/api/v1/mocks/{mock_id}", json=patch)
-        return Mock.model_validate(resp.json())
+        return Mock.model_validate(_unwrap_meta(resp.json()))
 
     async def delete(self, mock_id: str) -> None:
         """Soft-delete a mock by ID."""
