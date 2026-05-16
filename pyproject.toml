@@ -40,6 +40,12 @@ dependencies = [
 async = ["httpx[http2]"]
 test = ["pytest>=7.0", "pytest-asyncio>=0.21", "respx>=0.21"]
 allure = ["allure-pytest>=2.13"]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "respx>=0.21",
+    "allure-pytest>=2.13",
+]
 
 [project.urls]
 Homepage = "https://mockarty.ru"

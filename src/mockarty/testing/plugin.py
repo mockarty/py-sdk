@@ -32,6 +32,7 @@ from typing import Any, Optional
 
 import pytest
 
+from mockarty.testing import allure_interop as _allure_mirror
 from mockarty.testing import context as _ctx
 from mockarty.testing import decorators as _dec
 from mockarty.testing.fixtures import mock_cleanup, mockarty_client
@@ -42,8 +43,14 @@ from mockarty.testing.fixtures import mock_cleanup, mockarty_client
 __all__ = ["mockarty_client", "mock_cleanup"]
 
 
+# Sentinel attribute on the test fn marking an implicit (mirror-driven)
+# case frame so the post-test hook can clean it up without confusing it
+# with an explicit ``@test_case``-bound frame.
+_IMPLICIT_CASE_FLAG = "_mockarty_implicit_allure_case"
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    """Register markers so ``--strict-markers`` doesn't reject them."""
+    """Register markers + activate the Allure→Mockarty mirror (default-ON)."""
     config.addinivalue_line(
         "markers",
         "mockarty_case(case_id=None, name=None, plan=None, auto_create=False): "
@@ -54,6 +61,26 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "mockarty_attach_report: marker form of @mockarty.attach_report.",
     )
+    # Mirror-mode is DEFAULT-ON per Owner directive (SDK_FRAMEWORK_PLAN
+    # rev 3, §2 + §5.1, 2026-05-16). Set MOCKARTY_ALLURE_MIRROR=off to
+    # opt out (recognised inside install_listener()).
+    try:
+        _allure_mirror.install_listener()
+    except Exception as exc:  # pragma: no cover — defensive
+        warnings.warn(
+            f"mockarty: failed to install Allure mirror: {exc}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    # Optional aggressive ``sys.modules["allure"]`` shim — only when
+    # the user explicitly opts in via MOCKARTY_ALLURE_SHIM=on AND the
+    # real allure package is missing. See mockarty.allure for details.
+    try:
+        from mockarty.allure import install_allure_shim
+
+        install_allure_shim()
+    except Exception:  # pragma: no cover — best-effort
+        pass
 
 
 def pytest_collection_modifyitems(
@@ -79,6 +106,80 @@ def pytest_collection_modifyitems(
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_setup(item: pytest.Item):
+    """Open an implicit Mockarty case frame for pure-Allure tests.
+
+    Mirror-mode (Allure → Mockarty) needs an active case frame to write
+    into; without one the Allure listener silently drops events. When
+    the user's test has any Allure markers/decorators but no
+    ``@mockarty.testing.test_case`` binding, we open a synthetic
+    ``CaseFrame`` here so their pure-Allure code still produces a
+    Mockarty case run. The post-test hook tears it down.
+
+    Heuristic: presence of an ``allure_*`` marker, ``pytestmark`` list,
+    or a function attribute set by ``@allure.label/feature/...``
+    indicates the user wants Allure semantics. We can also just open
+    the frame unconditionally — empty case frames are no-ops on
+    upload — but that wastes ContextVar churn for non-Allure suites.
+
+    Mirror is best-effort: any failure here MUST NOT block the test.
+    """
+    yield
+    if not _allure_mirror.is_allure_available():
+        return
+    if not _allure_mirror._registered:  # listener opted out
+        return
+    if not isinstance(item, pytest.Function):
+        return
+    # If the user already has an explicit Mockarty case binding (via
+    # @test_case or @mockarty_case marker), don't open a duplicate.
+    if _ctx.current_case() is not None:
+        return
+    if not _has_allure_signal(item):
+        return
+    frame = _ctx.CaseFrame(
+        case_name=item.name,
+        auto_create=True,
+        metadata={"_implicit_allure_mirror": True},
+    )
+    _ctx.push_case(frame)
+    # Drain any decorator-time labels/links/title that Allure emitted
+    # while collecting this test.
+    try:
+        _allure_mirror.flush_pending_to_frame(frame)
+    except Exception:  # pragma: no cover — best-effort
+        pass
+    setattr(item, _IMPLICIT_CASE_FLAG, True)
+
+
+def _has_allure_signal(item: pytest.Function) -> bool:
+    """True iff the test or its module appears to use Allure decorators."""
+    # Function-level: any marker starts with 'allure_' (pytest marker
+    # form) OR the function carries Allure label-set attributes.
+    for marker in item.iter_markers():
+        if marker.name.startswith("allure_"):
+            return True
+    fn = item.obj
+    if any(
+        getattr(fn, attr, None) is not None
+        for attr in ("__allure_display_name__", "__allure_labels__")
+    ):
+        return True
+    # Pending decorator buffers — Allure decorators ran during collection
+    # for THIS test (we can't easily distinguish per-test from the
+    # buffer, but module-level allure decorators trigger pending state
+    # too, so we conservatively trip on any pending).
+    if (
+        _allure_mirror._pending_labels
+        or _allure_mirror._pending_links
+        or _allure_mirror._pending_title
+        or _allure_mirror._pending_description
+    ):
+        return True
+    return False
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     """After-each-phase hook. We only act on the 'call' phase (the test
     body), not setup/teardown, so the upload happens once per test."""
@@ -94,6 +195,15 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     case = _ctx.current_case()
     if case is None:
         # No active case binding — reset stacks to be safe and exit.
+        _ctx.reset_for_test()
+        return
+
+    # Implicit (mirror-driven) frame: pop it so the next test starts
+    # clean. We DO NOT upload these by default — uploading every
+    # Allure-touched test would surprise users who haven't opted into
+    # ``@attach_report``. The frame existed solely so the mirror had a
+    # place to write events.
+    if getattr(item, _IMPLICIT_CASE_FLAG, False):
         _ctx.reset_for_test()
         return
 

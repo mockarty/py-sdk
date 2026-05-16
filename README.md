@@ -190,6 +190,77 @@ def test_create_mock(mock_cleanup):
     assert created.id is not None
 ```
 
+## Allure Compatibility (default-ON)
+
+Mockarty ships **seamless Allure interop** — existing Allure-based test
+suites run through Mockarty with **zero refactor**. Three usage styles
+work in the same project, in the same test file, mixed freely:
+
+```bash
+pip install mockarty[allure]   # pulls in allure-pytest 2.13+
+```
+
+1.  **Pure Allure** — your existing code:
+
+    ```python
+    import allure
+
+    @allure.feature("auth")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_login():
+        with allure.step("submit login form"):
+            ...
+    ```
+
+    Steps, attachments and labels flow into Mockarty's test-case
+    accumulator automatically. The native `allure-results/` output
+    continues to work too — both sinks receive every event.
+
+2.  **Mockarty native**:
+
+    ```python
+    from mockarty.testing import test_case, step, attach
+
+    @test_case("CASE-LOGIN-1")
+    def test_login():
+        with step("submit login form"):
+            attach("payload.json", b"{...}", content_type="application/json")
+    ```
+
+3.  **Drop-in alias** — for migrating codebases that prefer a clean
+    `import` swap:
+
+    ```python
+    import mockarty.allure as allure   # surface mirrors `allure` 1:1
+
+    @allure.feature("auth")
+    def test_login():
+        with allure.step("submit"):
+            ...
+    ```
+
+### Configuration
+
+| Env var | Default | Effect |
+|---|---|---|
+| `MOCKARTY_ALLURE_MIRROR` | `on` | Set to `off` to disable the Allure → Mockarty mirror entirely. The pytest plugin's listener is not registered when off. |
+| `MOCKARTY_ALLURE_SHIM` | `off` | Set to `on` (advisory) to register `mockarty.allure` as `sys.modules["allure"]` *when allure-pytest is not installed*. Lets pure-Allure code run as no-op in environments without the real package. |
+
+### How it works
+
+The pytest plugin's `pytest_configure` hook registers a listener with
+`allure_commons.plugin_manager` that observes Allure's native lifecycle
+hooks (`start_step`, `stop_step`, `attach_data`, `add_label`, etc.).
+Each observed event is mirrored onto the active Mockarty `CaseFrame`
+— if the user's test has no explicit `@mockarty.testing.test_case`
+binding, the plugin opens an implicit frame keyed on the test node id
+so Allure decorators still produce a Mockarty case run.
+
+The reverse direction (`mockarty.testing.step` → `allure.step`) has
+existed since `0.3.0` and continues to work. When both decorator
+families participate in a single step, the suppression context-var
+prevents double-counting.
+
 ## License
 
 MIT
