@@ -8,6 +8,11 @@ import pytest
 import respx
 
 from mockarty import MockartyClient
+from mockarty.fuzz.pytest_plugin import (  # noqa: F401 — re-export as fixtures
+    mockarty_fuzz_output_dir,
+    mockarty_fuzz_runner,
+    mockarty_fuzz_target_factory,
+)
 
 
 @pytest.fixture
