@@ -61,6 +61,14 @@ _case_stack: contextvars.ContextVar[Optional[list[CaseFrame]]] = contextvars.Con
 _step_stack: contextvars.ContextVar[Optional[list[StepFrame]]] = contextvars.ContextVar(
     "mockarty_step_stack", default=None
 )
+# Snapshot of the most-recently-popped CaseFrame. Used by the pytest
+# plugin's post-test hooks (Allure writer, external-runs upload) — by
+# the time those hooks fire the decorator's finally has already popped
+# the live stack, so the snapshot is the only access path. Reset by
+# :func:`reset_for_test` between tests.
+_last_case: contextvars.ContextVar[Optional[CaseFrame]] = contextvars.ContextVar(
+    "mockarty_last_case", default=None
+)
 
 
 def push_case(frame: CaseFrame) -> None:
@@ -73,11 +81,23 @@ def push_case(frame: CaseFrame) -> None:
 
 
 def pop_case() -> Optional[CaseFrame]:
-    """Pop the top case frame, or return ``None`` when the stack is empty."""
+    """Pop the top case frame, or return ``None`` when the stack is empty.
+
+    The popped frame is captured in ``_last_case`` so post-test hooks
+    (Allure writer, external-runs upload) can still access it after the
+    decorator's ``finally`` has fired.
+    """
     stack = _case_stack.get()
     if not stack:
         return None
-    return stack.pop()
+    frame = stack.pop()
+    _last_case.set(frame)
+    return frame
+
+
+def last_case() -> Optional[CaseFrame]:
+    """Return the most-recently-popped case frame (None when reset)."""
+    return _last_case.get()
 
 
 def current_case() -> Optional[CaseFrame]:
@@ -143,3 +163,4 @@ def reset_for_test() -> None:
     """Clear case + step stacks. Called by the plugin between tests."""
     _case_stack.set(None)
     _step_stack.set(None)
+    _last_case.set(None)

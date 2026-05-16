@@ -37,6 +37,15 @@ from mockarty.testing import context as _ctx
 from mockarty.testing import decorators as _dec
 from mockarty.testing.fixtures import mock_cleanup, mockarty_client
 
+# Native Allure-2 writer — engages when MOCKARTY_ALLURE_RESULTS_DIR is set,
+# regardless of whether allure-pytest is installed. Lets users emit Allure
+# artifacts from pure-Mockarty tests without taking on the allure-pytest
+# dependency.
+try:
+    from mockarty import allure_writer as _allure_writer  # type: ignore
+except Exception:  # pragma: no cover — defensive
+    _allure_writer = None  # type: ignore[assignment]
+
 
 # Re-export fixtures so users can ``from mockarty.testing import plugin as _``
 # and rely on the entry-point loader to surface the fixtures.
@@ -192,7 +201,17 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
         return
 
     fn = item.obj
-    case = _ctx.current_case()
+    # ``current_case()`` is None by the time this hook fires because the
+    # decorator's ``finally:`` block has already popped. ``last_case()``
+    # gives us the snapshot of the just-popped frame.
+    case = _ctx.current_case() or _ctx.last_case()
+
+    # Native Allure-2 writer: emit a result file for every test, including
+    # implicit (mirror-driven) ones, so a user who set MOCKARTY_ALLURE_RESULTS_DIR
+    # gets full coverage. Best-effort — never blocks the test outcome.
+    if case is not None:
+        _emit_native_allure(item, report, case)
+
     if case is None:
         # No active case binding — reset stacks to be safe and exit.
         _ctx.reset_for_test()
@@ -337,6 +356,106 @@ def _pytest_step_status(s: str) -> str:
 
 
 _warned_no_client = False
+_native_writer = None  # type: Optional[Any]
+_native_writer_dir: Optional[str] = None
+
+
+def _resolve_native_writer() -> Optional[Any]:
+    """Return a session-shared AllureResultsWriter when configured.
+
+    Engages only when ``MOCKARTY_ALLURE_RESULTS_DIR`` is set. The writer
+    itself is internally thread/process-safe so a single instance is
+    reused by every test in the session.
+    """
+    global _native_writer, _native_writer_dir
+    target = os.environ.get("MOCKARTY_ALLURE_RESULTS_DIR")
+    if not target or _allure_writer is None:
+        return None
+    if _native_writer is None or _native_writer_dir != target:
+        _native_writer = _allure_writer.AllureResultsWriter(target)
+        _native_writer_dir = target
+    return _native_writer
+
+
+def _emit_native_allure(
+    item: pytest.Function,
+    report: pytest.TestReport,
+    case: _ctx.CaseFrame,
+) -> None:
+    """Convert the case frame to an Allure TestResult and persist it."""
+    writer = _resolve_native_writer()
+    if writer is None:
+        return
+    try:
+        # Wall-clock start derived from now() minus pytest duration.
+        # report.duration is in seconds; convert to ms epoch window.
+        stop_ms = _allure_writer.now_ms()
+        start_ms = stop_ms - int((report.duration or 0) * 1000)
+        # Pull parametrize values off pytest's ``callspec`` if present —
+        # makes parameterised iterations distinguishable in the report.
+        params = []
+        callspec = getattr(item, "callspec", None)
+        if callspec is not None:
+            for pname, pval in (getattr(callspec, "params", {}) or {}).items():
+                try:
+                    params.append(
+                        _allure_writer.Parameter(name=str(pname), value=repr(pval))
+                    )
+                except Exception:  # pragma: no cover — defensive
+                    continue
+        status = _pytest_report_to_allure_status(report)
+        result = _allure_writer.case_frame_to_result(
+            case,
+            name=item.name,
+            full_name=item.nodeid,
+            framework="pytest",
+            parameters=params,
+            test_class=_class_name_of(item),
+            test_method=item.originalname or item.name,
+            package=item.module.__name__ if item.module else None,
+            start_ms=start_ms,
+            stop_ms=stop_ms,
+            status=status,
+            exc=call_excinfo_value(report),
+            writer=writer,
+            description=(item.function.__doc__ or None),
+        )
+        writer.write_result(result)
+    except Exception as exc:  # pragma: no cover — best-effort
+        warnings.warn(
+            f"mockarty: native Allure writer failed for {item.nodeid}: {exc}",
+            RuntimeWarning, stacklevel=2,
+        )
+
+
+def _pytest_report_to_allure_status(report: pytest.TestReport) -> str:
+    if report.passed:
+        return _allure_writer.STATUS_PASSED
+    if report.skipped:
+        return _allure_writer.STATUS_SKIPPED
+    # Failures from assertions = "failed"; everything else (collection
+    # errors, fixture explosions) = "broken".
+    longrepr = getattr(report, "longrepr", None)
+    text = ""
+    try:
+        text = str(longrepr) if longrepr is not None else ""
+    except Exception:  # pragma: no cover
+        text = ""
+    if "AssertionError" in text:
+        return _allure_writer.STATUS_FAILED
+    return _allure_writer.STATUS_FAILED if report.failed else _allure_writer.STATUS_BROKEN
+
+
+def call_excinfo_value(report: pytest.TestReport) -> Optional[BaseException]:
+    """Best-effort: surface the original exception value from the report."""
+    excinfo = getattr(report, "longrepr", None)
+    val = getattr(excinfo, "value", None)
+    return val if isinstance(val, BaseException) else None
+
+
+def _class_name_of(item: pytest.Function) -> Optional[str]:
+    cls = getattr(item, "cls", None)
+    return cls.__name__ if cls is not None else None
 
 
 def _warn_once_no_client() -> None:
