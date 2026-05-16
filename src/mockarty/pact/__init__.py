@@ -44,16 +44,25 @@ from mockarty.pact.matchers import (
     EachValue,
     Equality,
     Integer,
+    JSONPath,
     Like,
     MatchType,
     Matcher,
     MaxType,
     MinMaxType,
     MinType,
+    Mismatch,
     Regex,
     Term,
+    XMLPath,
 )
 from mockarty.pact.mock_server import MockServer, PactMismatchError
+from mockarty.pact.plugins import (
+    GRPCPlugin,
+    Plugin,
+    PluginAlreadyRegistered,
+    ProtobufPlugin,
+)
 from mockarty.pact.types import (
     Interaction,
     Metadata,
@@ -84,14 +93,22 @@ __all__ = [
     "EachValue",
     "Equality",
     "Integer",
+    "JSONPath",
     "Like",
     "MatchType",
     "Matcher",
     "MaxType",
     "MinMaxType",
     "MinType",
+    "Mismatch",
     "Regex",
     "Term",
+    "XMLPath",
+    # Plugins
+    "GRPCPlugin",
+    "Plugin",
+    "PluginAlreadyRegistered",
+    "ProtobufPlugin",
     # Models
     "Interaction",
     "Metadata",

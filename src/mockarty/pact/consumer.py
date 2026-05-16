@@ -37,6 +37,7 @@ from warnings import warn
 
 from mockarty.pact.interaction import InteractionBuilder
 from mockarty.pact.mock_server import MockServer
+from mockarty.pact.plugins import registry as plugin_registry
 from mockarty.pact.types import (
     Metadata,
     Pact,
@@ -115,22 +116,55 @@ class Consumer:
         version: str = "",
         **configuration: object,
     ) -> "Consumer":
-        """Register a V4 plugin. Phase 1: metadata only, no runtime.
+        """Register a V4 plugin for this consumer.
 
-        Emits a UserWarning so users notice the plugin won't actually
-        be exercised — verification of plugin-driven content types lives
-        in admin-server / CLI (Phase 2).
+        ``name`` must resolve to a plugin already in the process-wide
+        :mod:`mockarty.pact.plugins.registry` — the built-ins
+        (``"protobuf"`` / ``"grpc"``) are auto-registered on import,
+        and user plugins must call
+        :func:`mockarty.pact.plugins.registry.register` before this
+        method is invoked. The plugin metadata is also persisted in
+        the pact.json so a verifier can refuse to run when the named
+        plugin is unavailable on its side.
+
+        ``configuration`` is stored verbatim (Pact V4 schema allows
+        arbitrary plugin-specific config) and surfaced to the plugin
+        runtime through :class:`PluginEntry`.
+
+        Falls back to a UserWarning (not an error) when the plugin name
+        is unknown — that way a CI environment without the optional
+        plugin can still parse the pact.json, and the test author sees
+        the lookup failure but isn't blocked from authoring.
         """
 
         if self._spec is SpecVersion.V3:
             raise ValueError("plugins are V4-only; switch spec_version first")
-        warn(
-            f"plugin {name!r} recorded but runtime is Phase 2 (no-op in v1)",
-            UserWarning,
-            stacklevel=2,
-        )
+        if not name or not isinstance(name, str):
+            raise ValueError("plugin name must be a non-empty string")
+        if version and not isinstance(version, str):
+            raise TypeError("plugin version must be a string")
+        runtime = plugin_registry.get(name)
+        if runtime is None:
+            warn(
+                f"plugin {name!r} not in registry — metadata recorded but "
+                "runtime validation will be skipped (call "
+                "mockarty.pact.plugins.registry.register first)",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif version and runtime.version and version != runtime.version:
+            warn(
+                f"plugin {name!r} version mismatch (requested {version!r}, "
+                f"registry has {runtime.version!r}); using registered runtime",
+                UserWarning,
+                stacklevel=2,
+            )
         self._plugins.append(
-            PluginEntry(name=name, version=version, configuration=dict(configuration)),
+            PluginEntry(
+                name=name,
+                version=version or (runtime.version if runtime else ""),
+                configuration=dict(configuration),
+            ),
         )
         return self
 
@@ -184,15 +218,37 @@ class Consumer:
 
     # ── Mock server lifecycle ──────────────────────────────────────
 
-    def start(self, host: str = "127.0.0.1") -> "_StartedConsumer":
+    def start(
+        self,
+        host: str = "127.0.0.1",
+        *,
+        strict: bool = False,
+    ) -> "_StartedConsumer":
         """Spin up a mock server bound to this consumer's interactions.
 
         Returns a :class:`_StartedConsumer` context manager that wraps
         the mock server and writes pact.json on exit.
+
+        ``strict=True`` enables request-body validation against the
+        declared matchers — any mismatch is surfaced both to the live
+        HTTP client (400 with a structured envelope) and to
+        :meth:`MockServer.verify` on context exit.
         """
 
         pact = self.to_pact()
-        server = MockServer(pact.interactions, host=host).start()
+        runtimes = {
+            entry.name: runtime
+            for entry in self._plugins
+            for runtime in [plugin_registry.get(entry.name)]
+            if runtime is not None
+        }
+        server = MockServer(
+            pact.interactions,
+            host=host,
+            strict=strict,
+            plugins=self._plugins,
+            plugin_runtimes=runtimes,
+        ).start()
         return _StartedConsumer(self, server, pact)
 
     # ── Writing without a mock server ──────────────────────────────
