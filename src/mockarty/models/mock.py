@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mockarty.models.contexts import (
     GraphQLRequestContext,
@@ -217,7 +217,54 @@ class Mock(BaseModel):
 
 
 class SaveMockResponse(BaseModel):
-    """Response returned by the mock create/update endpoint."""
+    """Response returned by the mock create/update endpoint.
 
-    overwritten: bool = False
+    Wire shape (admin node, ``POST /api/v1/mocks``)::
+
+        {
+          "id":      "<mock-id>",
+          "mock":    {...full mock...},
+          "isNew":   <true|false>,   # true = an existing mock was replaced
+          "success": true,
+          "message": "Mock created successfully"
+        }
+
+    The server's ``isNew`` field is semantically *"was overwrite"* — it
+    is true when an existing record was replaced. The legacy field name
+    ``overwritten`` was never emitted by the server (carried over from
+    an internal draft model), so older SDKs silently saw ``False`` for
+    real overwrites. We bind to ``isNew`` as the canonical wire name
+    and surface ``overwritten`` as a populated mirror so existing call
+    sites keep working. Surfaced 2026-05-17 by the live SDK demo (same
+    bug class fixed in java-sdk ``28be56e`` and go-sdk this date).
+    """
+
     mock: Mock = Field(default_factory=Mock)
+    id: Optional[str] = None
+    message: Optional[str] = None
+    is_new: bool = Field(False, alias="isNew")
+    # ``overwritten`` mirrors ``is_new`` after model_validate so legacy
+    # callers don't have to update their reads. Populated by the
+    # validator below; on input we also accept it as a legacy alias.
+    overwritten: bool = False
+    success: bool = False
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_overwritten(cls, data: Any) -> Any:
+        """Promote ``overwritten`` → ``isNew`` when only the legacy key
+        is on the wire, then keep them in lockstep so ``.overwritten``
+        and ``.is_new`` always agree post-validation."""
+        if not isinstance(data, dict):
+            return data
+        if "isNew" not in data and "is_new" not in data and "overwritten" in data:
+            data = dict(data)
+            data["isNew"] = bool(data["overwritten"])
+        return data
+
+    @model_validator(mode="after")
+    def _mirror_is_new_to_overwritten(self) -> "SaveMockResponse":
+        self.overwritten = self.is_new
+        return self

@@ -491,18 +491,44 @@ class TestMock:
 
 
 class TestSaveMockResponse:
-    def test_deserialize(self) -> None:
+    def test_deserialize_canonical_wire_shape(self) -> None:
+        """The admin server actually emits ``isNew`` plus envelope fields.
+        Surfaced 2026-05-17 by the live SDK demo; the SDK historically
+        only bound ``overwritten`` (never present on the wire) so the
+        flag silently stayed False for genuine overwrites.
+        """
         raw = {
-            "overwritten": True,
+            "id": "mock_1779037659",
             "mock": {
-                "id": "saved-mock",
+                "id": "mock_1779037659",
                 "http": {"route": "/api/test", "httpMethod": "GET"},
                 "response": {"statusCode": 200},
             },
+            "isNew": True,
+            "success": True,
+            "message": "Mock created successfully",
         }
         result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is True
+        assert result.overwritten is True  # mirror of is_new for back-compat
+        assert result.success is True
+        assert result.id == "mock_1779037659"
+        assert result.message == "Mock created successfully"
+        assert result.mock.id == "mock_1779037659"
+
+    def test_deserialize_legacy_overwritten_field(self) -> None:
+        """A downgraded server emitting only the legacy ``overwritten``
+        key must still decode — guards against the fix over-correcting."""
+        raw = {"overwritten": True, "mock": {"id": "m1"}}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is True
         assert result.overwritten is True
-        assert result.mock.id == "saved-mock"
+
+    def test_deserialize_is_new_false_keeps_both_false(self) -> None:
+        raw = {"isNew": False, "mock": {"id": "m1"}}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is False
+        assert result.overwritten is False
 
 
 # ── Common models ─────────────────────────────────────────────────────
