@@ -318,6 +318,39 @@ def test_scenario_metadata_helper():
         assert f.metadata == {"env": "staging", "build": "42"}
 
 
+def test_scenario_attach_delegates_to_attach_function(monkeypatch):
+    """Scenario.attach must invoke mockarty.testing.attach so payloads land
+    on the active case frame. Covers the UX papercut where users expected
+    s.attach(...) but had to fall back to the free function."""
+    seen: list[tuple] = []
+    from mockarty.testing import decorators as _decorators
+
+    monkeypatch.setattr(
+        _decorators,
+        "attach",
+        lambda name, body, *, content_type="text/plain": seen.append(
+            (name, body, content_type)
+        ),
+    )
+    with mk_scenario("flow") as s:
+        s.attach("note", "payload", content_type="text/plain")
+    assert seen == [("note", "payload", "text/plain")]
+
+
+def test_case_alias_equals_test_case():
+    """Public ``case`` alias must be the same callable as ``test_case`` —
+    exists only to dodge pytest's auto-collection of identifiers prefixed
+    with ``test_``."""
+    from mockarty.testing import case as mk_case
+    from mockarty.testing import test_case as mk_test_case_direct
+
+    assert mk_case is mk_test_case_direct
+    # And the alias must be usable as a decorator with the same signature.
+    @mk_case("CASE-ALIAS-1")
+    def _demo():  # pragma: no cover — body is irrelevant
+        pass
+
+
 def test_scenario_mock_requires_client():
     with mk_scenario("flow") as s:
         with pytest.raises(RuntimeError, match="client="):
