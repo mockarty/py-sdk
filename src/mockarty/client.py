@@ -72,6 +72,43 @@ class MockartyClient:
         max_retries: Maximum number of automatic retries on transient failures.
     """
 
+    # Names of every cached lazy-init API attribute. The single source of
+    # truth for both ``__init__`` (zero-out the slots) and the
+    # ``namespace`` setter (re-zero so the next property access rebuilds
+    # with the new namespace). Adding a new API resource = one line
+    # below — forget it and you get a clear AttributeError at first
+    # access, never a stale cached client.
+    _API_RESOURCE_ATTRS: tuple[str, ...] = (
+        "_chaos",
+        "_mocks",
+        "_namespaces",
+        "_stores",
+        "_collections",
+        "_perf",
+        "_health",
+        "_generator",
+        "_fuzzing",
+        "_contracts",
+        "_recorder",
+        "_templates",
+        "_imports",
+        "_test_runs",
+        "_test_plans",
+        "_tags",
+        "_folders",
+        "_undefined",
+        "_stats",
+        "_agent_tasks",
+        "_namespace_settings",
+        "_proxy",
+        "_environments",
+        "_entity_search",
+        "_external_runs",
+        "_secrets",
+        "_prompts",
+        "_me",
+    )
+
     def __init__(
         self,
         base_url: str | None = None,
@@ -92,35 +129,10 @@ class MockartyClient:
             transport=build_transport(max_retries),
         )
 
-        # Lazily-initialised API resources
-        self._chaos: ChaosAPI | None = None
-        self._mocks: MockAPI | None = None
-        self._namespaces: NamespaceAPI | None = None
-        self._stores: StoreAPI | None = None
-        self._collections: CollectionAPI | None = None
-        self._perf: PerfAPI | None = None
-        self._health: HealthAPI | None = None
-        self._generator: GeneratorAPI | None = None
-        self._fuzzing: FuzzingAPI | None = None
-        self._contracts: ContractAPI | None = None
-        self._recorder: RecorderAPI | None = None
-        self._templates: TemplateAPI | None = None
-        self._imports: ImportAPI | None = None
-        self._test_runs: TestRunAPI | None = None
-        self._test_plans: TestPlansAPI | None = None
-        self._tags: TagAPI | None = None
-        self._folders: FolderAPI | None = None
-        self._undefined: UndefinedAPI | None = None
-        self._stats: StatsAPI | None = None
-        self._agent_tasks: AgentTaskAPI | None = None
-        self._namespace_settings: NamespaceSettingsAPI | None = None
-        self._proxy: ProxyAPI | None = None
-        self._environments: EnvironmentAPI | None = None
-        self._entity_search: EntitySearchAPI | None = None
-        self._external_runs: ExternalRunsAPI | None = None
-        self._secrets: SecretsAPI | None = None
-        self._prompts: PromptsAPI | None = None
-        self._me: MeAPI | None = None
+        # Lazily-initialised API resources — start all None; each
+        # property below fills its own slot on first access.
+        for attr in self._API_RESOURCE_ATTRS:
+            setattr(self, attr, None)
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -148,38 +160,17 @@ class MockartyClient:
 
     @namespace.setter
     def namespace(self, value: str) -> None:
-        """Update the default namespace and refresh the header."""
+        """Update the default namespace and refresh the header.
+
+        Resets every cached API instance so the next property access
+        rebuilds it bound to the new namespace. Driven off the
+        ``_API_RESOURCE_ATTRS`` table so adding a new resource only
+        needs a one-line entry there, not a parallel reset block here.
+        """
         self._namespace = value
         self._http.headers["X-Namespace"] = value
-        # Reset cached API instances so they pick up the new namespace
-        self._chaos = None
-        self._mocks = None
-        self._namespaces = None
-        self._stores = None
-        self._collections = None
-        self._perf = None
-        self._health = None
-        self._generator = None
-        self._fuzzing = None
-        self._contracts = None
-        self._recorder = None
-        self._templates = None
-        self._imports = None
-        self._test_runs = None
-        self._test_plans = None
-        self._tags = None
-        self._folders = None
-        self._undefined = None
-        self._stats = None
-        self._agent_tasks = None
-        self._namespace_settings = None
-        self._proxy = None
-        self._environments = None
-        self._entity_search = None
-        self._external_runs = None
-        self._secrets = None
-        self._prompts = None
-        self._me = None
+        for attr in self._API_RESOURCE_ATTRS:
+            setattr(self, attr, None)
 
     # ── API resources ─────────────────────────────────────────────────
 

@@ -69,6 +69,38 @@ class TestClientCreation:
         assert client.namespace == "staging"
         client.close()
 
+    def test_namespace_setter_invalidates_every_resource_cache(self) -> None:
+        """Regression: changing ``client.namespace`` must reset every
+        lazy-init API resource so subsequent property access rebuilds
+        them bound to the new namespace.
+
+        Driven off the ``_API_RESOURCE_ATTRS`` registry — if someone
+        adds a new resource and forgets to wire it in, this test fails
+        because the cached instance leaks past the setter.
+        """
+        client = MockartyClient()
+        try:
+            # Force every cached slot to materialise by visiting each
+            # public property whose underlying attr is in the registry.
+            for attr in client._API_RESOURCE_ATTRS:
+                public = attr.lstrip("_")
+                # Touch the public property — the cache slot must populate.
+                getattr(client, public)
+                assert getattr(client, attr) is not None, attr
+
+            # Switch namespace — every slot must be cleared so the next
+            # property read rebuilds with the new namespace embedded.
+            client.namespace = "renamed-ns"
+            for attr in client._API_RESOURCE_ATTRS:
+                assert getattr(client, attr) is None, (
+                    f"{attr} survived namespace change — cache invalidation"
+                    " is missing this slot"
+                )
+            # The X-Namespace header reflects the new value too.
+            assert client._http.headers["X-Namespace"] == "renamed-ns"
+        finally:
+            client.close()
+
 
 class TestClientEnvVars:
     """Test environment variable fallback."""
