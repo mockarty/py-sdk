@@ -47,6 +47,10 @@ def test_case(
     plan: Optional[str] = None,
     auto_create: bool = False,
     metadata: Optional[dict[str, Any]] = None,
+    description: Optional[str] = None,
+    expected_result: Optional[str] = None,
+    custom_fields: Optional[list[dict[str, Any]]] = None,
+    claim_ownership: bool = False,
 ) -> Callable[[F], F]:
     """Bind a test function to a Mockarty TCM case.
 
@@ -55,7 +59,18 @@ def test_case(
         @mockarty.test_case("CASE-LOGIN-1")
         def test_login(mockarty_client): ...
 
-        @mockarty.test_case(name="login flow", auto_create=True, plan="qa-smoke")
+        @mockarty.test_case(
+            name="login flow",
+            auto_create=True,
+            plan="qa-smoke",
+            description="Smoke-test the email + password happy path.",
+            expected_result="User lands on /dashboard within 2s; welcome banner shows email.",
+            custom_fields=[
+                {"type": "feature", "name": "Auth", "value": "Login"},
+                {"type": "severity", "name": "severity", "value": "critical"},
+            ],
+            claim_ownership=True,
+        )
         def test_login_auto(mockarty_client): ...
 
     Args:
@@ -69,6 +84,23 @@ def test_case(
             log so subsequent runs can pin it via ``case_id=``.
         metadata: free-form dict attached to the case frame; surfaces in
             attachments / reports.
+        description: Markdown description for the TCM case row itself
+            (Phase 2.6 — Mockarty extension beyond Allure). When ``auto_
+            create=True`` or ``claim_ownership=True`` this overwrites the
+            stored description; otherwise it's sent for context only.
+        expected_result: Markdown "what should happen" clause for the
+            TCM case row. Mockarty's primary differentiator vs Allure —
+            the in-platform review workflow keys off this column. Same
+            write semantics as ``description``.
+        custom_fields: typed user-defined metadata list (feature / story
+            / component links etc.). Each entry is ``{"type": ..., "name":
+            ..., "value": ...}``. Persisted to
+            ``test_cases.custom_fields_json`` (migration 203).
+        claim_ownership: when True the receiver writes
+            ``description`` / ``expected_result`` / ``custom_fields``
+            onto an EXISTING case on every upload — keeps the code
+            source-of-truth. Default False preserves manual UI edits
+            between uploads.
 
     Returns:
         A decorator that pushes a :class:`mockarty.testing.context.CaseFrame`
@@ -83,19 +115,26 @@ def test_case(
 
     def decorator(fn: F) -> F:
         meta = dict(metadata) if metadata else {}
+        cf = list(custom_fields) if custom_fields else []
+
+        def _make_frame() -> _ctx.CaseFrame:
+            return _ctx.CaseFrame(
+                case_id=case_id,
+                case_name=name,
+                plan_id=plan,
+                auto_create=auto_create,
+                description=description,
+                expected_result=expected_result,
+                custom_fields=list(cf),
+                claim_ownership=claim_ownership,
+                metadata=dict(meta),
+            )
 
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                frame = _ctx.CaseFrame(
-                    case_id=case_id,
-                    case_name=name,
-                    plan_id=plan,
-                    auto_create=auto_create,
-                    metadata=dict(meta),
-                )
-                _ctx.push_case(frame)
+                _ctx.push_case(_make_frame())
                 try:
                     return await fn(*args, **kwargs)
                 finally:
@@ -105,14 +144,7 @@ def test_case(
 
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            frame = _ctx.CaseFrame(
-                case_id=case_id,
-                case_name=name,
-                plan_id=plan,
-                auto_create=auto_create,
-                metadata=dict(meta),
-            )
-            _ctx.push_case(frame)
+            _ctx.push_case(_make_frame())
             try:
                 return fn(*args, **kwargs)
             finally:

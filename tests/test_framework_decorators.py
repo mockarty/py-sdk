@@ -475,3 +475,47 @@ def test_reset_clears_stacks():
     ctx.reset_for_test()
     assert ctx.current_case() is None
     assert ctx.current_step() is None
+
+
+def test_test_case_phase26_fields_flow_into_frame():
+    """Phase 2.6 SDK-extension fields (description / expected_result /
+    custom_fields / claim_ownership) must land on the pushed CaseFrame
+    so the pytest plugin can forward them to the server's
+    ExternalRunRequest at upload time."""
+    captured = {}
+
+    @mk_test_case(
+        "CASE-X",
+        description="## Login smoke\nVerifies 2FA path.",
+        expected_result="Welcome banner shows user email.",
+        custom_fields=[
+            {"type": "feature", "name": "Auth", "value": "Login"},
+            {"type": "severity", "name": "severity", "value": "critical"},
+        ],
+        claim_ownership=True,
+    )
+    def _demo():
+        f = ctx.current_case()
+        captured["f"] = f
+
+    _demo()
+    f = captured["f"]
+    assert f.description == "## Login smoke\nVerifies 2FA path."
+    assert f.expected_result == "Welcome banner shows user email."
+    assert len(f.custom_fields) == 2
+    assert f.custom_fields[0]["type"] == "feature"
+    assert f.claim_ownership is True
+
+
+def test_test_case_phase26_fields_default_empty():
+    """Regression guard: omitting the Phase 2.6 fields keeps frames at
+    their pre-2.6 defaults (None / [] / False)."""
+    @mk_test_case("CASE-Y")
+    def _demo():
+        f = ctx.current_case()
+        assert f.description is None
+        assert f.expected_result is None
+        assert f.custom_fields == []
+        assert f.claim_ownership is False
+
+    _demo()
