@@ -171,6 +171,40 @@ class TestMockAPIList:
         assert page.total == 50
 
     @respx.mock
+    def test_list_decodes_canonical_wire_shape(self, client: MockartyClient) -> None:
+        """Server's actual envelope is `{mocks, count, limit, message}`.
+        Surfaced 2026-05-17 by sibling-instance hunt — the SDK was
+        binding `{items, total}` which the server never emits, so
+        Mocks.list() silently returned empty Pages.
+        """
+        respx.get("http://localhost:5770/api/v1/mocks").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "count": 42,
+                    "limit": 50,
+                    "message": "Mock list retrieved successfully",
+                    "mocks": [{"id": "m1"}, {"id": "m2"}],
+                },
+            )
+        )
+        page = client.mocks.list(limit=50)
+        assert len(page.items) == 2
+        assert page.items[0].id == "m1"
+        assert page.total == 42  # canonical `count`, not len(mocks)
+        assert page.limit == 50
+
+    @respx.mock
+    def test_list_empty_canonical_envelope(self, client: MockartyClient) -> None:
+        """Empty result must decode cleanly with count=0."""
+        respx.get("http://localhost:5770/api/v1/mocks").mock(
+            return_value=httpx.Response(200, json={"mocks": [], "count": 0, "limit": 50}),
+        )
+        page = client.mocks.list()
+        assert page.items == []
+        assert page.total == 0
+
+    @respx.mock
     def test_list_with_filters(self, client: MockartyClient) -> None:
         """Query parameters are correctly passed."""
         route = respx.get("http://localhost:5770/api/v1/mocks").mock(
