@@ -550,3 +550,14 @@ def uninstall_listener() -> None:
         pass
     _listener_instance = None
     _registered = False
+
+
+def is_mirror_active() -> bool:
+    """Public predicate: True iff the Allure→Mockarty listener is wired in.
+
+    Use this instead of poking ``_registered`` from callers — the flag
+    is an implementation detail and may be replaced with a different
+    activation tracker in the future. Returns False on a build without
+    ``allure-pytest`` or when the mirror was opted out via env.
+    """
+    return _registered

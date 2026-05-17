@@ -25,20 +25,15 @@ The adapter is fail-soft: any error inside a hook is logged via
 from __future__ import annotations
 
 import os
-import time
 import warnings
 from typing import Any, Optional
 
 from mockarty.allure_writer import (
     AllureResultsWriter,
-    Label,
-    Parameter,
-    STAGE_FINISHED,
     STATUS_BROKEN,
     STATUS_FAILED,
     STATUS_PASSED,
     STATUS_SKIPPED,
-    StepResult,
     case_frame_to_result,
     now_ms,
 )

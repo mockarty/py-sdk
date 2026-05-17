@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Mapping, Tuple
 
 from mockarty.pact.matchers import Mismatch
-from mockarty.pact.plugins.spi import Plugin, coerce_to_bytes
+from mockarty.pact.plugins.spi import coerce_to_bytes
 
 
 # ``google.protobuf`` is optional. We probe it once at import time and

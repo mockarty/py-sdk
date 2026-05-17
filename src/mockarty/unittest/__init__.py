@@ -27,10 +27,9 @@ recorded as ``broken`` (Allure semantics) rather than ``failed``.
 from __future__ import annotations
 
 import os
-import sys
 import unittest
 import warnings
-from typing import Any, Optional
+from typing import Optional
 
 from mockarty.allure_writer import (
     AllureResultsWriter,

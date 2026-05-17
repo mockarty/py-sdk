@@ -26,7 +26,7 @@ import struct
 from typing import Any, Dict, List, Mapping, Tuple
 
 from mockarty.pact.matchers import Mismatch, _validate_value
-from mockarty.pact.plugins.spi import Plugin, coerce_to_bytes
+from mockarty.pact.plugins.spi import coerce_to_bytes
 
 
 _FRAME_HEADER = struct.Struct(">BI")  # 1-byte flag, 4-byte BE length

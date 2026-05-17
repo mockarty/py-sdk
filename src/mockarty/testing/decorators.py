@@ -22,8 +22,7 @@ from __future__ import annotations
 import functools
 import inspect
 import time
-from contextlib import contextmanager
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 from mockarty.testing import context as _ctx
 

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, NoReturn
 
 import httpx
 
@@ -13,7 +13,6 @@ from mockarty.errors import (
     MockartyAPIError,
     MockartyConflictError,
     MockartyConnectionError,
-    MockartyError,
     MockartyExternalError,
     MockartyForbiddenError,
     MockartyNotFoundError,
@@ -159,8 +158,14 @@ def raise_for_status(response: httpx.Response) -> None:
     )
 
 
-def wrap_transport_error(exc: Exception) -> MockartyError:  # type: ignore[return]
-    """Convert httpx transport errors into SDK exceptions."""
+def wrap_transport_error(exc: Exception) -> NoReturn:
+    """Convert an httpx transport error into the matching SDK exception.
+
+    Always raises — the return annotation is ``NoReturn`` so static
+    analysers know callers that propagate via ``raise
+    wrap_transport_error(...)`` can't reach a missing-return branch.
+    Removes the previous ``type: ignore[return]`` hack.
+    """
     if isinstance(exc, httpx.TimeoutException):
         raise MockartyTimeoutError(str(exc)) from exc
     if isinstance(exc, httpx.ConnectError):

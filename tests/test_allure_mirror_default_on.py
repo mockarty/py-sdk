@@ -70,11 +70,11 @@ def listener_active(allure_installed: bool):
     """
     if not allure_installed:
         pytest.skip("allure-pytest not installed")
-    if not _mirror._registered:
+    if not _mirror.is_mirror_active():
         _mirror.install_listener()
-    assert _mirror._registered
+    assert _mirror.is_mirror_active()
     yield
-    if not _mirror._registered:
+    if not _mirror.is_mirror_active():
         _mirror.install_listener()
 
 

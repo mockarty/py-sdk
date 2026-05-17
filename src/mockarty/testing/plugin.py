@@ -136,7 +136,7 @@ def pytest_runtest_setup(item: pytest.Item):
     yield
     if not _allure_mirror.is_allure_available():
         return
-    if not _allure_mirror._registered:  # listener opted out
+    if not _allure_mirror.is_mirror_active():  # listener opted out / not installed
         return
     if not isinstance(item, pytest.Function):
         return

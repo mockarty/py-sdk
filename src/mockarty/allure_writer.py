@@ -341,12 +341,12 @@ def _parameter_to_dict(p: Parameter) -> dict[str, Any]:
     )
 
 
-def _label_to_dict(l: Label) -> dict[str, Any]:
-    return {"name": l.name, "value": l.value}
+def _label_to_dict(label: Label) -> dict[str, Any]:
+    return {"name": label.name, "value": label.value}
 
 
-def _link_to_dict(l: Link) -> dict[str, Any]:
-    return _drop_none({"name": l.name, "url": l.url, "type": l.type})
+def _link_to_dict(link: Link) -> dict[str, Any]:
+    return _drop_none({"name": link.name, "url": link.url, "type": link.type})
 
 
 def _attachment_to_dict(a: Attachment) -> dict[str, Any]:
@@ -386,8 +386,8 @@ def _result_to_dict(r: TestResult) -> dict[str, Any]:
             "descriptionHtml": r.descriptionHtml,
             "start": r.start,
             "stop": r.stop,
-            "labels": [_label_to_dict(l) for l in r.labels] or None,
-            "links": [_link_to_dict(l) for l in r.links] or None,
+            "labels": [_label_to_dict(label) for label in r.labels] or None,
+            "links": [_link_to_dict(link) for link in r.links] or None,
             "parameters": [_parameter_to_dict(p) for p in r.parameters] or None,
             "attachments": [_attachment_to_dict(a) for a in r.attachments] or None,
             "steps": [_step_to_dict(s) for s in r.steps] or None,
@@ -403,7 +403,7 @@ def _container_to_dict(c: TestResultContainer) -> dict[str, Any]:
             "children": list(c.children) or None,
             "befores": [_step_to_dict(s) for s in c.befores] or None,
             "afters": [_step_to_dict(s) for s in c.afters] or None,
-            "links": [_link_to_dict(l) for l in c.links] or None,
+            "links": [_link_to_dict(link) for link in c.links] or None,
             "start": c.start,
             "stop": c.stop,
         }
