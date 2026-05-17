@@ -185,6 +185,58 @@ def test_step_works_outside_case_frame():
     assert ctx.current_case() is None
 
 
+def test_step_does_not_leak_frame_when_allure_cm_raises_on_enter(monkeypatch):
+    """Regression: an Allure-mirror failure in ``__enter__`` must not
+    leave the Mockarty step frame dangling on the step stack — the user
+    sees the swallowed exception (best-effort mirror) and the frame is
+    cleaned up symmetrically with the no-mirror case.
+    """
+    from mockarty.testing import allure_interop as _allure
+
+    class _BrokenCM:
+        def __enter__(self):
+            raise RuntimeError("allure CM blew up")
+
+        def __exit__(self, *_):  # pragma: no cover — never reached
+            return False
+
+    # Swap allure_interop.step out for the duration of this test.
+    monkeypatch.setattr(_allure, "step", lambda _name: _BrokenCM())
+
+    with mk_step("guarded"):
+        # Even though the Allure CM failed on __enter__, the Mockarty
+        # step frame must be present mid-block (the fail-soft path
+        # keeps Mockarty's own bookkeeping alive).
+        assert ctx.current_step() is not None
+        assert ctx.current_step().name == "guarded"
+
+    # After exiting, the step stack is empty — no leak.
+    assert ctx.current_step() is None
+
+
+def test_step_pops_frame_even_when_allure_cm_raises_on_exit(monkeypatch):
+    """Regression: an Allure-mirror failure in ``__exit__`` must not
+    leave the Mockarty step frame on the stack either — the pop runs
+    in a try/finally so the mirror's exception is swallowed but the
+    bookkeeping still happens.
+    """
+    from mockarty.testing import allure_interop as _allure
+
+    class _CrashOnExit:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            raise RuntimeError("allure exit blew up")
+
+    monkeypatch.setattr(_allure, "step", lambda _name: _CrashOnExit())
+
+    with mk_step("guarded"):
+        assert ctx.current_step() is not None
+
+    assert ctx.current_step() is None
+
+
 # ── @attach_report + @plan ─────────────────────────────────────────────
 
 

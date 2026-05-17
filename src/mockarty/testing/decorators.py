@@ -158,25 +158,44 @@ class _StepDecoratorOrCtx:
     def __enter__(self) -> "_StepDecoratorOrCtx":
         self._frame = _ctx.StepFrame(name=self.name, started_ns=time.monotonic_ns())
         _ctx.push_step(self._frame)
+        # Allure mirror is best-effort: if its CM blows up at __enter__
+        # we must NOT leave the Mockarty step frame dangling on the
+        # stack. Pop it back out and re-raise so the surrounding test
+        # sees the original error.
+        self._allure_cm = None
         if _allure is not None:
-            self._allure_cm = _allure.step(self.name)
-            self._allure_cm.__enter__()
+            try:
+                cm = _allure.step(self.name)
+                cm.__enter__()
+                self._allure_cm = cm
+            except Exception:  # pragma: no cover — best-effort mirror
+                # Mirror failed — keep Mockarty step alive, don't crash
+                # the user's test on an Allure plumbing hiccup.
+                self._allure_cm = None
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Any,
+    ) -> None:
         frame = _ctx.current_step()
-        if frame is not None:
-            if exc_type is not None:
-                frame.status = "failed"
-                frame.error = f"{exc_type.__name__}: {exc}"
-            elif frame.status == "passed":
-                pass  # already optimistic-default
-        _ctx.pop_step()
-        if _allure is not None and getattr(self, "_allure_cm", None) is not None:
-            try:
-                self._allure_cm.__exit__(exc_type, exc, tb)
-            except Exception:  # pragma: no cover — best-effort mirror
-                pass
+        if frame is not None and exc_type is not None:
+            frame.status = "failed"
+            frame.error = f"{exc_type.__name__}: {exc}"
+        # Pop Mockarty step first, then attempt Allure CM teardown —
+        # never let an Allure exit error mask a user exception.
+        try:
+            _ctx.pop_step()
+        finally:
+            cm = self._allure_cm
+            if cm is not None:
+                self._allure_cm = None
+                try:
+                    cm.__exit__(exc_type, exc, tb)
+                except Exception:  # pragma: no cover — best-effort mirror
+                    pass
 
     # decorator protocol
     def __call__(self, fn: F) -> F:
