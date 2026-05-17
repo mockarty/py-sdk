@@ -333,7 +333,9 @@ class UnifiedItemResult(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = None
     stage: Optional[str] = None
-    status_details: Optional[dict[str, Any]] = Field(default=None, alias="statusDetails")
+    status_details: Optional[dict[str, Any]] = Field(
+        default=None, alias="statusDetails"
+    )
     labels: Optional[list[dict[str, Any]]] = None
     parameters: Optional[list[dict[str, Any]]] = None
     attachments: Optional[list[dict[str, Any]]] = None
@@ -452,7 +454,9 @@ class CompareSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     added_items: list[CompareItemRef] = Field(default_factory=list, alias="addedItems")
-    removed_items: list[CompareItemRef] = Field(default_factory=list, alias="removedItems")
+    removed_items: list[CompareItemRef] = Field(
+        default_factory=list, alias="removedItems"
+    )
     total_a: int = Field(default=0, alias="totalA")
     total_b: int = Field(default=0, alias="totalB")
     pass_to_fail: int = Field(default=0, alias="passToFail")

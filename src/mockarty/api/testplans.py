@@ -338,7 +338,9 @@ class TestPlansAPI(SyncAPIBase):
     def stream_run(self, run_id: str) -> Iterator[RunEvent]:
         """Subscribe to the SSE stream of a run. Yields RunEvent until EOF."""
         with self._client.stream(
-            "GET", f"{_BASE}/runs/{run_id}/stream", headers={"Accept": "text/event-stream"}
+            "GET",
+            f"{_BASE}/runs/{run_id}/stream",
+            headers={"Accept": "text/event-stream"},
         ) as response:
             response.raise_for_status()
             yield from _parse_sse_stream(response)
@@ -351,7 +353,9 @@ class TestPlansAPI(SyncAPIBase):
 
     def download_report_zip(self, run_id: str, dest: BinaryIO) -> None:
         with self._client.stream(
-            "GET", f"{_BASE}/runs/{run_id}/report.zip", headers={"Accept": "application/zip"}
+            "GET",
+            f"{_BASE}/runs/{run_id}/report.zip",
+            headers={"Accept": "application/zip"},
         ) as response:
             response.raise_for_status()
             for chunk in response.iter_bytes():
@@ -417,9 +421,7 @@ class TestPlansAPI(SyncAPIBase):
 
     def test_webhook(self, plan_id: str, webhook_id: str) -> None:
         """Ping a webhook server-side. Raises WebhookDeliveryError on failure."""
-        resp = self._request(
-            "POST", f"{_BASE}/{plan_id}/webhooks/{webhook_id}/test"
-        )
+        resp = self._request("POST", f"{_BASE}/{plan_id}/webhooks/{webhook_id}/test")
         body = resp.json() if resp.content else {}
         if not body.get("success", False):
             msg = body.get("error") or f"status={body.get('status')}"
@@ -527,9 +529,7 @@ class TestPlansAPI(SyncAPIBase):
         self, case_run_id: str, action: str, *, namespace: Optional[str] = None
     ) -> None:
         ns = self._resolve_namespace(namespace)
-        path = (
-            f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}/{action}"
-        )
+        path = f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}/{action}"
         self._request("POST", path)
 
     def pause_case_run(
@@ -616,9 +616,7 @@ class TestPlansAPI(SyncAPIBase):
 
         path = f"{_ns_base(ns)}/test-plans/{key}"
         try:
-            resp = self._request(
-                "PATCH", path, json=body, headers={"If-Match": etag}
-            )
+            resp = self._request("PATCH", path, json=body, headers={"If-Match": etag})
         except MockartyAPIError as err:
             if err.status_code == 412:
                 raise PreconditionFailedError(
@@ -696,9 +694,7 @@ class TestPlansAPI(SyncAPIBase):
         if not (run_id or "").strip():
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
-        path = (
-            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report"
-        )
+        path = f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report"
         resp = self._request("GET", path)
         body = resp.json() if resp.content else {}
         report = AllureReport.model_validate(body) if body else AllureReport()
@@ -732,8 +728,7 @@ class TestPlansAPI(SyncAPIBase):
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
         path = (
-            f"{_ns_base(ns)}/test-plans/{key}"
-            f"/runs/{quote(run_id, safe='')}/report.zip"
+            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report.zip"
         )
         with self._client.stream(
             "GET", path, headers={"Accept": "application/zip"}
@@ -786,8 +781,7 @@ class TestPlansAPI(SyncAPIBase):
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
         path = (
-            f"{_ns_base(ns)}/test-plans/{key}"
-            f"/runs/{quote(run_id, safe='')}/report.md"
+            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report.md"
         )
         resp = self._request("GET", path, headers={"Accept": "text/markdown"})
         return resp.content
@@ -841,8 +835,7 @@ class TestPlansAPI(SyncAPIBase):
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
         path = (
-            f"{_ns_base(ns)}/test-plans/{key}"
-            f"/runs/{quote(run_id, safe='')}/report.html"
+            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report.html"
         )
         resp = self._request("GET", path, headers={"Accept": "text/html"})
         return resp.content
@@ -973,9 +966,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             body["items"] = list(items)
         if mode:
             body["mode"] = mode
-        resp = await self._request(
-            "POST", f"{_BASE}/{key}/run", json=body or None
-        )
+        resp = await self._request("POST", f"{_BASE}/{key}/run", json=body or None)
         payload = resp.json()
         return TestPlanRun(
             id=payload.get("runId"),
@@ -1022,9 +1013,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         ns = (namespace or self._namespace or "").strip()
         if not ns:
             raise ValueError("namespace is required for this endpoint")
-        path = (
-            f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}/{action}"
-        )
+        path = f"{_ns_base(ns)}/tcm/case-runs/{quote(case_run_id, safe='')}/{action}"
         await self._request("POST", path)
 
     async def pause_case_run(
@@ -1257,9 +1246,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         if not (run_id or "").strip():
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
-        path = (
-            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report"
-        )
+        path = f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report"
         resp = await self._request("GET", path)
         body = resp.json() if resp.content else {}
         report = AllureReport.model_validate(body) if body else AllureReport()
@@ -1280,8 +1267,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
         path = (
-            f"{_ns_base(ns)}/test-plans/{key}"
-            f"/runs/{quote(run_id, safe='')}/report.zip"
+            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report.zip"
         )
         async with self._client.stream(
             "GET", path, headers={"Accept": "application/zip"}
@@ -1306,9 +1292,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             f"{_ns_base(ns)}/test-plans/{key}"
             f"/runs/{quote(run_id, safe='')}/report.junit.xml"
         )
-        resp = await self._request(
-            "GET", path, headers={"Accept": "application/xml"}
-        )
+        resp = await self._request("GET", path, headers={"Accept": "application/xml"})
         return resp.content
 
     async def get_run_report_markdown(
@@ -1324,12 +1308,9 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
         path = (
-            f"{_ns_base(ns)}/test-plans/{key}"
-            f"/runs/{quote(run_id, safe='')}/report.md"
+            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report.md"
         )
-        resp = await self._request(
-            "GET", path, headers={"Accept": "text/markdown"}
-        )
+        resp = await self._request("GET", path, headers={"Accept": "text/markdown"})
         return resp.content
 
     async def get_run_report_unified(
@@ -1348,9 +1329,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             f"{_ns_base(ns)}/test-plans/{key}"
             f"/runs/{quote(run_id, safe='')}/report.unified.json"
         )
-        resp = await self._request(
-            "GET", path, headers={"Accept": "application/json"}
-        )
+        resp = await self._request("GET", path, headers={"Accept": "application/json"})
         body = resp.json() if resp.content else {}
         report = UnifiedReport.model_validate(body) if body else UnifiedReport()
         report.raw = resp.content
@@ -1369,10 +1348,7 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             raise ValueError("run_id must not be empty")
         ns = self._resolve_namespace(namespace)
         path = (
-            f"{_ns_base(ns)}/test-plans/{key}"
-            f"/runs/{quote(run_id, safe='')}/report.html"
+            f"{_ns_base(ns)}/test-plans/{key}/runs/{quote(run_id, safe='')}/report.html"
         )
-        resp = await self._request(
-            "GET", path, headers={"Accept": "text/html"}
-        )
+        resp = await self._request("GET", path, headers={"Accept": "text/html"})
         return resp.content

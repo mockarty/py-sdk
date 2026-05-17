@@ -239,8 +239,13 @@ class ExternalRunsAPI(SyncAPIBase):
             on_error: ``warn`` (default) logs + continues; ``raise`` re-raises.
         """
         return _upload_allure_dir_impl(
-            self, directory, namespace=namespace, plan_id=plan_id,
-            framework=framework, auto_create=auto_create, on_error=on_error,
+            self,
+            directory,
+            namespace=namespace,
+            plan_id=plan_id,
+            framework=framework,
+            auto_create=auto_create,
+            on_error=on_error,
         )
 
 
@@ -331,11 +336,15 @@ def _upload_allure_dir_impl(
                 raise
             _warnings.warn(
                 f"mockarty: failed to read {path}: {exc}",
-                RuntimeWarning, stacklevel=2,
+                RuntimeWarning,
+                stacklevel=2,
             )
             continue
         kwargs = allure_result_to_external_payload(
-            doc, directory=directory, plan_id=plan_id, framework=framework,
+            doc,
+            directory=directory,
+            plan_id=plan_id,
+            framework=framework,
             auto_create=auto_create,
         )
         if namespace:
@@ -347,7 +356,8 @@ def _upload_allure_dir_impl(
                 raise
             _warnings.warn(
                 f"mockarty: upload failed for {path}: {exc}",
-                RuntimeWarning, stacklevel=2,
+                RuntimeWarning,
+                stacklevel=2,
             )
     return out
 
@@ -396,11 +406,15 @@ def allure_result_to_external_payload(
         if s_status == "broken":
             s_status = "failed"
         sd_s = s.get("statusDetails") or {}
-        steps.append({
-            "name": s.get("name", ""),
-            "status": s_status if s_status in ("passed", "failed", "skipped", "broken") else "failed",
-            "error": sd_s.get("message"),
-        })
+        steps.append(
+            {
+                "name": s.get("name", ""),
+                "status": s_status
+                if s_status in ("passed", "failed", "skipped", "broken")
+                else "failed",
+                "error": sd_s.get("message"),
+            }
+        )
     # Attachments → load body bytes from filesystem.
     attachments: list[dict[str, Any]] = []
     for a in doc.get("attachments") or []:
@@ -413,11 +427,13 @@ def allure_result_to_external_payload(
                 body = fh.read()
         except OSError:
             continue
-        attachments.append({
-            "name": a.get("name") or src,
-            "body": body,
-            "contentType": a.get("type") or "application/octet-stream",
-        })
+        attachments.append(
+            {
+                "name": a.get("name") or src,
+                "body": body,
+                "contentType": a.get("type") or "application/octet-stream",
+            }
+        )
     return {
         "status": wire_status,
         "case_id": doc.get("testCaseId"),

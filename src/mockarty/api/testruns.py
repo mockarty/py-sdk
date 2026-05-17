@@ -74,7 +74,9 @@ class TestRunAPI(SyncAPIBase):
     ) -> list[TestRun]:
         """List test runs with optional mode/reference filters (migration 033)."""
         params = _build_query(mode, reference_id, limit, offset)
-        resp = self._request("GET", "/api/v1/api-tester/test-runs", params=params or None)
+        resp = self._request(
+            "GET", "/api/v1/api-tester/test-runs", params=params or None
+        )
         return _unwrap(resp.json())
 
     def list_by_mode(
@@ -85,7 +87,9 @@ class TestRunAPI(SyncAPIBase):
         offset: Optional[int] = None,
     ) -> list[TestRun]:
         """Convenience wrapper: list runs for a specific execution mode."""
-        return self.list(mode=mode, reference_id=reference_id, limit=limit, offset=offset)
+        return self.list(
+            mode=mode, reference_id=reference_id, limit=limit, offset=offset
+        )
 
     def get(self, run_id: str) -> TestRun:
         """Get a specific test run by ID."""
@@ -171,23 +175,17 @@ class TestRunAPI(SyncAPIBase):
             params["limit"] = str(limit)
         if offset is not None and offset > 0:
             params["offset"] = str(offset)
-        resp = self._request(
-            "GET", "/api/v1/test-runs/merges", params=params or None
-        )
+        resp = self._request("GET", "/api/v1/test-runs/merges", params=params or None)
         return MergedRunList.model_validate(resp.json())
 
     def get_merged_run(self, merged_run_id: str) -> MergedRunView:
         """Fetch a merged run with the latest source snapshot."""
-        resp = self._request(
-            "GET", f"/api/v1/test-runs/merges/{merged_run_id}"
-        )
+        resp = self._request("GET", f"/api/v1/test-runs/merges/{merged_run_id}")
         return MergedRunView.model_validate(resp.json())
 
     def delete_merged_run(self, merged_run_id: str) -> None:
         """Delete the merge parent. Source runs are untouched."""
-        self._request(
-            "DELETE", f"/api/v1/test-runs/merges/{merged_run_id}"
-        )
+        self._request("DELETE", f"/api/v1/test-runs/merges/{merged_run_id}")
 
     def get_merged_run_report(
         self,
@@ -332,16 +330,12 @@ class AsyncTestRunAPI(AsyncAPIBase):
 
     async def get_merged_run(self, merged_run_id: str) -> MergedRunView:
         """Fetch a merged run with the latest source snapshot."""
-        resp = await self._request(
-            "GET", f"/api/v1/test-runs/merges/{merged_run_id}"
-        )
+        resp = await self._request("GET", f"/api/v1/test-runs/merges/{merged_run_id}")
         return MergedRunView.model_validate(resp.json())
 
     async def delete_merged_run(self, merged_run_id: str) -> None:
         """Delete the merge parent. Source runs are untouched."""
-        await self._request(
-            "DELETE", f"/api/v1/test-runs/merges/{merged_run_id}"
-        )
+        await self._request("DELETE", f"/api/v1/test-runs/merges/{merged_run_id}")
 
     async def get_merged_run_report(
         self,

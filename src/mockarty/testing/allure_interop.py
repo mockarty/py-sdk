@@ -47,6 +47,7 @@ _suppress_mirror: contextvars.ContextVar[bool] = contextvars.ContextVar(
 
 try:  # pragma: no cover — runtime detection
     import allure as _allure_mod  # type: ignore[import-not-found]
+
     _ALLURE_AVAILABLE = True
 except Exception:  # pragma: no cover — allure optional
     _allure_mod = None  # type: ignore[assignment]
@@ -276,9 +277,7 @@ class _MockartyAllureListener:
         links = case.metadata.setdefault("_allure_links", [])
         links.append({"url": url, "type": str(link_type), "name": name or ""})
 
-    def decorate_as_link(
-        self, url: str, link_type: Any, name: Any
-    ) -> Any:
+    def decorate_as_link(self, url: str, link_type: Any, name: Any) -> Any:
         _pending_links.append((url, link_type, name))
         return None
 
@@ -302,9 +301,7 @@ class _MockartyAllureListener:
         _pending_description.append(test_description)
         return None
 
-    def add_parameter(
-        self, name: str, value: Any, excluded: Any, mode: Any
-    ) -> None:
+    def add_parameter(self, name: str, value: Any, excluded: Any, mode: Any) -> None:
         case = _ctx.current_case()
         if case is None:
             return
@@ -347,9 +344,7 @@ def flush_pending_to_frame(case: _ctx.CaseFrame) -> None:
         case.metadata.setdefault("_allure_title", _pending_title.pop())
         _pending_title.clear()
     if _pending_description:
-        case.metadata.setdefault(
-            "_allure_description", _pending_description.pop()
-        )
+        case.metadata.setdefault("_allure_description", _pending_description.pop())
         _pending_description.clear()
     if _pending_labels:
         bucket = case.metadata.setdefault("_allure_labels", [])
@@ -432,17 +427,13 @@ def _build_listener_class() -> type:
         def attach_data(  # type: ignore[override]
             self, body, name, attachment_type, extension
         ):
-            return base.attach_data(
-                self, body, name, attachment_type, extension
-            )
+            return base.attach_data(self, body, name, attachment_type, extension)
 
         @hookimpl
         def attach_file(  # type: ignore[override]
             self, source, name, attachment_type, extension
         ):
-            return base.attach_file(
-                self, source, name, attachment_type, extension
-            )
+            return base.attach_file(self, source, name, attachment_type, extension)
 
         @hookimpl
         def add_label(self, label_type, labels):  # type: ignore[override]

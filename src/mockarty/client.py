@@ -374,4 +374,3 @@ class MockartyClient:
         if self._external_runs is None:
             self._external_runs = ExternalRunsAPI(self._http, self._namespace)
         return self._external_runs
-

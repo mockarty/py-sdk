@@ -48,7 +48,9 @@ class SecretsAPI(SyncAPIBase):
         return resp.json()
 
     def get_store(self, store_id: str) -> dict[str, Any]:
-        resp = self._request("GET", f"/api/v1/stores/secrets/{quote(store_id, safe='')}")
+        resp = self._request(
+            "GET", f"/api/v1/stores/secrets/{quote(store_id, safe='')}"
+        )
         return resp.json()
 
     def update_store(self, store_id: str, **fields: Any) -> dict[str, Any]:
@@ -130,7 +132,9 @@ class SecretsAPI(SyncAPIBase):
 
     # ── Vault integration ─────────────────────────────────────────────
 
-    def configure_vault(self, config: dict[str, Any], namespace: str | None = None) -> None:
+    def configure_vault(
+        self, config: dict[str, Any], namespace: str | None = None
+    ) -> None:
         ns = namespace or self._namespace
         self._request(
             "PUT",

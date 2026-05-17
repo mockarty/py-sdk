@@ -445,7 +445,10 @@ def normalize_status(status: Optional[str]) -> str:
     if status is None:
         return STATUS_UNKNOWN
     lo = status.strip().lower()
-    return _STATUS_NORMALIZE.get(lo, STATUS_UNKNOWN if lo == "unknown" else STATUS_FAILED if lo else STATUS_UNKNOWN)
+    return _STATUS_NORMALIZE.get(
+        lo,
+        STATUS_UNKNOWN if lo == "unknown" else STATUS_FAILED if lo else STATUS_UNKNOWN,
+    )
 
 
 def worst_status(children: Iterable[str]) -> str:
@@ -550,7 +553,9 @@ def _safe_hostname() -> str:
 
 def _safe_thread() -> str:
     try:
-        return f"{os.getpid()}-{threading.get_ident()}-{threading.current_thread().name}"
+        return (
+            f"{os.getpid()}-{threading.get_ident()}-{threading.current_thread().name}"
+        )
     except Exception:  # pragma: no cover — defensive
         return "unknown"
 
@@ -582,8 +587,12 @@ def expand_link(link: Link) -> Link:
     if not pattern:
         return link
     expanded = pattern.replace("{}", link.url)
-    return Label(name="", value="") if False else Link(  # noqa: SIM108 - keep type hint
-        name=link.name, url=expanded, type=link.type
+    return (
+        Label(name="", value="")
+        if False
+        else Link(  # noqa: SIM108 - keep type hint
+            name=link.name, url=expanded, type=link.type
+        )
     )
 
 
@@ -673,13 +682,12 @@ def case_frame_to_result(
         sname = raw.get("name", "")
         sstatus_raw = raw.get("status", STATUS_PASSED)
         sstatus = (
-            sstatus_raw if sstatus_raw in (STATUS_PASSED, STATUS_FAILED, STATUS_BROKEN, STATUS_SKIPPED) else normalize_status(sstatus_raw)
+            sstatus_raw
+            if sstatus_raw
+            in (STATUS_PASSED, STATUS_FAILED, STATUS_BROKEN, STATUS_SKIPPED)
+            else normalize_status(sstatus_raw)
         )
-        sd = (
-            StatusDetails(message=raw.get("error"))
-            if raw.get("error")
-            else None
-        )
+        sd = StatusDetails(message=raw.get("error")) if raw.get("error") else None
         sstart = raw.get("started_ms") or _ns_to_ms(raw.get("started_ns"))
         sstop = raw.get("stopped_ms") or _ns_to_ms(raw.get("stopped_ns"))
         step_objs.append(

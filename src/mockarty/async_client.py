@@ -374,4 +374,3 @@ class AsyncMockartyClient:
         if self._external_runs is None:
             self._external_runs = AsyncExternalRunsAPI(self._http, self._namespace)
         return self._external_runs
-

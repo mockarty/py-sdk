@@ -85,6 +85,7 @@ def test_case(
         meta = dict(metadata) if metadata else {}
 
         if inspect.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 frame = _ctx.CaseFrame(
@@ -199,6 +200,7 @@ class _StepDecoratorOrCtx:
     # decorator protocol
     def __call__(self, fn: F) -> F:
         if inspect.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 with _StepDecoratorOrCtx(self.name):
@@ -266,9 +268,7 @@ def attach(
     case = _ctx.current_case()
     if case is None:
         return  # silently no-op — fail-soft outside a binding
-    case.attachments.append(
-        {"name": name, "body": body, "content_type": content_type}
-    )
+    case.attachments.append({"name": name, "body": body, "content_type": content_type})
     if _allure is not None:
         try:
             _allure.attach(body, name=name, content_type=content_type)

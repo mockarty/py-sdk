@@ -133,7 +133,11 @@ def pop_step() -> Optional[StepFrame]:
         return None
     frame = stack.pop()
     case = current_case()
-    if case is not None and frame._slot_index >= 0 and frame._slot_index < len(case.steps):
+    if (
+        case is not None
+        and frame._slot_index >= 0
+        and frame._slot_index < len(case.steps)
+    ):
         case.steps[frame._slot_index] = _frame_to_dict(frame)
     return frame
 

@@ -48,7 +48,9 @@ class PromptsAPI(SyncAPIBase):
         return resp.json()
 
     def get_prompt(self, prompt_id: str) -> dict[str, Any]:
-        resp = self._request("GET", f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}")
+        resp = self._request(
+            "GET", f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}"
+        )
         return resp.json()
 
     def update_prompt(self, prompt_id: str, **fields: Any) -> dict[str, Any]:

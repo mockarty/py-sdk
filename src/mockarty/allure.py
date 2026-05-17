@@ -62,6 +62,7 @@ from typing import Any, Callable, Iterator
 
 try:  # pragma: no cover — runtime detection
     import allure as _real_allure  # type: ignore[import-not-found]
+
     _ALLURE_AVAILABLE = True
 except Exception:  # pragma: no cover
     _real_allure = None  # type: ignore[assignment]
@@ -107,6 +108,7 @@ else:  # pragma: no cover — allure not installed → stub everything
     def _noop_decorator(*_a: Any, **_kw: Any) -> Callable[[Callable], Callable]:
         def _wrap(fn: Callable) -> Callable:
             return fn
+
         return _wrap
 
     @contextmanager
@@ -128,6 +130,7 @@ else:  # pragma: no cover — allure not installed → stub everything
         def __getattr__(self, _name: str) -> Callable[..., None]:
             def _noop(*_a: Any, **_kw: Any) -> None:
                 return None
+
             return _noop
 
     step = _StepShim()  # type: ignore[assignment]

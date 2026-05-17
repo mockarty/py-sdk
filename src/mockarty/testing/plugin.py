@@ -424,7 +424,8 @@ def _emit_native_allure(
     except Exception as exc:  # pragma: no cover — best-effort
         warnings.warn(
             f"mockarty: native Allure writer failed for {item.nodeid}: {exc}",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
 
@@ -443,7 +444,9 @@ def _pytest_report_to_allure_status(report: pytest.TestReport) -> str:
         text = ""
     if "AssertionError" in text:
         return _allure_writer.STATUS_FAILED
-    return _allure_writer.STATUS_FAILED if report.failed else _allure_writer.STATUS_BROKEN
+    return (
+        _allure_writer.STATUS_FAILED if report.failed else _allure_writer.STATUS_BROKEN
+    )
 
 
 def call_excinfo_value(report: pytest.TestReport) -> Optional[BaseException]:
