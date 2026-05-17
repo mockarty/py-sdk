@@ -125,7 +125,7 @@ class Scenario(AbstractContextManager["Scenario"]):
         name: str,
         body: Any,
         *,
-        content_type: str = "text/plain",
+        content_type: str = "application/octet-stream",
     ) -> None:
         """Attach a payload to the scenario's case frame.
 
@@ -133,6 +133,12 @@ class Scenario(AbstractContextManager["Scenario"]):
         so callers can write ``s.attach(...)`` inside a ``with scenario(...)``
         block without re-importing the free function. Mirrors the
         ``Allure.attach`` ergonomics across SDK languages.
+
+        The default ``content_type`` matches the free function so its
+        auto-promotion logic (``str`` body + default sentinel
+        → ``text/plain; charset=utf-8``; ``bytes`` body → unchanged)
+        applies identically. Explicit content_type values pass through
+        unchanged.
         """
         # Imported lazily to avoid a circular import with decorators.py
         # which already imports from this module's context helpers.

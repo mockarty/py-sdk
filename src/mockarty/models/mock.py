@@ -254,14 +254,37 @@ class SaveMockResponse(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _accept_legacy_overwritten(cls, data: Any) -> Any:
-        """Promote ``overwritten`` → ``isNew`` when only the legacy key
-        is on the wire, then keep them in lockstep so ``.overwritten``
-        and ``.is_new`` always agree post-validation."""
+        """Reconcile the canonical ``isNew`` field with the legacy
+        ``overwritten`` alias. Resolution rules:
+
+        * Only ``overwritten`` present → promoted to ``isNew``.
+        * Only ``isNew`` (or snake-case ``is_new``) present → kept as-is.
+        * Both present with the same value → kept as-is (no-op).
+        * Both present with conflicting values → raise ``ValueError``
+          so the caller learns about the wire-shape inconsistency
+          instead of silently dropping the legacy value.
+
+        Without this validator, a caller passing
+        ``{"isNew": False, "overwritten": True}`` would silently get
+        ``False`` (because the after-validator mirrors ``is_new`` onto
+        ``overwritten``). That kind of silent data loss is exactly the
+        bug class this SDK fix is supposed to prevent.
+        """
         if not isinstance(data, dict):
             return data
-        if "isNew" not in data and "is_new" not in data and "overwritten" in data:
+        canonical_key = "isNew" if "isNew" in data else ("is_new" if "is_new" in data else None)
+        legacy_present = "overwritten" in data
+        if canonical_key is None and legacy_present:
             data = dict(data)
             data["isNew"] = bool(data["overwritten"])
+        elif canonical_key is not None and legacy_present:
+            if bool(data[canonical_key]) != bool(data["overwritten"]):
+                raise ValueError(
+                    f"SaveMockResponse received conflicting fields: "
+                    f"{canonical_key}={data[canonical_key]!r} but "
+                    f"overwritten={data['overwritten']!r}. Use only "
+                    f"{canonical_key} — overwritten is a deprecated alias."
+                )
         return data
 
     @model_validator(mode="after")

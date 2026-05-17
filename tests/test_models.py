@@ -530,6 +530,26 @@ class TestSaveMockResponse:
         assert result.is_new is False
         assert result.overwritten is False
 
+    def test_conflicting_is_new_and_overwritten_raises(self) -> None:
+        """Sending BOTH the canonical and legacy fields with different
+        values must raise — silent data loss is the exact bug class
+        this fix prevents. Catches the 2026-05-17 code-review finding
+        that the validator previously dropped the legacy value
+        silently when both keys were present."""
+        import pytest
+
+        raw = {"isNew": False, "overwritten": True, "mock": {"id": "m1"}}
+        with pytest.raises(ValueError, match="conflicting"):
+            SaveMockResponse.model_validate(raw)
+
+    def test_consistent_both_fields_accepted(self) -> None:
+        """Both keys present and AGREEING should decode cleanly — guards
+        the conflict-detection from over-raising on legacy mirrors."""
+        raw = {"isNew": True, "overwritten": True, "mock": {"id": "m1"}}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is True
+        assert result.overwritten is True
+
 
 # ── Common models ─────────────────────────────────────────────────────
 

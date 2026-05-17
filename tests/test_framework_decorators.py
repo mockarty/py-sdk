@@ -328,13 +328,75 @@ def test_scenario_attach_delegates_to_attach_function(monkeypatch):
     monkeypatch.setattr(
         _decorators,
         "attach",
-        lambda name, body, *, content_type="text/plain": seen.append(
+        lambda name, body, *, content_type="application/octet-stream": seen.append(
             (name, body, content_type)
         ),
     )
     with mk_scenario("flow") as s:
         s.attach("note", "payload", content_type="text/plain")
     assert seen == [("note", "payload", "text/plain")]
+
+
+def test_scenario_attach_preserves_auto_promotion_for_str_body():
+    """Scenario.attach default content_type must match the free function's
+    default so its auto-promotion (str body + default sentinel ->
+    'text/plain; charset=utf-8') applies through the delegate. Catches
+    the 2026-05-17 code-review finding that a divergent default
+    ('text/plain') was clobbering binary attachments through Scenario."""
+    @mk_test_case("CASE-DEFAULT-CT")
+    def _demo():
+        with mk_scenario("flow") as s:
+            s.attach("note", "hello")  # str body, default content_type
+        # After scenario exits, the case frame popped — but during the
+        # `with` block, the free function recorded the attachment. Read
+        # it from the frame BEFORE pop by inspecting via a fresh scope.
+    # Easier: drive the free function directly to lock the contract.
+    from mockarty.testing import decorators as _decorators
+    captured: dict = {}
+    def _stub(name, body, *, content_type="application/octet-stream"):
+        captured["name"] = name
+        captured["body"] = body
+        captured["content_type"] = content_type
+    # Wrap the real attach so we observe the content_type the delegate
+    # forwards. Use the real signature default by passing NO content_type.
+    import mockarty.testing.scenario as _scenario_mod
+    with mk_scenario("flow") as s:
+        # monkey-patch only the lazy local import target inside Scenario.attach
+        import sys
+        orig = _decorators.attach
+        _decorators.attach = _stub
+        try:
+            s.attach("note", "hello")  # NO content_type — exercises default
+        finally:
+            _decorators.attach = orig
+    assert captured["name"] == "note"
+    assert captured["body"] == "hello"
+    # The delegate must receive the canonical sentinel so the free
+    # function can auto-promote str -> 'text/plain; charset=utf-8'.
+    assert captured["content_type"] == "application/octet-stream", (
+        f"Scenario.attach default content_type drifted from the free "
+        f"function default — auto-promotion broken. Got: "
+        f"{captured['content_type']!r}"
+    )
+
+
+def test_attach_auto_promotes_str_body_to_text_plain_utf8():
+    """Direct contract test on the free function — the auto-promotion
+    is the behavior Scenario.attach RELIES on. If this changes, the
+    Scenario default must change in lockstep."""
+    from mockarty.testing import attach as free_attach
+    from mockarty.testing import context as _ctx
+    frame = _ctx.CaseFrame(case_id="X", case_name="x", plan_id=None,
+                            auto_create=False, metadata={})
+    _ctx.push_case(frame)
+    try:
+        free_attach("hello", "world")
+        assert len(frame.attachments) == 1
+        att = frame.attachments[0]
+        assert att["body"] == b"world"
+        assert att["content_type"] == "text/plain; charset=utf-8"
+    finally:
+        _ctx.pop_case()
 
 
 def test_case_alias_equals_test_case():
