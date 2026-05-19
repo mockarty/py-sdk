@@ -86,7 +86,14 @@ class VerificationResult:
 
     @property
     def ok(self) -> bool:
-        return bool(self.interactions) and all(ir.passed for ir in self.interactions)
+        """``True`` iff every interaction passed.
+
+        An empty interaction list is vacuously ``True`` — matches the
+        Go + Java SDK semantics, so a pact with no interactions does
+        not fail the CI gate. Use ``not self.interactions`` to detect
+        the empty case explicitly when you care.
+        """
+        return all(ir.passed for ir in self.interactions)
 
 
 class Verifier:
