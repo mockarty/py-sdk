@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 import httpx
 
-from .telemetry import NopRecorder, Step, StepRecorder, new_step_key
+from .telemetry import NopRecorder, Step, StepRecorder, cap_preview, new_step_key
 
 _SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/"
 _SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope"
@@ -164,8 +164,8 @@ class SoapClient:
         params: dict[str, str] = {
             "operation": operation,
             "http_status": str(resp.status_code),
-            "request": _truncate(envelope, self._payload_cap),
-            "response": _truncate(body, self._payload_cap),
+            "request": cap_preview(envelope, self._payload_cap),
+            "response": cap_preview(body, self._payload_cap),
         }
         if fault:
             for k, v in fault.items():
@@ -243,16 +243,11 @@ def _extract_fault(body: bytes, version: str) -> Optional[dict[str, str]]:
         reason = fault.find(f"{{{ns}}}Reason/{{{ns}}}Text")
         if reason is not None and reason.text:
             out["string"] = reason.text
-    return out or {"code": "fault"}
-
-
-def _truncate(data: Any, cap: int) -> str:
-    if cap == 0:
-        return ""
-    if isinstance(data, bytes):
-        s = data.decode("utf-8", errors="replace")
-    else:
-        s = str(data)
-    if len(s) <= cap:
-        return s
-    return s[:cap] + f"…(truncated {len(s) - cap}B)"
+    if not out:
+        # Fault element exists but had no children we recognise —
+        # surface a synthetic marker the caller can still pattern-
+        # match on without lying about a missing code/reason. The
+        # previous {"code": "fault"} dict masqueraded as a real
+        # fault code in step.parameters, which review flagged.
+        return {"empty_fault": "1"}
+    return out

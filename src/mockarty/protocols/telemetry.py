@@ -179,3 +179,43 @@ def new_step_key(name: str, seq: int) -> str:
     tests collapse retries server-side on (namespace, run, step_key).
     """
     return f"{name}#{seq}"
+
+
+def cap_preview(body: Any, cap: int) -> str:
+    """Truncate ``body`` to at most ``cap`` bytes, rounding the cut
+    DOWN to a valid UTF-8 rune boundary so the returned string is
+    never half-a-rune.
+
+    When truncation happens, the literal marker
+    ``…(truncated <N>B)`` (U+2026 ellipsis) is appended. The marker
+    shape is identical across every Mockarty SDK (Go, Python, Java) —
+    change it in lock-step or break cross-language step diffs.
+
+    ``cap == 0`` (or non-positive) returns the empty string —
+    disables payload capture entirely. Accepts ``bytes``, ``str``,
+    or any value (rendered via ``str(...)``); ``None`` → empty.
+    """
+    if cap <= 0 or body is None:
+        return ""
+    if isinstance(body, bytes):
+        b = body
+    elif isinstance(body, str):
+        b = body.encode("utf-8")
+    else:
+        b = str(body).encode("utf-8")
+    if not b:
+        return ""
+    if len(b) <= cap:
+        return b.decode("utf-8", errors="replace")
+    # Round down to a valid UTF-8 lead-byte boundary so we don't
+    # emit a half-truncated multi-byte sequence (which would surface
+    # as U+FFFD on decode). UTF-8 continuation bytes start with 10xxxxxx
+    # (0x80..0xBF) — slide back while we're sitting on one.
+    cut = cap
+    while cut > 0 and 0x80 <= b[cut] <= 0xBF:
+        cut -= 1
+    if cut == 0:
+        # First byte wasn't a UTF-8 lead — likely raw binary. Keep
+        # the original cap so we don't lose the preview entirely.
+        cut = cap
+    return b[:cut].decode("utf-8", errors="replace") + f"…(truncated {len(b) - cut}B)"

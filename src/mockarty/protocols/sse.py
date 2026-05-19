@@ -18,7 +18,7 @@ from typing import Any, Iterator, Optional
 
 import httpx
 
-from .telemetry import NopRecorder, Step, StepRecorder, new_step_key
+from .telemetry import NopRecorder, Step, StepRecorder, cap_preview, new_step_key
 
 
 @dataclass
@@ -82,12 +82,24 @@ class SseClient:
     def collect(self, max_events: int = 1, max_duration: float = 30.0) -> list[SseEvent]:
         """Pull up to ``max_events`` events or until ``max_duration``
         seconds elapse. Returns the events received so far when either
-        limit fires; never raises on timeout."""
+        limit fires; never raises on timeout.
+
+        Step classification (review fix — the previous version always
+        recorded "passed" even when the deadline fired with zero
+        events, which masked unreachable / silent streams as if the
+        run had succeeded):
+
+          - HTTP non-2xx                  → "failed"
+          - transport error               → "broken"
+          - deadline AND zero events      → "broken" (env didn't send)
+          - cap hit OR deadline + N events → "passed"
+        """
         if max_events <= 0:
             raise ValueError("mockarty sse: max_events must be >= 1")
         events: list[SseEvent] = []
         started = time.time()
         deadline = started + max_duration
+        deadline_fired = False
         try:
             with self._client.stream("GET", self._url, headers=self._headers) as resp:
                 if resp.status_code >= 400:
@@ -100,13 +112,23 @@ class SseClient:
                     if len(events) >= max_events:
                         break
                     if time.time() >= deadline:
+                        deadline_fired = True
                         break
         except httpx.HTTPError as exc:
             self._record("sse:collect", started, "broken", exc, {"count": str(len(events))})
             raise
+        if deadline_fired and not events:
+            self._record("sse:collect", started, "broken",
+                         RuntimeError("deadline expired before first event"), {
+                "count": "0",
+                "url": cap_preview(self._url, self._payload_cap),
+                "reason": "deadline",
+            })
+            return events
         self._record("sse:collect", started, "passed", None, {
             "count": str(len(events)),
-            "url": self._url,
+            "url": cap_preview(self._url, self._payload_cap),
+            "reason": "deadline" if deadline_fired else "cap",
         })
         return events
 
@@ -130,7 +152,10 @@ class SseClient:
             self._record("sse:stream", started, "broken", exc, {"count": str(count)})
             raise
         finally:
-            self._record("sse:stream", started, "passed", None, {"count": str(count), "url": self._url})
+            self._record("sse:stream", started, "passed", None, {
+                "count": str(count),
+                "url": cap_preview(self._url, self._payload_cap),
+            })
 
     def _record(
         self,

@@ -10,6 +10,7 @@ from mockarty.protocols.telemetry import (
     AccumulatingRecorder,
     NopRecorder,
     Step,
+    cap_preview,
     new_step_key,
 )
 
@@ -112,3 +113,46 @@ def test_new_step_key_format():
 @pytest.mark.parametrize("name,seq", [("", 0), ("x", 1), ("a/b/c#extra", 7)])
 def test_new_step_key_is_stable(name: str, seq: int):
     assert new_step_key(name, seq) == f"{name}#{seq}"
+
+
+# cap_preview tests — UTF-8 boundary handling identical to the Go SDK.
+
+def test_cap_preview_zero_cap_returns_empty():
+    assert cap_preview("hello", 0) == ""
+    assert cap_preview(b"hello", -1) == ""
+
+
+def test_cap_preview_none_returns_empty():
+    assert cap_preview(None, 10) == ""
+
+
+def test_cap_preview_cap_larger_than_body_returns_full():
+    assert cap_preview("hello", 100) == "hello"
+    assert cap_preview(b"hi", 100) == "hi"
+
+
+def test_cap_preview_ascii_truncates_with_marker():
+    out = cap_preview("0123456789ABCDEF", 5)  # 16 bytes
+    assert out == "01234…(truncated 11B)"
+
+
+def test_cap_preview_utf8_rounds_down_to_rune_boundary():
+    # "Привет" — 6 Cyrillic chars × 2 bytes each = 12 bytes.
+    # cap=5 lands in the middle of "и" (D0 B8); the fix rounds
+    # down to byte 4 (start of "и") and emits "Пр" + marker.
+    out = cap_preview("Привет", 5)
+    assert out == "Пр…(truncated 8B)"
+    # No replacement char in the preserved prefix.
+    assert "�" not in out
+
+
+def test_cap_preview_utf8_cut_exactly_on_boundary():
+    # cap=4 = exactly between "р" and "и" — no rounding needed.
+    assert cap_preview("Привет", 4) == "Пр…(truncated 8B)"
+
+
+def test_cap_preview_accepts_bytes_str_and_objects():
+    assert cap_preview(b"raw", 100) == "raw"
+    assert cap_preview("str", 100) == "str"
+    assert cap_preview(42, 100) == "42"
+    assert cap_preview({"k": "v"}, 100).startswith("{")

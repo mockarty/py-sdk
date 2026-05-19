@@ -20,7 +20,7 @@ import threading
 import time
 from typing import Any, Optional, Union
 
-from .telemetry import NopRecorder, Step, StepRecorder, new_step_key
+from .telemetry import NopRecorder, Step, StepRecorder, cap_preview, new_step_key
 
 
 class WebSocketImportError(ImportError):
@@ -114,11 +114,11 @@ class WebSocketClient:
             conn.send(wire)
         except Exception as exc:
             self._record(step_name, started, "broken", exc, {
-                "payload": _truncate(_as_str(payload), self._payload_cap),
+                "payload": cap_preview(_as_str(payload), self._payload_cap),
             })
             raise
         self._record(step_name, started, "passed", None, {
-            "payload": _truncate(_as_str(payload), self._payload_cap),
+            "payload": cap_preview(_as_str(payload), self._payload_cap),
         })
 
     def recv(self, *, timeout: Optional[float] = None) -> Union[str, bytes]:
@@ -137,7 +137,7 @@ class WebSocketClient:
             self._record(step_name, started, "broken", exc, {"timeout": str(timeout)})
             raise
         self._record(step_name, started, "passed", None, {
-            "payload": _truncate(_as_str(frame), self._payload_cap),
+            "payload": cap_preview(_as_str(frame), self._payload_cap),
             "size": str(len(frame) if isinstance(frame, (str, bytes)) else 0),
         })
         return frame
@@ -192,9 +192,3 @@ def _as_str(value: Any) -> str:
     return str(value)
 
 
-def _truncate(s: str, cap: int) -> str:
-    if cap == 0:
-        return ""
-    if len(s) <= cap:
-        return s
-    return s[:cap] + f"…(truncated {len(s) - cap}B)"

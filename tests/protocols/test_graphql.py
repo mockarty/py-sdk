@@ -121,6 +121,35 @@ def test_execute_transport_error_marks_broken():
 
 
 @respx.mock
+def test_execute_json_parse_error_marks_broken():
+    """Server returned 200 with a body that is NOT valid JSON.
+    Review GAP — the broken classification on parse error was
+    untested. Pin it so future refactors don't regress."""
+    rec = AccumulatingRecorder()
+    respx.post("http://test/graphql").mock(
+        return_value=httpx.Response(200, content=b"not-json-at-all"),
+    )
+    with _client(rec) as cli:
+        with pytest.raises(Exception):
+            cli.execute("query X { x }")
+    steps = rec.steps()
+    assert steps[0]["status"] == "broken"
+
+
+@respx.mock
+def test_execute_step_keys_monotonic():
+    rec = AccumulatingRecorder()
+    respx.post("http://test/graphql").mock(
+        return_value=httpx.Response(200, json={"data": {}}),
+    )
+    with _client(rec) as cli:
+        cli.execute("query Get { x }")
+        cli.execute("query Get { x }")
+    keys = [s["stepKey"] for s in rec.steps()]
+    assert keys == ["graphql:Get#1", "graphql:Get#2"]
+
+
+@respx.mock
 def test_execute_variables_and_extra_headers():
     rec = AccumulatingRecorder()
     route = respx.post("http://test/graphql").mock(

@@ -25,6 +25,7 @@ from .telemetry import (
     NopRecorder,
     Step,
     StepRecorder,
+    cap_preview,
     new_step_key,
 )
 
@@ -33,5 +34,6 @@ __all__ = [
     "NopRecorder",
     "Step",
     "StepRecorder",
+    "cap_preview",
     "new_step_key",
 ]

@@ -123,3 +123,41 @@ def test_call_content_type_differs_by_version():
     with SoapClient("http://test/svc", version="1.2") as cli:
         cli.call("X", "<X/>")
     assert route.calls[0].request.headers["content-type"].startswith("application/soap+xml")
+
+
+@respx.mock
+def test_call_step_keys_monotonic():
+    """Step keys must increment per-call so retries server-side de-dup
+    on (namespace, run, step_key). The Go SDK + Java SDK use the same
+    `<name>#<seq>` shape — pin it here so the contract holds."""
+    rec = AccumulatingRecorder()
+    respx.post("http://test/svc").mock(return_value=httpx.Response(200, content=SOAP11_OK))
+    with SoapClient("http://test/svc", recorder=rec) as cli:
+        cli.call("GetUser", "<GetUser/>")
+        cli.call("GetUser", "<GetUser/>")
+        cli.call("GetUser", "<GetUser/>")
+    keys = [s["stepKey"] for s in rec.steps()]
+    assert keys == ["soap:GetUser#1", "soap:GetUser#2", "soap:GetUser#3"], keys
+
+
+SOAP11_EMPTY_FAULT = (
+    '<?xml version="1.0"?>'
+    '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
+    "<soap:Body><soap:Fault></soap:Fault></soap:Body>"
+    "</soap:Envelope>"
+).encode()
+
+
+@respx.mock
+def test_call_empty_fault_uses_synthetic_marker():
+    """Review fix: previously a Fault with no children returned
+    {'code': 'fault'} — looked like a real fault code 'fault'. The
+    fix surfaces {'empty_fault': '1'} so the caller can pattern-match
+    without being misled."""
+    rec = AccumulatingRecorder()
+    respx.post("http://test/svc").mock(return_value=httpx.Response(200, content=SOAP11_EMPTY_FAULT))
+    with SoapClient("http://test/svc", recorder=rec) as cli:
+        resp = cli.call("X", "<X/>")
+    assert resp.fault == {"empty_fault": "1"}
+    assert rec.steps()[0]["status"] == "failed"
+    assert rec.steps()[0]["parameters"]["fault_empty_fault"] == "1"

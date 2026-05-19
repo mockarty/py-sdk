@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 import httpx
 
-from .telemetry import NopRecorder, Step, StepRecorder, new_step_key
+from .telemetry import NopRecorder, Step, StepRecorder, cap_preview, new_step_key
 
 
 class GraphQLError(RuntimeError):
@@ -137,7 +137,7 @@ class GraphQLClient:
             self._record(step_name, started, "broken", exc, {
                 "operation": op_label,
                 "http_status": str(resp.status_code),
-                "response": _truncate(resp.text, self._payload_cap),
+                "response": cap_preview(resp.text, self._payload_cap),
             }, finished=finished)
             raise
 
@@ -159,8 +159,8 @@ class GraphQLClient:
         params = {
             "operation": op_label,
             "http_status": str(resp.status_code),
-            "request": _truncate(body_bytes, self._payload_cap),
-            "response": _truncate(resp.text, self._payload_cap),
+            "request": cap_preview(body_bytes, self._payload_cap),
+            "response": cap_preview(resp.text, self._payload_cap),
             "error_count": str(len(errors)),
         }
         self._record(step_name, started, status, None if status == "passed" else RuntimeError(message), params, finished=finished)
@@ -235,13 +235,3 @@ def _extract_operation_name(query: str) -> Optional[str]:
     return None
 
 
-def _truncate(data: Any, cap: int) -> str:
-    if cap == 0:
-        return ""
-    if isinstance(data, bytes):
-        s = data.decode("utf-8", errors="replace")
-    else:
-        s = str(data)
-    if len(s) <= cap:
-        return s
-    return s[:cap] + f"…(truncated {len(s) - cap}B)"
