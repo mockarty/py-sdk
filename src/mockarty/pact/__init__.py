@@ -39,6 +39,12 @@ from mockarty.pact.broker import (
     PactNotFoundError,
 )
 from mockarty.pact.consumer import Consumer
+from mockarty.pact.verifier import (
+    InteractionResult,
+    Mismatch,
+    VerificationResult,
+    Verifier,
+)
 from mockarty.pact.interaction import InteractionBuilder
 from mockarty.pact.matchers import (
     ArrayContains,
@@ -89,6 +95,11 @@ __all__ = [
     "BrokerError",
     "CanIDeployResult",
     "PactNotFoundError",
+    # Verifier
+    "InteractionResult",
+    "Mismatch",
+    "VerificationResult",
+    "Verifier",
     # Top-level DSL
     "Consumer",
     "InteractionBuilder",
