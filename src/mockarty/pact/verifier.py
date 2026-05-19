@@ -115,6 +115,7 @@ class Verifier:
         self._broker: BrokerClient | None = None
         self._request_filter: RequestFilter | None = None
         self._message_producers: dict[str, Any] = {}
+        self._strict_states: bool = False
 
     # ------------------------------------------------------------------
     # fluent config
@@ -134,6 +135,15 @@ class Verifier:
 
     def with_request_filter(self, fn: RequestFilter) -> Verifier:
         self._request_filter = fn
+        return self
+
+    def with_strict_states(self, strict: bool = True) -> Verifier:
+        """When enabled, a provider-state with no registered handler
+        AND no configured ``with_state_setup_url`` is treated as a
+        verification failure (typo / forgot-to-wire detector). Default
+        is OFF — pact V3 allows informational states.
+        """
+        self._strict_states = strict
         return self
 
     def with_message_producer(
@@ -187,8 +197,17 @@ class Verifier:
     # ------------------------------------------------------------------
 
     def verify_pact_bytes(self, raw: bytes) -> VerificationResult:
+        from mockarty.pact.message import MESSAGE_INTERACTION_TYPE
+
         doc = _parse_pact_doc(raw)
-        return self._verify_interactions(doc["interactions"])
+        # Filter out V4 Asynchronous/Messages — those go through
+        # verify_message_pact_bytes(). Treat missing/empty `type` as
+        # HTTP (V3 docs have no type discriminator).
+        http_only = [
+            ix for ix in doc["interactions"]
+            if str(ix.get("type", "")) != MESSAGE_INTERACTION_TYPE
+        ]
+        return self._verify_interactions(http_only)
 
     def verify_pact_file(self, path: str | os.PathLike[str]) -> VerificationResult:
         with open(path, "rb") as f:
@@ -232,7 +251,7 @@ class Verifier:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            **self._broker._auth_headers(),  # noqa: SLF001 — intra-package
+            **self._broker.auth_headers(),
         }
         resp = self._pool.request(
             "POST", url, body=body, headers=headers, timeout=self.timeout
@@ -327,7 +346,10 @@ class Verifier:
                 "POST",
                 self._state_setup_url,
                 body=body,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
                 timeout=self.timeout,
             )
             if resp.status >= 400:
@@ -335,6 +357,12 @@ class Verifier:
                     f"state-setup HTTP {resp.status}: "
                     f"{resp.data.decode('utf-8', errors='replace')}"
                 )
+            return
+        if self._strict_states:
+            raise RuntimeError(
+                f"no handler or state-setup URL configured for "
+                f"providerState {name!r} (strict mode)"
+            )
 
 
 # ----------------------------------------------------------------------

@@ -95,6 +95,15 @@ class BrokerClient:
         self.timeout = timeout
         self._pool = pool or urllib3.PoolManager()
 
+    def auth_headers(self) -> dict[str, str]:
+        """Auth headers (Bearer or Basic, per pact-foundation precedence).
+
+        Public so sibling components (e.g. the verifier publishing
+        results back to the same broker) can reuse this client's
+        credentials without reaching into private state.
+        """
+        return self._auth_headers()
+
     def _auth_headers(self) -> dict[str, str]:
         # RFC 6749 + pact-foundation precedence: bearer wins over basic.
         if self.token:

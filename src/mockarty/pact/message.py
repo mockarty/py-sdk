@@ -142,6 +142,15 @@ class MessagePact:
     # ------------------------------------------------------------------
 
     def verify(self, handler: MessageHandler) -> None:
+        """Invoke ``handler`` once per queued message with the
+        example bytes.
+
+        Short-circuit semantics: the FIRST handler exception aborts
+        the loop and is re-raised as ``RuntimeError`` (consistent with
+        the Go + Java SDKs). To exercise every message regardless of
+        prior failures, wrap each call yourself or build a custom
+        handler that collects + swallows its own exceptions.
+        """
         if handler is None:
             raise ValueError("handler is required")
         for m in self.messages:

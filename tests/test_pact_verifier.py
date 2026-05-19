@@ -170,7 +170,7 @@ def test_state_setup_url(provider):
         assert len(setup_hits) == 1
         assert b"order 42 exists" in setup_hits[0]
     finally:
-        setup_srv.shutdown()
+        setup_srv.shutdown(); setup_srv.server_close()
 
 
 def test_request_filter(provider):
@@ -231,7 +231,7 @@ def test_verify_from_broker_roundtrip(provider):
         res = v.verify_from_broker("OrderClient", "OrderAPI", "1.0")
         assert res.ok
     finally:
-        bsrv.shutdown()
+        bsrv.shutdown(); bsrv.server_close()
 
 
 def test_publish_results():
@@ -266,7 +266,7 @@ def test_publish_results():
         assert captured[0]["success"] is True
         assert captured[0]["providerApplicationVersion"] == "1.2.3"
     finally:
-        bsrv.shutdown()
+        bsrv.shutdown(); bsrv.server_close()
 
 
 def test_publish_results_requires_version():
@@ -280,6 +280,40 @@ def test_garbage_pact_json():
     v = Verifier(provider_url="http://x")
     with pytest.raises(ValueError):
         v.verify_pact_bytes(b"<<not json>>")
+
+
+def test_strict_states_raises_on_unhandled_state(provider):
+    url, _prov = provider
+    v = Verifier(provider_url=url).with_strict_states()
+    res = v.verify_pact_bytes(SIMPLE_PACT)
+    assert not res.ok
+    assert "strict mode" in res.interactions[0].error
+
+
+def test_verify_pact_bytes_skips_message_interactions(provider):
+    url, _prov = provider
+    mixed = json.dumps({
+        "consumer": {"name": "c"},
+        "provider": {"name": "p"},
+        "interactions": [
+            {
+                "description": "fetch order 42",
+                "providerStates": [{"name": "order 42 exists"}],
+                "request": {"method": "GET", "path": "/orders/42"},
+                "response": {"status": 200,
+                             "headers": {"Content-Type": "application/json"},
+                             "body": {"id": 42}},
+            },
+            {
+                "type": "Asynchronous/Messages",
+                "description": "an order-created event",
+                "contents": {"contentType": "application/json", "content": {"x": 1}},
+            },
+        ],
+    }).encode()
+    res = Verifier(provider_url=url).verify_pact_bytes(mixed)
+    assert len(res.interactions) == 1
+    assert res.interactions[0].description == "fetch order 42"
 
 
 def test_pact_doc_with_non_dict_interaction():
