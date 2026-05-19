@@ -41,12 +41,17 @@ async = ["httpx[http2]"]
 test = ["pytest>=7.0", "pytest-asyncio>=0.21", "respx>=0.21"]
 allure = ["allure-pytest>=2.13"]
 testcontainers = ["testcontainers>=4.0"]
+# `protocols` pulls extras the SOAP / GraphQL / SSE / WebSocket clients
+# need at runtime — currently only the WebSocket transport, since
+# SOAP / GraphQL / SSE all ride on the core `httpx` dependency.
+protocols = ["websockets>=12.0"]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "respx>=0.21",
     "allure-pytest>=2.13",
     "testcontainers>=4.0",
+    "websockets>=12.0",
 ]
 
 [project.urls]
