@@ -39,6 +39,11 @@ from mockarty.pact.broker import (
     PactNotFoundError,
 )
 from mockarty.pact.consumer import Consumer
+from mockarty.pact.message import (
+    MESSAGE_INTERACTION_TYPE,
+    Message,
+    MessagePact,
+)
 from mockarty.pact.verifier import (
     InteractionResult,
     Mismatch,
@@ -100,6 +105,10 @@ __all__ = [
     "Mismatch",
     "VerificationResult",
     "Verifier",
+    # Message pact
+    "MESSAGE_INTERACTION_TYPE",
+    "Message",
+    "MessagePact",
     # Top-level DSL
     "Consumer",
     "InteractionBuilder",

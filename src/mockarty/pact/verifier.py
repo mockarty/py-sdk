@@ -114,6 +114,7 @@ class Verifier:
         self._state_setup_url: str = ""
         self._broker: BrokerClient | None = None
         self._request_filter: RequestFilter | None = None
+        self._message_producers: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
     # fluent config
@@ -134,6 +135,52 @@ class Verifier:
     def with_request_filter(self, fn: RequestFilter) -> Verifier:
         self._request_filter = fn
         return self
+
+    def with_message_producer(
+        self, description: str,
+        fn: Callable[[str, list[dict[str, Any]]], tuple[bytes, Mapping[str, str]]],
+    ) -> Verifier:
+        """Register a per-description message producer for message-pact
+        verification. The verifier calls ``fn(description, states)`` and
+        expects ``(bytes, metadata)``; bytes are matched against the
+        recorded message contents.
+        """
+        self._message_producers[description] = fn
+        return self
+
+    def verify_message_pact_bytes(self, raw: bytes) -> VerificationResult:
+        """Verify a message-pact (Asynchronous/Messages) document."""
+        from mockarty.pact.message import parse_message_pact_doc
+
+        out = VerificationResult(provider=self.provider_name)
+        messages = parse_message_pact_doc(raw)
+        for msg in messages:
+            ir = InteractionResult(description=msg.description)
+            if msg.states:
+                ir.state = str(msg.states[0].get("name", ""))
+            try:
+                for st in msg.states:
+                    self._setup_state(st)
+            except Exception as e:  # noqa: BLE001
+                ir.error = f"state setup: {e}"
+                out.interactions.append(ir)
+                continue
+            producer = self._message_producers.get(msg.description)
+            if producer is None:
+                ir.error = f"no MessageProducer registered for description {msg.description!r}"
+                out.interactions.append(ir)
+                continue
+            try:
+                body, _meta = producer(msg.description, msg.states)
+            except Exception as e:  # noqa: BLE001
+                ir.error = f"producer: {e}"
+                out.interactions.append(ir)
+                continue
+            ir.mismatches = _body_mismatches(msg.content, body)
+            ir.passed = not ir.mismatches
+            out.interactions.append(ir)
+        out.finished_at = _dt.datetime.now(_dt.timezone.utc)
+        return out
 
     # ------------------------------------------------------------------
     # entry points
