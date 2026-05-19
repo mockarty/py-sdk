@@ -32,6 +32,12 @@ Quick start::
 
 from __future__ import annotations
 
+from mockarty.pact.broker import (
+    BrokerClient,
+    BrokerError,
+    CanIDeployResult,
+    PactNotFoundError,
+)
 from mockarty.pact.consumer import Consumer
 from mockarty.pact.interaction import InteractionBuilder
 from mockarty.pact.matchers import (
@@ -78,6 +84,11 @@ from mockarty.pact.types import (
 from mockarty.pact.writer import parse, render, write
 
 __all__ = [
+    # Broker
+    "BrokerClient",
+    "BrokerError",
+    "CanIDeployResult",
+    "PactNotFoundError",
     # Top-level DSL
     "Consumer",
     "InteractionBuilder",
