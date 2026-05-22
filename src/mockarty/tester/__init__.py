@@ -29,6 +29,7 @@ this Python port mirrors the same vocabulary so test suites translate
 from .tester import Tester, StepRecord  # noqa: F401
 from .http import HTTPFacet, HTTPStep  # noqa: F401
 from .graphql import GraphQLFacet, GraphQLStep  # noqa: F401
+from .ergonomics import wrap, eventually, parallel  # noqa: F401
 
 __all__ = [
     "Tester",
@@ -37,4 +38,7 @@ __all__ = [
     "HTTPStep",
     "GraphQLFacet",
     "GraphQLStep",
+    "wrap",
+    "eventually",
+    "parallel",
 ]
