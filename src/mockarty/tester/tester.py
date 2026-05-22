@@ -79,6 +79,11 @@ class Tester:
 
         return GraphQLFacet(self, endpoint)
 
+    def sse(self, endpoint: str):  # -> SSEFacet
+        from .sse import SSEFacet
+
+        return SSEFacet(self, endpoint)
+
     def set_var(self, name: str, value: str) -> None:
         with self._lock:
             self._vars[name] = value
