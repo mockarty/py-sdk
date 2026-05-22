@@ -168,6 +168,39 @@ The client reads these environment variables as defaults:
 | `MOCKARTY_BASE_URL` | Mockarty server URL | `http://localhost:5770` |
 | `MOCKARTY_API_KEY` | API authentication key | `None` |
 
+## Fluent Tester DSL
+
+For end-to-end tests that exercise multiple protocols, the
+`mockarty.tester` sub-package provides a fluent chain that mirrors the
+Go SDK 1:1 — so the same test reads identically across Go / Python /
+Java codebases:
+
+```python
+from mockarty.tester import Tester
+
+def test_user_signup():
+    with Tester(base_url="http://localhost:8080") as t:
+        (t.http().post("/signup")
+            .json({"email": "a@b.c"})
+            .expect_status(201)
+            .extract("$.token", "token"))
+        (t.http().get("/me")
+            .header("Authorization", "Bearer {{token}}")
+            .expect_status(200)
+            .expect_json_path("$.email", "a@b.c"))
+        t.graphql("/gql").query(
+            "{ me { id } }", None,
+        ).expect_status(200).expect_no_errors()
+
+        assert t.ok(), t.errors()
+```
+
+Vocabulary: `expect_status`, `expect_header`, `expect_body_contains`,
+`expect_json_path`, `expect_json_array_len`, `extract`. Each chain
+emits one step record; group with `wrap(t, "name", fn)`, retry with
+`eventually(t, within, interval, fn)`, fan out with
+`parallel(t, branch_a, branch_b)`.
+
 ## Protocol Clients
 
 Beyond *configuring* mocks, the SDK ships test clients to *drive* the
