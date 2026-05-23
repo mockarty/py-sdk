@@ -217,3 +217,67 @@ def test_tester_context_manager():
     with Tester(base_url="http://api.test") as t:
         t.http().get("/").expect_status(200)
     # __exit__ called finish + close — exit clean.
+
+
+@respx.mock
+def test_http_send_and_done():
+    respx.get("http://api.test/").respond(200)
+    t = Tester(base_url="http://api.test")
+    t.http().get("/").send().done()
+    assert t.ok(), t.errors()
+    assert len(t.report()) == 1
+
+
+@respx.mock
+def test_http_text_body_interpolation():
+    route = respx.post("http://api.test/").respond(200)
+    t = Tester(base_url="http://api.test")
+    t.set_var("user", "alice")
+    (t.http().post("/")
+        .body(b"hello {{user}}", "text/plain")
+        .expect_status(200))
+    t.finish()
+    body = route.calls.last.request.content.decode()
+    assert body == "hello alice"
+
+
+@respx.mock
+def test_http_raw_body_json_skips_interpolation():
+    route = respx.post("http://api.test/").respond(200)
+    t = Tester(base_url="http://api.test")
+    t.set_var("user", "alice")
+    raw = b'{"name":"{{user}}"}'
+    t.http().post("/").body(raw, "application/json").expect_status(200)
+    t.finish()
+    body = route.calls.last.request.content
+    # Raw .body with JSON content type bypasses interpolation.
+    assert body == raw
+
+
+@respx.mock
+def test_graphql_extract_field():
+    respx.post("http://api.test/g").respond(
+        200, json={"data": {"order": {"id": 99, "total": 12.5}}},
+    )
+    t = Tester(base_url="http://api.test")
+    (t.graphql("/g")
+        .query("X", None)
+        .extract("$.data.order.id", "orderId")
+        .extract("$.data.order.total", "total"))
+    t.finish()
+    v = t.vars()
+    assert v["orderId"] == "99"
+    assert v["total"] == "12.5"
+
+
+@respx.mock
+def test_missing_var_renders_literal():
+    route = respx.get("http://api.test/u/{{missing}}").respond(200)
+    t = Tester(base_url="http://api.test")
+    t.http().get("/u/{{missing}}").expect_status(200)
+    t.finish()
+    assert route.called
+    # Unknown vars render as literal so missing values are visible.
+    # URL encoding turns "{{" → "%7B%7B" — accept either form.
+    url = str(route.calls.last.request.url)
+    assert "{{missing}}" in url or "%7B%7Bmissing%7D%7D" in url
