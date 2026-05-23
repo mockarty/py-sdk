@@ -17,6 +17,7 @@ from mockarty._base_client import (
 )
 from mockarty.api.agent_tasks import AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI
+from mockarty.api.ci_triggers import AsyncCITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
@@ -88,6 +89,7 @@ class AsyncMockartyClient:
 
         # Lazily-initialised API resources
         self._chaos: AsyncChaosAPI | None = None
+        self._ci_triggers: AsyncCITriggerAPI | None = None
         self._mocks: AsyncMockAPI | None = None
         self._namespaces: AsyncNamespaceAPI | None = None
         self._stores: AsyncStoreAPI | None = None
@@ -147,6 +149,7 @@ class AsyncMockartyClient:
         self._http.headers["X-Namespace"] = value
         # Reset cached API instances so they pick up the new namespace
         self._chaos = None
+        self._ci_triggers = None
         self._mocks = None
         self._namespaces = None
         self._stores = None
@@ -176,6 +179,13 @@ class AsyncMockartyClient:
         self._me = None
 
     # ── API resources ─────────────────────────────────────────────────
+
+    @property
+    def ci_triggers(self) -> AsyncCITriggerAPI:
+        """CI Triggers API (Phase 4 generic webhooks)."""
+        if self._ci_triggers is None:
+            self._ci_triggers = AsyncCITriggerAPI(self._http, self._namespace)
+        return self._ci_triggers
 
     @property
     def chaos(self) -> AsyncChaosAPI:

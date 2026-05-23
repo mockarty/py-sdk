@@ -4,6 +4,7 @@
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
+from mockarty.api.ci_triggers import AsyncCITriggerAPI, CITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI

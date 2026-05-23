@@ -17,6 +17,7 @@ from mockarty._base_client import (
 )
 from mockarty.api.agent_tasks import AgentTaskAPI
 from mockarty.api.chaos import ChaosAPI
+from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.entity_search import EntitySearchAPI
@@ -80,6 +81,7 @@ class MockartyClient:
     # access, never a stale cached client.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
         "_chaos",
+        "_ci_triggers",
         "_mocks",
         "_namespaces",
         "_stores",
@@ -180,6 +182,15 @@ class MockartyClient:
         if self._chaos is None:
             self._chaos = ChaosAPI(self._http, self._namespace)
         return self._chaos
+
+    @property
+    def ci_triggers(self) -> CITriggerAPI:
+        """CI Triggers API (Phase 4 generic webhooks). Use to find a
+        saved trigger ID for ``ci_trigger_id`` on perf/fuzz launches
+        and to poll the linked CI run state."""
+        if self._ci_triggers is None:
+            self._ci_triggers = CITriggerAPI(self._http, self._namespace)
+        return self._ci_triggers
 
     @property
     def mocks(self) -> MockAPI:
