@@ -118,6 +118,33 @@ class Scenario(AbstractContextManager["Scenario"]):
         if self._frame is not None:
             self._frame.metadata.update(kwargs)
 
+    # ── Attachments ───────────────────────────────────────────────────
+
+    def attach(
+        self,
+        name: str,
+        body: Any,
+        *,
+        content_type: str = "application/octet-stream",
+    ) -> None:
+        """Attach a payload to the scenario's case frame.
+
+        Convenience that delegates to :func:`mockarty.testing.decorators.attach`
+        so callers can write ``s.attach(...)`` inside a ``with scenario(...)``
+        block without re-importing the free function. Mirrors the
+        ``Allure.attach`` ergonomics across SDK languages.
+
+        The default ``content_type`` matches the free function so its
+        auto-promotion logic (``str`` body + default sentinel
+        → ``text/plain; charset=utf-8``; ``bytes`` body → unchanged)
+        applies identically. Explicit content_type values pass through
+        unchanged.
+        """
+        # Imported lazily to avoid a circular import with decorators.py
+        # which already imports from this module's context helpers.
+        from mockarty.testing.decorators import attach as _attach
+        _attach(name, body, content_type=content_type)
+
 
 def scenario(
     name: str,

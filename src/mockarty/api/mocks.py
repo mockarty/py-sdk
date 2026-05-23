@@ -25,6 +25,41 @@ _META_LIFT: dict[str, str] = {
 }
 
 
+def _decode_mock_list(data: Any, offset: int, limit: int) -> Page[Mock]:
+    """Decode the GET /api/v1/mocks response into a Page[Mock].
+
+    Wire shape (admin node):
+        {"mocks": [...], "count": N, "limit": N, "message": "..."}
+
+    Older drafts of the API emitted ``{"items": [...], "total": N}`` —
+    we still accept that shape so a downgraded server keeps working.
+    A bare JSON array is also accepted for the very oldest path.
+
+    Surfaced 2026-05-17 by the sibling-instance hunt after the
+    SaveMockResponse.isNew fix. Centralised here so the sync + async
+    APIs share one decoder and the next response-shape fix lives in
+    one place.
+    """
+    if isinstance(data, list):
+        mocks = [Mock.model_validate(_unwrap_meta(m)) for m in data]
+        return Page[Mock](items=mocks, total=len(mocks), offset=offset, limit=limit)
+    if isinstance(data, dict):
+        items = data.get("mocks")
+        if items is None:
+            items = data.get("items") or []
+        mocks = [Mock.model_validate(_unwrap_meta(m)) for m in items]
+        total = data.get("count")
+        if total is None:
+            total = data.get("total", len(mocks))
+        return Page[Mock](
+            items=mocks,
+            total=total,
+            offset=data.get("offset", offset),
+            limit=data.get("limit", limit),
+        )
+    return Page[Mock](items=[], total=0, offset=offset, limit=limit)
+
+
 def _unwrap_meta(data: Any) -> Any:
     """Promote known ``_meta`` keys to top-level so Mock model_validate
     picks them up via the existing aliases. Non-dict input is returned
@@ -81,25 +116,7 @@ class MockAPI(SyncAPIBase):
             params["search"] = search
 
         resp = self._request("GET", "/api/v1/mocks", params=params)
-        data = resp.json()
-
-        # The server returns a list of mocks; wrap in Page
-        if isinstance(data, list):
-            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in data]
-            return Page[Mock](items=mocks, total=len(mocks), offset=offset, limit=limit)
-
-        # If server returns a paginated envelope, parse it
-        if isinstance(data, dict):
-            items = data.get("items") or data.get("mocks") or []
-            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in items]
-            return Page[Mock](
-                items=mocks,
-                total=data.get("total", len(mocks)),
-                offset=data.get("offset", offset),
-                limit=data.get("limit", limit),
-            )
-
-        return Page[Mock](items=[], total=0, offset=offset, limit=limit)
+        return _decode_mock_list(resp.json(), offset, limit)
 
     def update(self, mock_id: str, mock: Mock | dict[str, Any]) -> Mock:
         """Update a mock by re-creating it (full replacement)."""
@@ -271,23 +288,7 @@ class AsyncMockAPI(AsyncAPIBase):
             params["search"] = search
 
         resp = await self._request("GET", "/api/v1/mocks", params=params)
-        data = resp.json()
-
-        if isinstance(data, list):
-            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in data]
-            return Page[Mock](items=mocks, total=len(mocks), offset=offset, limit=limit)
-
-        if isinstance(data, dict):
-            items = data.get("items") or data.get("mocks") or []
-            mocks = [Mock.model_validate(_unwrap_meta(m)) for m in items]
-            return Page[Mock](
-                items=mocks,
-                total=data.get("total", len(mocks)),
-                offset=data.get("offset", offset),
-                limit=data.get("limit", limit),
-            )
-
-        return Page[Mock](items=[], total=0, offset=offset, limit=limit)
+        return _decode_mock_list(resp.json(), offset, limit)
 
     async def update(self, mock_id: str, mock: Mock | dict[str, Any]) -> Mock:
         """Update a mock by re-creating it."""

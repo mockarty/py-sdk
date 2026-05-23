@@ -491,18 +491,64 @@ class TestMock:
 
 
 class TestSaveMockResponse:
-    def test_deserialize(self) -> None:
+    def test_deserialize_canonical_wire_shape(self) -> None:
+        """The admin server actually emits ``isNew`` plus envelope fields.
+        Surfaced 2026-05-17 by the live SDK demo; the SDK historically
+        only bound ``overwritten`` (never present on the wire) so the
+        flag silently stayed False for genuine overwrites.
+        """
         raw = {
-            "overwritten": True,
+            "id": "mock_1779037659",
             "mock": {
-                "id": "saved-mock",
+                "id": "mock_1779037659",
                 "http": {"route": "/api/test", "httpMethod": "GET"},
                 "response": {"statusCode": 200},
             },
+            "isNew": True,
+            "success": True,
+            "message": "Mock created successfully",
         }
         result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is True
+        assert result.overwritten is True  # mirror of is_new for back-compat
+        assert result.success is True
+        assert result.id == "mock_1779037659"
+        assert result.message == "Mock created successfully"
+        assert result.mock.id == "mock_1779037659"
+
+    def test_deserialize_legacy_overwritten_field(self) -> None:
+        """A downgraded server emitting only the legacy ``overwritten``
+        key must still decode — guards against the fix over-correcting."""
+        raw = {"overwritten": True, "mock": {"id": "m1"}}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is True
         assert result.overwritten is True
-        assert result.mock.id == "saved-mock"
+
+    def test_deserialize_is_new_false_keeps_both_false(self) -> None:
+        raw = {"isNew": False, "mock": {"id": "m1"}}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is False
+        assert result.overwritten is False
+
+    def test_conflicting_is_new_and_overwritten_raises(self) -> None:
+        """Sending BOTH the canonical and legacy fields with different
+        values must raise — silent data loss is the exact bug class
+        this fix prevents. Catches the 2026-05-17 code-review finding
+        that the validator previously dropped the legacy value
+        silently when both keys were present."""
+        import pytest
+
+        raw = {"isNew": False, "overwritten": True, "mock": {"id": "m1"}}
+        with pytest.raises(ValueError, match="conflicting"):
+            SaveMockResponse.model_validate(raw)
+
+    def test_consistent_both_fields_accepted(self) -> None:
+        """Both keys present and AGREEING should decode cleanly — guards
+        the conflict-detection from over-raising on legacy mirrors."""
+        raw = {"isNew": True, "overwritten": True, "mock": {"id": "m1"}}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.is_new is True
+        assert result.overwritten is True
 
 
 # ── Common models ─────────────────────────────────────────────────────

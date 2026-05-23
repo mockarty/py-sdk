@@ -29,12 +29,23 @@ from typing import Any, Optional
 
 @dataclass
 class CaseFrame:
-    """One frame on the case stack — one ``@test_case``-decorated test."""
+    """One frame on the case stack — one ``@test_case``-decorated test.
+
+    Phase 2.6 fields (description / expected_result / custom_fields /
+    claim_ownership) are Mockarty-only extensions; the pytest plugin
+    forwards them to the server's ExternalRunRequest at the same names
+    so the case row carries the SDK-author's intent instead of the
+    legacy 'Auto-created by external-run upload' boilerplate.
+    """
 
     case_id: Optional[str] = None
     case_name: Optional[str] = None
     plan_id: Optional[str] = None
     auto_create: bool = False
+    description: Optional[str] = None
+    expected_result: Optional[str] = None
+    custom_fields: list[dict[str, Any]] = field(default_factory=list)
+    claim_ownership: bool = False
     attachments: list[dict[str, Any]] = field(default_factory=list)
     steps: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)

@@ -49,10 +49,24 @@ from mockarty.testing.decorators import (
 from mockarty.testing.fixtures import mock_cleanup, mockarty_client
 from mockarty.testing.scenario import Scenario, scenario
 
+# Public alias: ``case`` is the recommended import alias when the
+# enclosing module is collected by pytest. Because ``test_case`` starts
+# with ``test_``, pytest's default discovery treats the bare imported
+# symbol as a test function and tries to call it with no arguments,
+# raising ``ValueError: requires either case_id= or auto_create=True``.
+# Aliasing the symbol on import sidesteps the collision entirely::
+#
+#     from mockarty.testing import case
+#
+#     @case("CASE-LOGIN-1")
+#     def test_login(mockarty_client): ...
+case = test_case
+
 __all__ = [
     "Scenario",
     "attach",
     "attach_report",
+    "case",
     "mock_cleanup",
     "mockarty_client",
     "plan",

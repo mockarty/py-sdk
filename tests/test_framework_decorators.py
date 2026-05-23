@@ -318,6 +318,101 @@ def test_scenario_metadata_helper():
         assert f.metadata == {"env": "staging", "build": "42"}
 
 
+def test_scenario_attach_delegates_to_attach_function(monkeypatch):
+    """Scenario.attach must invoke mockarty.testing.attach so payloads land
+    on the active case frame. Covers the UX papercut where users expected
+    s.attach(...) but had to fall back to the free function."""
+    seen: list[tuple] = []
+    from mockarty.testing import decorators as _decorators
+
+    monkeypatch.setattr(
+        _decorators,
+        "attach",
+        lambda name, body, *, content_type="application/octet-stream": seen.append(
+            (name, body, content_type)
+        ),
+    )
+    with mk_scenario("flow") as s:
+        s.attach("note", "payload", content_type="text/plain")
+    assert seen == [("note", "payload", "text/plain")]
+
+
+def test_scenario_attach_preserves_auto_promotion_for_str_body():
+    """Scenario.attach default content_type must match the free function's
+    default so its auto-promotion (str body + default sentinel ->
+    'text/plain; charset=utf-8') applies through the delegate. Catches
+    the 2026-05-17 code-review finding that a divergent default
+    ('text/plain') was clobbering binary attachments through Scenario."""
+    @mk_test_case("CASE-DEFAULT-CT")
+    def _demo():
+        with mk_scenario("flow") as s:
+            s.attach("note", "hello")  # str body, default content_type
+        # After scenario exits, the case frame popped — but during the
+        # `with` block, the free function recorded the attachment. Read
+        # it from the frame BEFORE pop by inspecting via a fresh scope.
+    # Easier: drive the free function directly to lock the contract.
+    from mockarty.testing import decorators as _decorators
+    captured: dict = {}
+    def _stub(name, body, *, content_type="application/octet-stream"):
+        captured["name"] = name
+        captured["body"] = body
+        captured["content_type"] = content_type
+    # Wrap the real attach so we observe the content_type the delegate
+    # forwards. Use the real signature default by passing NO content_type.
+    import mockarty.testing.scenario as _scenario_mod
+    with mk_scenario("flow") as s:
+        # monkey-patch only the lazy local import target inside Scenario.attach
+        import sys
+        orig = _decorators.attach
+        _decorators.attach = _stub
+        try:
+            s.attach("note", "hello")  # NO content_type — exercises default
+        finally:
+            _decorators.attach = orig
+    assert captured["name"] == "note"
+    assert captured["body"] == "hello"
+    # The delegate must receive the canonical sentinel so the free
+    # function can auto-promote str -> 'text/plain; charset=utf-8'.
+    assert captured["content_type"] == "application/octet-stream", (
+        f"Scenario.attach default content_type drifted from the free "
+        f"function default — auto-promotion broken. Got: "
+        f"{captured['content_type']!r}"
+    )
+
+
+def test_attach_auto_promotes_str_body_to_text_plain_utf8():
+    """Direct contract test on the free function — the auto-promotion
+    is the behavior Scenario.attach RELIES on. If this changes, the
+    Scenario default must change in lockstep."""
+    from mockarty.testing import attach as free_attach
+    from mockarty.testing import context as _ctx
+    frame = _ctx.CaseFrame(case_id="X", case_name="x", plan_id=None,
+                            auto_create=False, metadata={})
+    _ctx.push_case(frame)
+    try:
+        free_attach("hello", "world")
+        assert len(frame.attachments) == 1
+        att = frame.attachments[0]
+        assert att["body"] == b"world"
+        assert att["content_type"] == "text/plain; charset=utf-8"
+    finally:
+        _ctx.pop_case()
+
+
+def test_case_alias_equals_test_case():
+    """Public ``case`` alias must be the same callable as ``test_case`` —
+    exists only to dodge pytest's auto-collection of identifiers prefixed
+    with ``test_``."""
+    from mockarty.testing import case as mk_case
+    from mockarty.testing import test_case as mk_test_case_direct
+
+    assert mk_case is mk_test_case_direct
+    # And the alias must be usable as a decorator with the same signature.
+    @mk_case("CASE-ALIAS-1")
+    def _demo():  # pragma: no cover — body is irrelevant
+        pass
+
+
 def test_scenario_mock_requires_client():
     with mk_scenario("flow") as s:
         with pytest.raises(RuntimeError, match="client="):
@@ -380,3 +475,47 @@ def test_reset_clears_stacks():
     ctx.reset_for_test()
     assert ctx.current_case() is None
     assert ctx.current_step() is None
+
+
+def test_test_case_phase26_fields_flow_into_frame():
+    """Phase 2.6 SDK-extension fields (description / expected_result /
+    custom_fields / claim_ownership) must land on the pushed CaseFrame
+    so the pytest plugin can forward them to the server's
+    ExternalRunRequest at upload time."""
+    captured = {}
+
+    @mk_test_case(
+        "CASE-X",
+        description="## Login smoke\nVerifies 2FA path.",
+        expected_result="Welcome banner shows user email.",
+        custom_fields=[
+            {"type": "feature", "name": "Auth", "value": "Login"},
+            {"type": "severity", "name": "severity", "value": "critical"},
+        ],
+        claim_ownership=True,
+    )
+    def _demo():
+        f = ctx.current_case()
+        captured["f"] = f
+
+    _demo()
+    f = captured["f"]
+    assert f.description == "## Login smoke\nVerifies 2FA path."
+    assert f.expected_result == "Welcome banner shows user email."
+    assert len(f.custom_fields) == 2
+    assert f.custom_fields[0]["type"] == "feature"
+    assert f.claim_ownership is True
+
+
+def test_test_case_phase26_fields_default_empty():
+    """Regression guard: omitting the Phase 2.6 fields keeps frames at
+    their pre-2.6 defaults (None / [] / False)."""
+    @mk_test_case("CASE-Y")
+    def _demo():
+        f = ctx.current_case()
+        assert f.description is None
+        assert f.expected_result is None
+        assert f.custom_fields == []
+        assert f.claim_ownership is False
+
+    _demo()

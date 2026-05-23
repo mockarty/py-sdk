@@ -168,6 +168,76 @@ The client reads these environment variables as defaults:
 | `MOCKARTY_BASE_URL` | Mockarty server URL | `http://localhost:5770` |
 | `MOCKARTY_API_KEY` | API authentication key | `None` |
 
+## Fluent Tester DSL
+
+For end-to-end tests that exercise multiple protocols, the
+`mockarty.tester` sub-package provides a fluent chain that mirrors the
+Go SDK 1:1 — so the same test reads identically across Go / Python /
+Java codebases:
+
+```python
+from mockarty.tester import Tester
+
+def test_user_signup():
+    with Tester(base_url="http://localhost:8080") as t:
+        (t.http().post("/signup")
+            .json({"email": "a@b.c"})
+            .expect_status(201)
+            .extract("$.token", "token"))
+        (t.http().get("/me")
+            .header("Authorization", "Bearer {{token}}")
+            .expect_status(200)
+            .expect_json_path("$.email", "a@b.c"))
+        t.graphql("/gql").query(
+            "{ me { id } }", None,
+        ).expect_status(200).expect_no_errors()
+
+        assert t.ok(), t.errors()
+```
+
+Vocabulary: `expect_status`, `expect_header`, `expect_body_contains`,
+`expect_json_path`, `expect_json_array_len`, `extract`. Each chain
+emits one step record; group with `wrap(t, "name", fn)`, retry with
+`eventually(t, within, interval, fn)`, fan out with
+`parallel(t, branch_a, branch_b)`.
+
+## Protocol Clients
+
+Beyond *configuring* mocks, the SDK ships test clients to *drive* the
+system under test for SOAP / GraphQL / SSE / WebSocket — each captures
+every call as a TCM step so the external run shows a per-call timeline:
+
+- `mockarty.protocols.soap`      — SOAP 1.1 / 1.2 with stdlib XML parsing
+- `mockarty.protocols.graphql`   — GraphQL with auto operation-name extraction
+- `mockarty.protocols.sse`       — Server-Sent Events (WHATWG parser, `collect` + `stream`)
+- `mockarty.protocols.websocket` — WebSocket via the optional `protocols` extra
+- `mockarty.protocols.telemetry` — shared `Step` / `AccumulatingRecorder`
+
+```python
+from mockarty import Client
+from mockarty.protocols import AccumulatingRecorder
+from mockarty.protocols.graphql import GraphQLClient
+
+client = Client("http://localhost:5770", api_token="...")
+rec = AccumulatingRecorder()
+
+gql = GraphQLClient("http://app/graphql", recorder=rec)
+gql.execute("query GetUser { user { id } }")
+
+# At test finish, push the captured timeline:
+client.external_runs().report(case_name="my case", status="passed", steps=rec.steps())
+```
+
+For WebSocket support:
+
+```bash
+pip install "mockarty[protocols]"
+```
+
+Full cross-language reference (Python / Go / Java side-by-side, every
+protocol, options, classification rules, troubleshooting):
+**[SDK Protocol Clients](https://mockarty.ru/docs/sdk-protocol-clients)**.
+
 ## pytest Integration
 
 Install the test extras:

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mockarty.models.contexts import (
     GraphQLRequestContext,
@@ -217,7 +217,77 @@ class Mock(BaseModel):
 
 
 class SaveMockResponse(BaseModel):
-    """Response returned by the mock create/update endpoint."""
+    """Response returned by the mock create/update endpoint.
 
-    overwritten: bool = False
+    Wire shape (admin node, ``POST /api/v1/mocks``)::
+
+        {
+          "id":      "<mock-id>",
+          "mock":    {...full mock...},
+          "isNew":   <true|false>,   # true = an existing mock was replaced
+          "success": true,
+          "message": "Mock created successfully"
+        }
+
+    The server's ``isNew`` field is semantically *"was overwrite"* — it
+    is true when an existing record was replaced. The legacy field name
+    ``overwritten`` was never emitted by the server (carried over from
+    an internal draft model), so older SDKs silently saw ``False`` for
+    real overwrites. We bind to ``isNew`` as the canonical wire name
+    and surface ``overwritten`` as a populated mirror so existing call
+    sites keep working. Surfaced 2026-05-17 by the live SDK demo (same
+    bug class fixed in java-sdk ``28be56e`` and go-sdk this date).
+    """
+
     mock: Mock = Field(default_factory=Mock)
+    id: Optional[str] = None
+    message: Optional[str] = None
+    is_new: bool = Field(False, alias="isNew")
+    # ``overwritten`` mirrors ``is_new`` after model_validate so legacy
+    # callers don't have to update their reads. Populated by the
+    # validator below; on input we also accept it as a legacy alias.
+    overwritten: bool = False
+    success: bool = False
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_overwritten(cls, data: Any) -> Any:
+        """Reconcile the canonical ``isNew`` field with the legacy
+        ``overwritten`` alias. Resolution rules:
+
+        * Only ``overwritten`` present → promoted to ``isNew``.
+        * Only ``isNew`` (or snake-case ``is_new``) present → kept as-is.
+        * Both present with the same value → kept as-is (no-op).
+        * Both present with conflicting values → raise ``ValueError``
+          so the caller learns about the wire-shape inconsistency
+          instead of silently dropping the legacy value.
+
+        Without this validator, a caller passing
+        ``{"isNew": False, "overwritten": True}`` would silently get
+        ``False`` (because the after-validator mirrors ``is_new`` onto
+        ``overwritten``). That kind of silent data loss is exactly the
+        bug class this SDK fix is supposed to prevent.
+        """
+        if not isinstance(data, dict):
+            return data
+        canonical_key = "isNew" if "isNew" in data else ("is_new" if "is_new" in data else None)
+        legacy_present = "overwritten" in data
+        if canonical_key is None and legacy_present:
+            data = dict(data)
+            data["isNew"] = bool(data["overwritten"])
+        elif canonical_key is not None and legacy_present:
+            if bool(data[canonical_key]) != bool(data["overwritten"]):
+                raise ValueError(
+                    f"SaveMockResponse received conflicting fields: "
+                    f"{canonical_key}={data[canonical_key]!r} but "
+                    f"overwritten={data['overwritten']!r}. Use only "
+                    f"{canonical_key} — overwritten is a deprecated alias."
+                )
+        return data
+
+    @model_validator(mode="after")
+    def _mirror_is_new_to_overwritten(self) -> "SaveMockResponse":
+        self.overwritten = self.is_new
+        return self
