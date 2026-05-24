@@ -41,6 +41,7 @@ from .rabbitmq import (  # noqa: F401
 from .soap import SOAPFacet, SOAPStep  # noqa: F401
 from .db import DBFacet, DBStep, SQLConn, DBExecResult, DBRow  # noqa: F401
 from .ergonomics import wrap, eventually, parallel  # noqa: F401
+from .external_run import to_report_kwargs  # noqa: F401
 
 __all__ = [
     "Tester",
@@ -74,4 +75,5 @@ __all__ = [
     "wrap",
     "eventually",
     "parallel",
+    "to_report_kwargs",
 ]
