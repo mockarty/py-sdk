@@ -84,6 +84,26 @@ class Tester:
 
         return SSEFacet(self, endpoint)
 
+    def kafka(self, broker):  # -> KafkaFacet
+        from .kafka import KafkaFacet
+
+        return KafkaFacet(self, broker)
+
+    def rabbitmq(self, broker):  # -> RabbitMQFacet
+        from .rabbitmq import RabbitMQFacet
+
+        return RabbitMQFacet(self, broker)
+
+    def soap(self, endpoint: str):  # -> SOAPFacet
+        from .soap import SOAPFacet
+
+        return SOAPFacet(self, endpoint)
+
+    def db(self, conn):  # -> DBFacet
+        from .db import DBFacet
+
+        return DBFacet(self, conn)
+
     def set_var(self, name: str, value: str) -> None:
         with self._lock:
             self._vars[name] = value
