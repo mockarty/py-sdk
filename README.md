@@ -201,6 +201,29 @@ emits one step record; group with `wrap(t, "name", fn)`, retry with
 `eventually(t, within, interval, fn)`, fan out with
 `parallel(t, branch_a, branch_b)`.
 
+### Upload to TCM external runs
+
+Ship a Tester chain as a TCM external run in one call:
+
+```python
+from mockarty import MockartyClient
+from mockarty.tester import Tester, to_report_kwargs
+
+with MockartyClient(base_url="http://...", api_key="...", namespace="qa") as client:
+    with Tester(base_url="http://localhost:8080") as t:
+        t.http().get("/me").expect_status(200)
+
+        client.external_runs.report(
+            **to_report_kwargs(t, case_name="me-endpoint", auto_create=True),
+        )
+```
+
+`to_report_kwargs(t, **opts)` maps the Tester report to the
+`ExternalRunsAPI.report()` kwargs shape: per-step
+`protocol/method/url/statusOrCode` go into `metadata`, multi-failure
+errors join with `"; "`, ISO-8601 UTC timestamps. Same vocabulary as
+the Go (`tester.ToExternalRun`) and Java (`ExternalRunBridge`) SDKs.
+
 ## Protocol Clients
 
 Beyond *configuring* mocks, the SDK ships test clients to *drive* the
