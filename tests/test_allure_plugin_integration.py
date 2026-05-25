@@ -49,7 +49,7 @@ def test_plugin_emits_one_result_per_test(pytester, tmp_path, monkeypatch):
             assert True
         """
     )
-    result = pytester.runpytest_inprocess("-q", "-p", "mockarty.testing.plugin")
+    result = pytester.runpytest_inprocess("-q")
     result.assert_outcomes(passed=2)
     docs = _read_results(str(out_dir))
     assert len(docs) == 2
@@ -77,7 +77,7 @@ def test_plugin_parametrize_each_iteration_emits_distinct_result(pytester, tmp_p
             assert x in (1, 2, 3)
         """
     )
-    result = pytester.runpytest("-q", "-p", "mockarty.testing.plugin")
+    result = pytester.runpytest("-q")
     result.assert_outcomes(passed=3)
     docs = _read_results(str(out_dir))
     assert len(docs) == 3
@@ -103,7 +103,7 @@ def test_plugin_failed_test_records_status(pytester, tmp_path, monkeypatch):
             assert False, "deliberate failure"
         """
     )
-    result = pytester.runpytest("-q", "-p", "mockarty.testing.plugin")
+    result = pytester.runpytest("-q")
     result.assert_outcomes(failed=1)
     docs = _read_results(str(out_dir))
     assert len(docs) == 1
