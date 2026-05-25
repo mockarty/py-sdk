@@ -105,6 +105,11 @@ def _build_payload(
     metadata: Optional[dict[str, Any]],
     steps: Optional[list[dict[str, Any]]],
     attachments: Optional[Iterable[dict[str, Any]]],
+    full_name: Optional[str] = None,
+    case_description: Optional[str] = None,
+    case_expected_result: Optional[str] = None,
+    custom_fields: Optional[list[dict[str, Any]]] = None,
+    claim_case_ownership: bool = False,
 ) -> dict[str, Any]:
     if not case_id and not case_name:
         raise ValueError("one of case_id / case_name is required")
@@ -147,6 +152,16 @@ def _build_payload(
         payload["metadata"] = dict(metadata)
     if steps:
         payload["steps"] = list(steps)
+    if full_name:
+        payload["fullName"] = full_name
+    if case_description:
+        payload["caseDescription"] = case_description
+    if case_expected_result:
+        payload["caseExpectedResult"] = case_expected_result
+    if custom_fields:
+        payload["customFields"] = [dict(f) for f in custom_fields]
+    if claim_case_ownership:
+        payload["claimCaseOwnership"] = True
     norm_attachments = _build_attachments(attachments)
     if norm_attachments:
         payload["attachments"] = norm_attachments
@@ -179,6 +194,11 @@ class ExternalRunsAPI(SyncAPIBase):
         steps: Optional[list[dict[str, Any]]] = None,
         attachments: Optional[Iterable[dict[str, Any]]] = None,
         namespace: Optional[str] = None,
+        full_name: Optional[str] = None,
+        case_description: Optional[str] = None,
+        case_expected_result: Optional[str] = None,
+        custom_fields: Optional[list[dict[str, Any]]] = None,
+        claim_case_ownership: bool = False,
     ) -> dict[str, Any]:
         """Persist a synthetic case run from an external test framework.
 
@@ -187,6 +207,24 @@ class ExternalRunsAPI(SyncAPIBase):
 
         Defaults are tuned for the 80% case: pass ``case_id`` (UUID) or
         ``case_name`` plus ``status`` and the rest is optional.
+
+        Phase 2.6 fields (Mockarty extensions beyond the Allure base):
+
+        - ``full_name``           — deterministic test identifier
+          ("package.Class::test[param=value]") for duplicate-prevention
+          across parallel CI workers. Migration 321 introduced the
+          ``test_cases.external_full_name`` column + partial unique
+          index that backs this.
+        - ``case_description``    — Markdown description stamped on
+          case auto-create (or overwrite when ``claim_case_ownership``).
+        - ``case_expected_result``— review-workflow's expected-result
+          clause (Mockarty's primary differentiator vs Allure).
+        - ``custom_fields``       — list of ``{type, name, value}``
+          triplets persisted to ``test_cases.custom_fields_json``.
+        - ``claim_case_ownership``— when True, the receiver overwrites
+          existing Description / ExpectedResult / CustomFields on
+          every upload so the code annotation is source-of-truth.
+          Default False preserves manual UI edits.
         """
         ns = namespace or self._namespace
         body = _build_payload(
@@ -209,8 +247,46 @@ class ExternalRunsAPI(SyncAPIBase):
             metadata=metadata,
             steps=steps,
             attachments=attachments,
+            full_name=full_name,
+            case_description=case_description,
+            case_expected_result=case_expected_result,
+            custom_fields=custom_fields,
+            claim_case_ownership=claim_case_ownership,
         )
         resp = self._request("POST", _ns_path(ns), json=body)
+        return resp.json() if resp.content else {}
+
+    def report_batch(
+        self,
+        runs: list[dict[str, Any]],
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """POST a batch of external-run results in one round-trip.
+
+        Wraps ``POST /api/v1/namespaces/:ns/tcm/external-runs/batch`` —
+        the fan-in endpoint for CI scripts that produce many results
+        per pipeline. Each item in ``runs`` is a payload dict (same
+        shape ``report()`` builds; pass results from ``_build_payload``
+        helpers or construct manually).
+
+        The server caps the batch at 100 items per call (see
+        ``MaxBatchExternalRuns`` in
+        ``internal/webui/tcm_external_run_batch_handler.go``); larger
+        sets must be chunked by the caller. Even when N items fail
+        the server returns 200 with per-row errors — the caller
+        inspects ``response["results"][i]`` to correlate.
+
+        Returns the raw server envelope:
+        ``{"results": [{"index": N, "result": {...}} | {"error": "..."}],
+        "counts": {"total": int, "passed": int, "failed": int}}``.
+        """
+        if not runs:
+            raise ValueError("runs must be a non-empty list")
+        ns = namespace or self._namespace
+        body = {"runs": list(runs)}
+        path = _ns_path(ns) + "/batch"
+        resp = self._request("POST", path, json=body)
         return resp.json() if resp.content else {}
 
     def upload_allure_dir(
@@ -275,6 +351,11 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         steps: Optional[list[dict[str, Any]]] = None,
         attachments: Optional[Iterable[dict[str, Any]]] = None,
         namespace: Optional[str] = None,
+        full_name: Optional[str] = None,
+        case_description: Optional[str] = None,
+        case_expected_result: Optional[str] = None,
+        custom_fields: Optional[list[dict[str, Any]]] = None,
+        claim_case_ownership: bool = False,
     ) -> dict[str, Any]:
         ns = namespace or self._namespace
         body = _build_payload(
@@ -297,8 +378,28 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
             metadata=metadata,
             steps=steps,
             attachments=attachments,
+            full_name=full_name,
+            case_description=case_description,
+            case_expected_result=case_expected_result,
+            custom_fields=custom_fields,
+            claim_case_ownership=claim_case_ownership,
         )
         resp = await self._request("POST", _ns_path(ns), json=body)
+        return resp.json() if resp.content else {}
+
+    async def report_batch(
+        self,
+        runs: list[dict[str, Any]],
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Async counterpart of :meth:`ExternalRunsAPI.report_batch`."""
+        if not runs:
+            raise ValueError("runs must be a non-empty list")
+        ns = namespace or self._namespace
+        body = {"runs": list(runs)}
+        path = _ns_path(ns) + "/batch"
+        resp = await self._request("POST", path, json=body)
         return resp.json() if resp.content else {}
 
 

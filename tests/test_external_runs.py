@@ -223,3 +223,55 @@ def test_external_runs_report_namespace_override():
             namespace="other-ns",
         )
     assert route.called
+
+
+@respx.mock
+def test_external_runs_report_batch_posts_runs_envelope():
+    """report_batch posts {runs:[...]} to /batch endpoint."""
+    route = respx.post(
+        "http://localhost:5770/api/v1/namespaces/qa/tcm/external-runs/batch"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"index": 0, "result": {"runId": "r1", "caseId": "c1"}},
+                    {"index": 1, "result": {"runId": "r2", "caseId": "c2"}},
+                ],
+                "counts": {"total": 2, "passed": 2, "failed": 0},
+            },
+        )
+    )
+    with MockartyClient(base_url="http://localhost:5770", namespace="qa") as client:
+        out = client.external_runs.report_batch(
+            [
+                {"caseName": "a", "status": "passed", "framework": "pytest"},
+                {"caseName": "b", "status": "passed", "framework": "pytest"},
+            ]
+        )
+    assert route.called
+    import json
+    body = json.loads(route.calls[0].request.read())
+    assert "runs" in body and len(body["runs"]) == 2
+    assert body["runs"][0]["caseName"] == "a"
+    assert out["counts"]["total"] == 2
+
+
+def test_external_runs_report_batch_rejects_empty():
+    """Empty runs list must raise — fan-in endpoint requires ≥1 row."""
+    with MockartyClient(base_url="http://localhost:5770", namespace="qa") as client:
+        with pytest.raises(ValueError):
+            client.external_runs.report_batch([])
+
+
+@respx.mock
+def test_external_runs_report_batch_namespace_override():
+    route = respx.post(
+        "http://localhost:5770/api/v1/namespaces/team-b/tcm/external-runs/batch"
+    ).mock(return_value=httpx.Response(200, json={}))
+    with MockartyClient(base_url="http://localhost:5770", namespace="qa") as client:
+        client.external_runs.report_batch(
+            [{"caseName": "a", "status": "passed"}],
+            namespace="team-b",
+        )
+    assert route.called

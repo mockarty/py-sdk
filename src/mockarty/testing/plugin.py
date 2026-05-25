@@ -315,6 +315,18 @@ def _upload_case_outcome(
         for a in case.attachments
     ]
 
+    # item.nodeid is the canonical pytest test identifier — same value
+    # the user's CI runs key off (xfail/xpass markers, --lf, --co etc.).
+    # Forwarding it as fullName closes the duplicate-prevention loop
+    # for parallel CI workers (migration 321 + resolveCase rewrite).
+    full_name = item.nodeid
+    custom_fields = (
+        [{"type": cf.get("type", "string"),
+          "name": cf.get("name", ""),
+          "value": cf.get("value", "")} for cf in case.custom_fields]
+        if getattr(case, "custom_fields", None)
+        else None
+    )
     runs_api.report(
         status=_pytest_status_to_external(report),
         case_id=case.case_id,
@@ -324,6 +336,7 @@ def _upload_case_outcome(
         framework="pytest",
         framework_version=pytest.__version__,
         external_id=item.nodeid,
+        full_name=full_name,
         test_display_name=item.name,
         duration_ms=int(report.duration * 1000) if report.duration else 0,
         error=report.longreprtext if report.longreprtext else None,
@@ -332,6 +345,10 @@ def _upload_case_outcome(
         metadata=dict(case.metadata) if case.metadata else None,
         steps=steps if steps else None,
         attachments=attachments if attachments else None,
+        case_description=getattr(case, "description", None) or None,
+        case_expected_result=getattr(case, "expected_result", None) or None,
+        custom_fields=custom_fields,
+        claim_case_ownership=bool(getattr(case, "claim_ownership", False)),
     )
 
 
