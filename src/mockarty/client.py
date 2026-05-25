@@ -22,6 +22,7 @@ from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.entity_search import EntitySearchAPI
 from mockarty.api.external_runs import ExternalRunsAPI
+from mockarty.api.flow_runs import FlowRunsAPI
 from mockarty.api.environments import EnvironmentAPI
 from mockarty.api.folders import FolderAPI
 from mockarty.api.fuzzing import FuzzingAPI
@@ -36,6 +37,7 @@ from mockarty.api.perf import PerfAPI
 from mockarty.api.prompts import PromptsAPI
 from mockarty.api.proxy import ProxyAPI
 from mockarty.api.secrets import SecretsAPI
+from mockarty.api.security import SecurityAPI
 from mockarty.api.recorder import RecorderAPI
 from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
@@ -106,7 +108,9 @@ class MockartyClient:
         "_environments",
         "_entity_search",
         "_external_runs",
+        "_flow_runs",
         "_secrets",
+        "_security",
         "_prompts",
         "_me",
     )
@@ -219,6 +223,18 @@ class MockartyClient:
         if self._secrets is None:
             self._secrets = SecretsAPI(self._http, self._namespace)
         return self._secrets
+
+    @property
+    def security(self) -> SecurityAPI:
+        """Security Agent API (CI/CD-useful subset).
+
+        Start scans, poll status, list findings, download SARIF, list
+        scanners, cancel scans. Gated by the ``security_agent`` licence
+        feature; admin operations live in the UI.
+        """
+        if self._security is None:
+            self._security = SecurityAPI(self._http, self._namespace)
+        return self._security
 
     @property
     def prompts(self) -> PromptsAPI:
@@ -385,3 +401,15 @@ class MockartyClient:
         if self._external_runs is None:
             self._external_runs = ExternalRunsAPI(self._http, self._namespace)
         return self._external_runs
+
+    @property
+    def flow_runs(self) -> FlowRunsAPI:
+        """Server-side IR runner (POST /api/v1/api-tester/flow-runs).
+
+        Pairs with the canonical Mockarty IR (``internal/iruir``). Lets
+        a caller ship a Flow document at the server and receive an
+        aggregated RunResult without a local goja runtime.
+        """
+        if self._flow_runs is None:
+            self._flow_runs = FlowRunsAPI(self._http, self._namespace)
+        return self._flow_runs
