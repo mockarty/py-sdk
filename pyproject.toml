@@ -73,3 +73,17 @@ include = ["src/mockarty", "LICENSE", "README.md"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# pytest-asyncio 1.x will default async-fixture loop scope to "function";
+# pin explicitly so the deprecation warning goes away on current builds
+# and behavior stays stable across the version bump.
+asyncio_default_fixture_loop_scope = "function"
+# Silence third-party deprecation noise that is outside our control:
+#   - testcontainers `@wait_container_is_ready` decorator (library
+#     internals; structured wait strategies are the replacement and we
+#     are not invoking the decorator directly).
+#   - urllib3 NotOpenSSLWarning on macOS' bundled LibreSSL — system
+#     SSL stack mismatch, not actionable from our side.
+filterwarnings = [
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning:testcontainers\\.core\\.waiting_utils",
+    "ignore::urllib3.exceptions.NotOpenSSLWarning",
+]
