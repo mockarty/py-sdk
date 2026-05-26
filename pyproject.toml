@@ -38,7 +38,22 @@ dependencies = [
 
 [project.optional-dependencies]
 async = ["httpx[http2]"]
-test = ["pytest>=7.0", "pytest-asyncio>=0.21", "respx>=0.21"]
+# `pact` pulls the contract-testing surface's runtime extras.
+# - `requests` powers the live broker example + integration tests
+# - `urllib3` is what mockarty.pact.broker actually uses for HTTP
+#   (transitively via requests, but pinned here to make the dep
+#   explicit and survive future requests-removal cleanups).
+pact = ["requests>=2.31", "urllib3>=1.26"]
+# `test` includes `pact` because pact test modules live under
+# tests/ and pytest collects them by default — without these the
+# collection step ImportError's before any test can run.
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "respx>=0.21",
+    "requests>=2.31",
+    "urllib3>=1.26",
+]
 allure = ["allure-pytest>=2.13"]
 testcontainers = ["testcontainers>=4.0"]
 # `protocols` pulls extras the SOAP / GraphQL / SSE / WebSocket clients
@@ -52,6 +67,8 @@ dev = [
     "allure-pytest>=2.13",
     "testcontainers>=4.0",
     "websockets>=12.0",
+    "requests>=2.31",
+    "urllib3>=1.26",
 ]
 
 [project.urls]
