@@ -283,6 +283,21 @@ def test_create_mock(mock_cleanup):
     assert created.id is not None
 ```
 
+## Examples
+
+The [`examples/`](./examples/) directory has 25+ runnable scripts
+covering every facet of the SDK. The two most useful starting points:
+
+| Example | What it shows |
+|---------|---------------|
+| [`kitchen_sink/`](./examples/kitchen_sink/) | Full adopter showcase — Tester DSL chain (`token-chain` → HTTP → GraphQL → JSONPath assertions), `wrap()` grouping, TCM external-run upload via `to_report_kwargs`. Runs against the testbackend; no external infrastructure. |
+| [`ci_cd_pipeline.py`](./examples/ci_cd_pipeline.py) | Pytest test that emits a TCM run from a CI step — JUnit-style structure, Allure-compatible attachments. |
+| [`agent_tasks.py`](./examples/agent_tasks.py) | Tester DSL emitting external-run reports straight from a pytest function. |
+
+For protocol-specific snippets see `http_mocks.py`, `graphql_mocks.py`,
+`grpc_mocks.py`, `soap_mocks.py`, `messaging_mocks.py`,
+`sse_mocks.py`.
+
 ## Allure Compatibility (default-ON)
 
 Mockarty ships **seamless Allure interop** — existing Allure-based test
