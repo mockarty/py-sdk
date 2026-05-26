@@ -56,7 +56,8 @@ class RabbitMQFacet:
         self._t._flush_pending()
         v = self._t._snapshot_vars()
         step = RabbitMQPublishStep(
-            self._t, self._broker,
+            self._t,
+            self._broker,
             exchange=interpolate(exchange, v),
             routing_key=interpolate(routing_key, v),
         )
@@ -66,7 +67,8 @@ class RabbitMQFacet:
     def consume(self, queue: str) -> "RabbitMQConsumeStep":
         self._t._flush_pending()
         step = RabbitMQConsumeStep(
-            self._t, self._broker,
+            self._t,
+            self._broker,
             RabbitConsumeOptions(
                 queue=interpolate(queue, self._t._snapshot_vars()),
                 max_messages=1,
@@ -78,7 +80,11 @@ class RabbitMQFacet:
 
 class RabbitMQPublishStep:
     def __init__(
-        self, tester: Tester, broker: RabbitMQBroker, exchange: str, routing_key: str,
+        self,
+        tester: Tester,
+        broker: RabbitMQBroker,
+        exchange: str,
+        routing_key: str,
     ) -> None:
         self._t = tester
         self._broker = broker
@@ -143,7 +149,10 @@ class RabbitMQPublishStep:
         self._started_at = time.time()
         try:
             self._broker.publish(
-                self._exchange, self._routing_key, self._payload, dict(self._headers),
+                self._exchange,
+                self._routing_key,
+                self._payload,
+                dict(self._headers),
             )
         except Exception as e:
             self._err = e
@@ -174,7 +183,10 @@ class RabbitMQPublishStep:
 
 class RabbitMQConsumeStep:
     def __init__(
-        self, tester: Tester, broker: RabbitMQBroker, opts: RabbitConsumeOptions,
+        self,
+        tester: Tester,
+        broker: RabbitMQBroker,
+        opts: RabbitConsumeOptions,
     ) -> None:
         self._t = tester
         self._broker = broker
@@ -270,6 +282,7 @@ class RabbitMQConsumeStep:
         except (JSONPathError, ValueError) as e:
             return self._fail(f"extract[{idx}] {path}: {e}")
         from .http import _stringify
+
         self._t.set_var(name, _stringify(got))
         return self
 

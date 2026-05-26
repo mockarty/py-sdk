@@ -79,13 +79,17 @@ class BrokerClient:
         timeout: float = 30.0,
         pool: urllib3.PoolManager | None = None,
     ) -> None:
-        url = (base_url if base_url is not None else os.getenv("PACT_BROKER_BASE_URL", "")).strip()
+        url = (
+            base_url if base_url is not None else os.getenv("PACT_BROKER_BASE_URL", "")
+        ).strip()
         if not url:
             raise ValueError(
                 "BrokerClient requires base_url or PACT_BROKER_BASE_URL env var"
             )
         self.base_url = url.rstrip("/")
-        self.token = (token if token is not None else os.getenv("PACT_BROKER_TOKEN", "")).strip()
+        self.token = (
+            token if token is not None else os.getenv("PACT_BROKER_TOKEN", "")
+        ).strip()
         self.username = (
             username if username is not None else os.getenv("PACT_BROKER_USERNAME", "")
         ).strip()
@@ -231,12 +235,11 @@ class BrokerClient:
             payload = json.loads(resp.data.decode("utf-8") or "{}")
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise BrokerError(
-                resp.status, resp.data.decode("utf-8", errors="replace"),
+                resp.status,
+                resp.data.decode("utf-8", errors="replace"),
                 message=f"can-i-deploy: unparsable JSON ({e})",
             ) from e
-        summary = (
-            payload.get("summary") if isinstance(payload, dict) else None
-        ) or {}
+        summary = (payload.get("summary") if isinstance(payload, dict) else None) or {}
         deployable = bool(summary.get("deployable", False))
         reason = str(summary.get("reason", ""))
         return CanIDeployResult(

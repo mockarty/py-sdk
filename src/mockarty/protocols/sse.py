@@ -79,7 +79,9 @@ class SseClient:
     def __exit__(self, *_exc: Any) -> None:
         self.close()
 
-    def collect(self, max_events: int = 1, max_duration: float = 30.0) -> list[SseEvent]:
+    def collect(
+        self, max_events: int = 1, max_duration: float = 30.0
+    ) -> list[SseEvent]:
         """Pull up to ``max_events`` events or until ``max_duration``
         seconds elapse. Returns the events received so far when either
         limit fires; never raises on timeout.
@@ -103,9 +105,13 @@ class SseClient:
         try:
             with self._client.stream("GET", self._url, headers=self._headers) as resp:
                 if resp.status_code >= 400:
-                    self._record("sse:collect", started, "failed",
-                                 RuntimeError(f"HTTP {resp.status_code}"),
-                                 {"http_status": str(resp.status_code), "count": "0"})
+                    self._record(
+                        "sse:collect",
+                        started,
+                        "failed",
+                        RuntimeError(f"HTTP {resp.status_code}"),
+                        {"http_status": str(resp.status_code), "count": "0"},
+                    )
                     return events
                 for event in _parse_sse_stream(resp.iter_lines()):
                     events.append(event)
@@ -115,21 +121,34 @@ class SseClient:
                         deadline_fired = True
                         break
         except httpx.HTTPError as exc:
-            self._record("sse:collect", started, "broken", exc, {"count": str(len(events))})
+            self._record(
+                "sse:collect", started, "broken", exc, {"count": str(len(events))}
+            )
             raise
         if deadline_fired and not events:
-            self._record("sse:collect", started, "broken",
-                         RuntimeError("deadline expired before first event"), {
-                "count": "0",
-                "url": cap_preview(self._url, self._payload_cap),
-                "reason": "deadline",
-            })
+            self._record(
+                "sse:collect",
+                started,
+                "broken",
+                RuntimeError("deadline expired before first event"),
+                {
+                    "count": "0",
+                    "url": cap_preview(self._url, self._payload_cap),
+                    "reason": "deadline",
+                },
+            )
             return events
-        self._record("sse:collect", started, "passed", None, {
-            "count": str(len(events)),
-            "url": cap_preview(self._url, self._payload_cap),
-            "reason": "deadline" if deadline_fired else "cap",
-        })
+        self._record(
+            "sse:collect",
+            started,
+            "passed",
+            None,
+            {
+                "count": str(len(events)),
+                "url": cap_preview(self._url, self._payload_cap),
+                "reason": "deadline" if deadline_fired else "cap",
+            },
+        )
         return events
 
     def stream(self) -> Iterator[SseEvent]:
@@ -141,9 +160,13 @@ class SseClient:
         try:
             with self._client.stream("GET", self._url, headers=self._headers) as resp:
                 if resp.status_code >= 400:
-                    self._record("sse:stream", started, "failed",
-                                 RuntimeError(f"HTTP {resp.status_code}"),
-                                 {"http_status": str(resp.status_code), "count": "0"})
+                    self._record(
+                        "sse:stream",
+                        started,
+                        "failed",
+                        RuntimeError(f"HTTP {resp.status_code}"),
+                        {"http_status": str(resp.status_code), "count": "0"},
+                    )
                     return
                 for event in _parse_sse_stream(resp.iter_lines()):
                     count += 1
@@ -152,10 +175,16 @@ class SseClient:
             self._record("sse:stream", started, "broken", exc, {"count": str(count)})
             raise
         finally:
-            self._record("sse:stream", started, "passed", None, {
-                "count": str(count),
-                "url": cap_preview(self._url, self._payload_cap),
-            })
+            self._record(
+                "sse:stream",
+                started,
+                "passed",
+                None,
+                {
+                    "count": str(count),
+                    "url": cap_preview(self._url, self._payload_cap),
+                },
+            )
 
     def _record(
         self,

@@ -272,7 +272,9 @@ class SaveMockResponse(BaseModel):
         """
         if not isinstance(data, dict):
             return data
-        canonical_key = "isNew" if "isNew" in data else ("is_new" if "is_new" in data else None)
+        canonical_key = (
+            "isNew" if "isNew" in data else ("is_new" if "is_new" in data else None)
+        )
         legacy_present = "overwritten" in data
         if canonical_key is None and legacy_present:
             data = dict(data)

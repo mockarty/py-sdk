@@ -89,7 +89,9 @@ class HTTPStep:
         if self._sent:
             return self._fail("body() after send")
         if _should_interp_body(content_type):
-            b = interpolate(b.decode(errors="replace"), self._t._snapshot_vars()).encode()
+            b = interpolate(
+                b.decode(errors="replace"), self._t._snapshot_vars()
+            ).encode()
         self._body = b
         if content_type:
             self._headers["Content-Type"] = content_type
@@ -197,7 +199,10 @@ class HTTPStep:
             req_headers.update(self._headers)
             self._started_at = time.time()
             self._resp = self._t._http.request(
-                self._method, url, headers=req_headers, content=self._body,
+                self._method,
+                url,
+                headers=req_headers,
+                content=self._body,
             )
             self._ended_at = time.time()
             self._resp_body = self._resp.content

@@ -99,6 +99,7 @@ def parallel(t: Tester, *fns: Callable[[Tester], None]) -> Tester:
     results_errs: list[list] = [[] for _ in fns]
     threads: list[threading.Thread] = []
     for i, fn in enumerate(fns):
+
         def _worker(idx=i, f=fn):
             branch = _spawn_branch(t)
             try:
@@ -108,6 +109,7 @@ def parallel(t: Tester, *fns: Callable[[Tester], None]) -> Tester:
                 with branch._lock:
                     results_steps[idx] = list(branch._steps)
                     results_errs[idx] = list(branch._errs)
+
         th = threading.Thread(target=_worker)
         th.start()
         threads.append(th)

@@ -80,7 +80,9 @@ class InteractionResult:
 @dataclasses.dataclass
 class VerificationResult:
     provider: str = ""
-    started_at: _dt.datetime = dataclasses.field(default_factory=lambda: _dt.datetime.now(_dt.timezone.utc))
+    started_at: _dt.datetime = dataclasses.field(
+        default_factory=lambda: _dt.datetime.now(_dt.timezone.utc)
+    )
     finished_at: _dt.datetime | None = None
     interactions: list[InteractionResult] = dataclasses.field(default_factory=list)
 
@@ -154,7 +156,8 @@ class Verifier:
         return self
 
     def with_message_producer(
-        self, description: str,
+        self,
+        description: str,
         fn: Callable[[str, list[dict[str, Any]]], tuple[bytes, Mapping[str, str]]],
     ) -> Verifier:
         """Register a per-description message producer for message-pact
@@ -184,7 +187,9 @@ class Verifier:
                 continue
             producer = self._message_producers.get(msg.description)
             if producer is None:
-                ir.error = f"no MessageProducer registered for description {msg.description!r}"
+                ir.error = (
+                    f"no MessageProducer registered for description {msg.description!r}"
+                )
                 out.interactions.append(ir)
                 continue
             try:
@@ -211,7 +216,8 @@ class Verifier:
         # verify_message_pact_bytes(). Treat missing/empty `type` as
         # HTTP (V3 docs have no type discriminator).
         http_only = [
-            ix for ix in doc["interactions"]
+            ix
+            for ix in doc["interactions"]
             if str(ix.get("type", "")) != MESSAGE_INTERACTION_TYPE
         ]
         return self._verify_interactions(http_only)
@@ -220,7 +226,9 @@ class Verifier:
         with open(path, "rb") as f:
             return self.verify_pact_bytes(f.read())
 
-    def verify_from_broker(self, consumer: str, provider: str, version: str) -> VerificationResult:
+    def verify_from_broker(
+        self, consumer: str, provider: str, version: str
+    ) -> VerificationResult:
         if self._broker is None:
             raise RuntimeError("verify_from_broker requires .with_broker(...)")
         body = self._broker.fetch(consumer, provider, version)
@@ -273,7 +281,9 @@ class Verifier:
     # internals
     # ------------------------------------------------------------------
 
-    def _verify_interactions(self, interactions: list[dict[str, Any]]) -> VerificationResult:
+    def _verify_interactions(
+        self, interactions: list[dict[str, Any]]
+    ) -> VerificationResult:
         out = VerificationResult(provider=self.provider_name)
         for ix in interactions:
             out.interactions.append(self._verify_one(ix))
@@ -336,7 +346,9 @@ class Verifier:
 
         ir.status_code = resp.status
         expected = ix.get("response") or {}
-        ir.mismatches = _compare_response(expected, resp.status, resp.headers, resp.data)
+        ir.mismatches = _compare_response(
+            expected, resp.status, resp.headers, resp.data
+        )
         ir.passed = not ir.mismatches and not ir.error
         return ir
 
@@ -348,7 +360,9 @@ class Verifier:
             handler(name, params)
             return
         if self._state_setup_url:
-            body = json.dumps({"state": name, "params": params, "action": "setup"}).encode()
+            body = json.dumps(
+                {"state": name, "params": params, "action": "setup"}
+            ).encode()
             resp = self._pool.request(
                 "POST",
                 self._state_setup_url,
@@ -452,27 +466,41 @@ def _compare_response(
     miss: list[Mismatch] = []
     exp_status = expected.get("status")
     if isinstance(exp_status, (int, float)) and int(exp_status) != actual_status:
-        miss.append(Mismatch(
-            path="$.status", reason="status mismatch",
-            expected=int(exp_status), actual=actual_status,
-        ))
+        miss.append(
+            Mismatch(
+                path="$.status",
+                reason="status mismatch",
+                expected=int(exp_status),
+                actual=actual_status,
+            )
+        )
     exp_headers = expected.get("headers") or {}
     if isinstance(exp_headers, dict):
         for k, v in exp_headers.items():
             actual_val = _header_lookup(actual_headers, str(k))
             if not actual_val:
-                miss.append(Mismatch(
-                    path=f"$.headers.{k}", reason="expected header missing",
-                    expected=v, actual=None,
-                ))
+                miss.append(
+                    Mismatch(
+                        path=f"$.headers.{k}",
+                        reason="expected header missing",
+                        expected=v,
+                        actual=None,
+                    )
+                )
                 continue
-            wanted = [v] if isinstance(v, str) else [str(x) for x in v if isinstance(x, str)]
+            wanted = (
+                [v] if isinstance(v, str) else [str(x) for x in v if isinstance(x, str)]
+            )
             for w in wanted:
                 if w not in actual_val:
-                    miss.append(Mismatch(
-                        path=f"$.headers.{k}", reason="header value mismatch",
-                        expected=w, actual=actual_val,
-                    ))
+                    miss.append(
+                        Mismatch(
+                            path=f"$.headers.{k}",
+                            reason="header value mismatch",
+                            expected=w,
+                            actual=actual_val,
+                        )
+                    )
     if "body" in expected and expected["body"] is not None:
         miss.extend(_body_mismatches(expected["body"], actual_body))
     return miss
@@ -487,13 +515,25 @@ def _header_lookup(h: Mapping[str, str], key: str) -> str:
 
 def _body_mismatches(expected: Any, actual_bytes: bytes) -> list[Mismatch]:
     if not actual_bytes:
-        return [Mismatch(path="$.body", reason="empty body where one was expected",
-                         expected=expected, actual=None)]
+        return [
+            Mismatch(
+                path="$.body",
+                reason="empty body where one was expected",
+                expected=expected,
+                actual=None,
+            )
+        ]
     try:
         actual = json.loads(actual_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        return [Mismatch(path="$.body", reason=f"actual body is not valid JSON: {e}",
-                         expected=expected, actual=actual_bytes.decode("utf-8", errors="replace"))]
+        return [
+            Mismatch(
+                path="$.body",
+                reason=f"actual body is not valid JSON: {e}",
+                expected=expected,
+                actual=actual_bytes.decode("utf-8", errors="replace"),
+            )
+        ]
     result: list[Mismatch] = []
     _strict_match(_resolve_matchers(expected), actual, "$.body", result)
     return result
@@ -504,32 +544,51 @@ def _strict_match(expected: Any, actual: Any, path: str, out: list[Mismatch]) ->
         expected = _resolve_matchers(expected)
     if isinstance(expected, dict):
         if not isinstance(actual, dict):
-            out.append(Mismatch(path=path, reason="expected object",
-                                expected=expected, actual=actual))
+            out.append(
+                Mismatch(
+                    path=path,
+                    reason="expected object",
+                    expected=expected,
+                    actual=actual,
+                )
+            )
             return
         for k, ev in expected.items():
             sub = f"{path}.{k}"
             if k not in actual:
-                out.append(Mismatch(path=sub, reason="key missing",
-                                    expected=ev, actual=None))
+                out.append(
+                    Mismatch(path=sub, reason="key missing", expected=ev, actual=None)
+                )
                 continue
             _strict_match(ev, actual[k], sub, out)
         return
     if isinstance(expected, list):
         if not isinstance(actual, list):
-            out.append(Mismatch(path=path, reason="expected array",
-                                expected=expected, actual=actual))
+            out.append(
+                Mismatch(
+                    path=path, reason="expected array", expected=expected, actual=actual
+                )
+            )
             return
         if len(expected) != len(actual):
-            out.append(Mismatch(path=path, reason="array length mismatch",
-                                expected=len(expected), actual=len(actual)))
+            out.append(
+                Mismatch(
+                    path=path,
+                    reason="array length mismatch",
+                    expected=len(expected),
+                    actual=len(actual),
+                )
+            )
             return
         for i, ev in enumerate(expected):
             _strict_match(ev, actual[i], f"{path}[{i}]", out)
         return
     if expected != actual:
-        out.append(Mismatch(path=path, reason="value mismatch",
-                            expected=expected, actual=actual))
+        out.append(
+            Mismatch(
+                path=path, reason="value mismatch", expected=expected, actual=actual
+            )
+        )
 
 
 def _serialise_interaction(ir: InteractionResult) -> dict[str, Any]:
@@ -544,8 +603,10 @@ def _serialise_interaction(ir: InteractionResult) -> dict[str, Any]:
     if ir.mismatches:
         row["mismatches"] = [
             {
-                "path": m.path, "reason": m.reason,
-                "expected": m.expected, "actual": m.actual,
+                "path": m.path,
+                "reason": m.reason,
+                "expected": m.expected,
+                "actual": m.actual,
             }
             for m in ir.mismatches
         ]

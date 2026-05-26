@@ -89,7 +89,9 @@ class MessagePact:
         return self
 
     def with_metadata(self, meta: Mapping[str, str]) -> MessagePact:
-        self._require_cursor().metadata.update({str(k): str(v) for k, v in meta.items()})
+        self._require_cursor().metadata.update(
+            {str(k): str(v) for k, v in meta.items()}
+        )
         return self
 
     def with_content(self, body: Any) -> MessagePact:
@@ -132,7 +134,9 @@ class MessagePact:
 
     def write_file(self, directory: str | os.PathLike[str]) -> str:
         Path(directory).mkdir(parents=True, exist_ok=True)
-        name = _safe(self.consumer.lower()) + "-" + _safe(self.provider.lower()) + ".json"
+        name = (
+            _safe(self.consumer.lower()) + "-" + _safe(self.provider.lower()) + ".json"
+        )
         path = Path(directory) / name
         path.write_bytes(self.to_json())
         return str(path)
@@ -159,9 +163,7 @@ class MessagePact:
             try:
                 handler(raw, m.metadata)
             except Exception as e:  # noqa: BLE001 — surface to caller
-                raise RuntimeError(
-                    f"consumer rejected {m.description!r}: {e}"
-                ) from e
+                raise RuntimeError(f"consumer rejected {m.description!r}: {e}") from e
 
 
 # ----------------------------------------------------------------------
@@ -178,13 +180,13 @@ def parse_message_pact_doc(raw: bytes) -> list[Message]:
     if not isinstance(doc, dict):
         raise ValueError("pact root must be a JSON object")
     out: list[Message] = []
-    for ix in (doc.get("interactions") or []):
+    for ix in doc.get("interactions") or []:
         if not isinstance(ix, dict):
             continue
         if ix.get("type") != MESSAGE_INTERACTION_TYPE:
             continue
         out.append(_decode_v4(ix))
-    for mr in (doc.get("messages") or []):
+    for mr in doc.get("messages") or []:
         if isinstance(mr, dict):
             out.append(_decode_v3(mr))
     return out
@@ -233,8 +235,7 @@ def _serialise_v4(m: Message) -> dict[str, Any]:
     }
     if m.states:
         ix["providerStates"] = [
-            {k: v for k, v in s.items() if v not in (None, {}, "")}
-            for s in m.states
+            {k: v for k, v in s.items() if v not in (None, {}, "")} for s in m.states
         ]
     rules: dict[str, dict[str, Any]] = {}
     content_value = _walk_and_extract(m.content, "$.body", rules)
@@ -264,9 +265,7 @@ def _serialise_v3(m: Message) -> dict[str, Any]:
     return mr
 
 
-def _walk_and_extract(
-    body: Any, path: str, rules: dict[str, dict[str, Any]]
-) -> Any:
+def _walk_and_extract(body: Any, path: str, rules: dict[str, dict[str, Any]]) -> Any:
     """Strip matchers out of the body into a `path -> rule` map,
     returning the body with matchers replaced by their examples."""
     if isinstance(body, Matcher):

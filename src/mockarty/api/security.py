@@ -132,7 +132,15 @@ class SecurityAPI(SyncAPIBase):
         ``allure``. Returns raw bytes; caller persists them.
         """
         fmt = (format or "sarif").strip().lower()
-        if fmt not in {"sarif", "vex", "cyclonedx", "cyclonedx-vex", "html", "pdf", "allure"}:
+        if fmt not in {
+            "sarif",
+            "vex",
+            "cyclonedx",
+            "cyclonedx-vex",
+            "html",
+            "pdf",
+            "allure",
+        }:
             raise ValueError(
                 f"unsupported export format {format!r} "
                 "(want one of sarif|vex|html|pdf|allure)"

@@ -134,4 +134,6 @@ def _step_metadata(r: StepRecord) -> dict[str, Any]:
 
 def _to_iso(ts: float) -> str:
     """Convert a Unix timestamp (float seconds) to RFC3339 UTC."""
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    )

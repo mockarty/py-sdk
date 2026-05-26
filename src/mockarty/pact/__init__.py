@@ -49,7 +49,9 @@ from mockarty.pact.verifier import (
     VerificationResult,
     Verifier,
 )
-from mockarty.pact.verifier import Mismatch as VerifierMismatch  # avoid shadow of matchers.Mismatch
+from mockarty.pact.verifier import (
+    Mismatch as VerifierMismatch,
+)  # avoid shadow of matchers.Mismatch
 from mockarty.pact.interaction import InteractionBuilder
 from mockarty.pact.matchers import (
     ArrayContains,

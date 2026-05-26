@@ -101,7 +101,10 @@ def _to_isoformat(epoch_seconds: float) -> str:
     """
     # gmtime + strftime keeps stdlib-only — no datetime/timezone fuss.
     fract = int((epoch_seconds - int(epoch_seconds)) * 1000)
-    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(epoch_seconds)) + f".{fract:03d}Z"
+    return (
+        time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(epoch_seconds))
+        + f".{fract:03d}Z"
+    )
 
 
 class StepRecorder(Protocol):

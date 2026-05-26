@@ -105,25 +105,87 @@ class MockartyTestCase(unittest.TestCase):
         self._mockarty_started = now_ms()
 
     def tearDown(self) -> None:  # noqa: D401 — unittest API
+        # Frame pop happens here so step() inside the test method still
+        # sees the active CaseFrame. Result emission is deferred to
+        # run() — by tearDown's call site the result object hasn't yet
+        # recorded the test's failure on Python 3.11+ (the failure is
+        # appended after tearDown returns), so we cannot observe the
+        # correct status from here.
+        #
+        # We snapshot the frame before pop so the deferred emit in
+        # run() still has the steps/attachments the test method pushed
+        # onto it.
         try:
-            self._mockarty_emit_result()
-        finally:
+            self._mockarty_frame_snapshot = _ctx.current_case()
             _ctx.pop_case()
+        finally:
             super().tearDown()
 
+    # ── run override — emission point ───────────────────────────────────
+    def run(self, result=None):  # noqa: D401 — unittest API
+        # Capture the result object so we can inspect THIS test's
+        # contribution to failures/errors after the run completes. Works
+        # uniformly on Python 3.9 → 3.13+ because we rely on the public
+        # ``TestResult`` API, not the private ``_outcome`` plumbing.
+        own_result = result is None
+        if result is None:
+            result = self.defaultTestResult()
+            startTestRun = getattr(result, "startTestRun", None)
+            if startTestRun is not None:
+                startTestRun()
+
+        failures_before = len(result.failures)
+        errors_before = len(result.errors)
+        skipped_before = len(result.skipped)
+
+        try:
+            super().run(result)
+        finally:
+            self._mockarty_emit_result_from(
+                result,
+                failures_before=failures_before,
+                errors_before=errors_before,
+                skipped_before=skipped_before,
+            )
+            if own_result:
+                stopTestRun = getattr(result, "stopTestRun", None)
+                if stopTestRun is not None:
+                    stopTestRun()
+        return result
+
     # ── result emission ─────────────────────────────────────────────────
-    def _mockarty_emit_result(self) -> None:
+    def _mockarty_emit_result_from(
+        self,
+        result: unittest.TestResult,
+        *,
+        failures_before: int,
+        errors_before: int,
+        skipped_before: int,
+    ) -> None:
         writer = _writer()
         if writer is None:
             return
-        case = _ctx.current_case()
+        # The CaseFrame was popped in tearDown — re-derive the frame's
+        # contents from the metadata we stashed during setUp. Anything
+        # the test method pushed onto the frame (steps, attachments)
+        # has already been folded into the popped CaseFrame, which we
+        # captured before tearDown closed it. To preserve that we
+        # peek the frame before pop in tearDown via a side-channel.
+        case = getattr(self, "_mockarty_frame_snapshot", None)
         if case is None:
             return
-        # Determine status from unittest's outcome machinery. The
-        # private ``_outcome`` attr is the cleanest cross-version way to
-        # detect failures + errors without overriding ``run`` entirely.
-        status = self._mockarty_status()
-        exc = self._mockarty_exc_info()
+
+        status = self._mockarty_status_from(
+            result,
+            failures_before=failures_before,
+            errors_before=errors_before,
+            skipped_before=skipped_before,
+        )
+        exc = self._mockarty_exc_from(
+            result,
+            failures_before=failures_before,
+            errors_before=errors_before,
+        )
         try:
             tr = case_frame_to_result(
                 case,
@@ -146,39 +208,38 @@ class MockartyTestCase(unittest.TestCase):
                 stacklevel=2,
             )
 
-    def _mockarty_status(self) -> str:
-        outcome = getattr(self, "_outcome", None)
-        if outcome is None:
-            return STATUS_PASSED
-        if getattr(outcome, "skipped", None):
-            return STATUS_SKIPPED
-        errors = getattr(outcome, "errors", []) or []
-        # outcome.errors is list of (testcase, exc_info-or-None); a non-None
-        # exc_info means the test raised.
-        for _tc, exc_info in errors:
-            if exc_info is None:
-                continue
-            etype, _evalue, _tb = exc_info
-            if etype is None:
-                continue
-            if issubclass(etype, AssertionError):
-                return STATUS_FAILED
-            if issubclass(etype, unittest.SkipTest):
-                return STATUS_SKIPPED
+    def _mockarty_status_from(
+        self,
+        result: unittest.TestResult,
+        *,
+        failures_before: int,
+        errors_before: int,
+        skipped_before: int,
+    ) -> str:
+        if len(result.failures) > failures_before:
+            return STATUS_FAILED
+        if len(result.errors) > errors_before:
             return STATUS_BROKEN
-        # pytest-style attribute ``result.failures``/``errors`` is more
-        # common but ``_outcome`` covers the canonical path.
+        if len(result.skipped) > skipped_before:
+            return STATUS_SKIPPED
         return STATUS_PASSED
 
-    def _mockarty_exc_info(self) -> Optional[BaseException]:
-        outcome = getattr(self, "_outcome", None)
-        if outcome is None:
-            return None
-        errors = getattr(outcome, "errors", []) or []
-        for _tc, exc_info in errors:
-            if not exc_info:
-                continue
-            etype, evalue, _tb = exc_info
-            if etype is not None and evalue is not None:
-                return evalue
+    def _mockarty_exc_from(
+        self,
+        result: unittest.TestResult,
+        *,
+        failures_before: int,
+        errors_before: int,
+    ) -> Optional[BaseException]:
+        # TestResult stores (test, traceback_string) tuples — the raw
+        # exception object isn't preserved. Surface a synthetic
+        # AssertionError carrying the traceback so downstream renderers
+        # have *something* to display; callers that want the original
+        # exception should rely on the framework's own reporter.
+        if len(result.failures) > failures_before:
+            _tc, tb = result.failures[-1]
+            return AssertionError(tb)
+        if len(result.errors) > errors_before:
+            _tc, tb = result.errors[-1]
+            return Exception(tb)
         return None

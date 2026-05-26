@@ -113,13 +113,25 @@ class WebSocketClient:
                 wire = payload
             conn.send(wire)
         except Exception as exc:
-            self._record(step_name, started, "broken", exc, {
-                "payload": cap_preview(_as_str(payload), self._payload_cap),
-            })
+            self._record(
+                step_name,
+                started,
+                "broken",
+                exc,
+                {
+                    "payload": cap_preview(_as_str(payload), self._payload_cap),
+                },
+            )
             raise
-        self._record(step_name, started, "passed", None, {
-            "payload": cap_preview(_as_str(payload), self._payload_cap),
-        })
+        self._record(
+            step_name,
+            started,
+            "passed",
+            None,
+            {
+                "payload": cap_preview(_as_str(payload), self._payload_cap),
+            },
+        )
 
     def recv(self, *, timeout: Optional[float] = None) -> Union[str, bytes]:
         """Wait for one frame. Returns the raw text/bytes payload.
@@ -136,10 +148,16 @@ class WebSocketClient:
         except Exception as exc:
             self._record(step_name, started, "broken", exc, {"timeout": str(timeout)})
             raise
-        self._record(step_name, started, "passed", None, {
-            "payload": cap_preview(_as_str(frame), self._payload_cap),
-            "size": str(len(frame) if isinstance(frame, (str, bytes)) else 0),
-        })
+        self._record(
+            step_name,
+            started,
+            "passed",
+            None,
+            {
+                "payload": cap_preview(_as_str(frame), self._payload_cap),
+                "size": str(len(frame) if isinstance(frame, (str, bytes)) else 0),
+            },
+        )
         return frame
 
     def recv_json(self, *, timeout: Optional[float] = None) -> Any:
@@ -190,5 +208,3 @@ def _as_str(value: Any) -> str:
     if isinstance(value, (dict, list)):
         return json.dumps(value)
     return str(value)
-
-

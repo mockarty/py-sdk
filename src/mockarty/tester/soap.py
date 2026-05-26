@@ -57,8 +57,8 @@ def _wrap_envelope(body: str) -> str:
     return (
         '<?xml version="1.0"?>'
         '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
-        '<soap:Body>' + body + '</soap:Body>'
-        '</soap:Envelope>'
+        "<soap:Body>" + body + "</soap:Body>"
+        "</soap:Envelope>"
     )
 
 
@@ -201,7 +201,10 @@ class SOAPStep:
         try:
             self._started_at = time.time()
             self._resp = self._t._http.request(
-                "POST", url, headers=headers, content=self._body.encode("utf-8"),
+                "POST",
+                url,
+                headers=headers,
+                content=self._body.encode("utf-8"),
             )
             self._ended_at = time.time()
         except Exception as e:

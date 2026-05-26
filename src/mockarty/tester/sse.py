@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import httpx
@@ -96,7 +96,9 @@ class SSEStep:
         if not self._ensure_sent():
             return self
         if self._find_event(name) is None:
-            self._fail(f"expect_event {name!r}: not received ({len(self._events)} events)")
+            self._fail(
+                f"expect_event {name!r}: not received ({len(self._events)} events)"
+            )
         return self
 
     def expect_event_data(self, name: str, data: str) -> "SSEStep":
@@ -117,7 +119,9 @@ class SSEStep:
         except (JSONPathError, ValueError) as e:
             return self._fail(f"expect_json_path[{event_name}] {path}: {e}")
         if not equal_json_scalar(got, want):
-            self._fail(f"expect_json_path[{event_name}] {path}: want {want!r}, got {got!r}")
+            self._fail(
+                f"expect_json_path[{event_name}] {path}: want {want!r}, got {got!r}"
+            )
         return self
 
     def extract(self, event_name: str, path: str, var_name: str) -> "SSEStep":
@@ -128,6 +132,7 @@ class SSEStep:
         except (JSONPathError, ValueError) as e:
             return self._fail(f"extract[{event_name}] {path}: {e}")
         from .http import _stringify
+
         self._t.set_var(var_name, _stringify(got))
         return self
 
@@ -184,14 +189,18 @@ class SSEStep:
             headers["Last-Event-ID"] = self._last_event_id
         self._started_at = time.time()
         try:
-            with self._t._http.stream("GET", url, headers=headers, timeout=self._listen) as resp:
+            with self._t._http.stream(
+                "GET", url, headers=headers, timeout=self._listen
+            ) as resp:
                 self._status_code = resp.status_code
                 if resp.status_code // 100 != 2:
                     self._fail(f"sse: HTTP {resp.status_code}")
                     self._abort = True
                     self._ended_at = time.time()
                     return False
-                self._events = _parse_sse(resp.iter_lines(), self._listen, self._started_at)
+                self._events = _parse_sse(
+                    resp.iter_lines(), self._listen, self._started_at
+                )
         except httpx.ReadTimeout:
             # End-of-listen-window — legitimate "nothing came" outcome.
             pass

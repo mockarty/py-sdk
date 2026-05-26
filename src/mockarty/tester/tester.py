@@ -10,9 +10,8 @@ commit on next chain start or ``finish()``.
 from __future__ import annotations
 
 import threading
-import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol
+from typing import Optional, Protocol
 
 import httpx
 

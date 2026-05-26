@@ -35,6 +35,7 @@ from mockarty.api.undefined import AsyncUndefinedAPI, UndefinedAPI
 __all__ = [
     "AgentTaskAPI",
     "AsyncAgentTaskAPI",
+    "AsyncCITriggerAPI",
     "AsyncChaosAPI",
     "AsyncCollectionAPI",
     "AsyncContractAPI",
@@ -59,6 +60,7 @@ __all__ = [
     "AsyncTemplateAPI",
     "AsyncTestRunAPI",
     "AsyncUndefinedAPI",
+    "CITriggerAPI",
     "ChaosAPI",
     "CollectionAPI",
     "ContractAPI",

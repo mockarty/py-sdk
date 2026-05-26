@@ -41,9 +41,7 @@ def _coerce_flow(flow: Union[dict[str, Any], str, bytes]) -> dict[str, Any]:
         if not isinstance(parsed, dict):
             raise ValueError("flow_runs.execute: flow must decode to a JSON object")
         return parsed
-    raise TypeError(
-        "flow_runs.execute: flow must be a dict, JSON string, or bytes"
-    )
+    raise TypeError("flow_runs.execute: flow must be a dict, JSON string, or bytes")
 
 
 def _build_body(

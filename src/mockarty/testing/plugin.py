@@ -321,9 +321,14 @@ def _upload_case_outcome(
     # for parallel CI workers (migration 321 + resolveCase rewrite).
     full_name = item.nodeid
     custom_fields = (
-        [{"type": cf.get("type", "string"),
-          "name": cf.get("name", ""),
-          "value": cf.get("value", "")} for cf in case.custom_fields]
+        [
+            {
+                "type": cf.get("type", "string"),
+                "name": cf.get("name", ""),
+                "value": cf.get("value", ""),
+            }
+            for cf in case.custom_fields
+        ]
         if getattr(case, "custom_fields", None)
         else None
     )

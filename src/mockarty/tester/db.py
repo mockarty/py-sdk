@@ -44,7 +44,9 @@ class DBFacet:
         self._t._flush_pending()
         v = self._t._snapshot_vars()
         step = DBStep(
-            self._t, self._conn, "query",
+            self._t,
+            self._conn,
+            "query",
             sql=interpolate(sql, v),
             args=_interp_args(args, v),
         )
@@ -55,7 +57,9 @@ class DBFacet:
         self._t._flush_pending()
         v = self._t._snapshot_vars()
         step = DBStep(
-            self._t, self._conn, "exec",
+            self._t,
+            self._conn,
+            "exec",
             sql=interpolate(sql, v),
             args=_interp_args(args, v),
         )
@@ -69,7 +73,12 @@ def _interp_args(args, vars_):
 
 class DBStep:
     def __init__(
-        self, tester: Tester, conn: SQLConn, kind: str, sql: str, args: tuple,
+        self,
+        tester: Tester,
+        conn: SQLConn,
+        kind: str,
+        sql: str,
+        args: tuple,
     ) -> None:
         self._t = tester
         self._conn = conn
@@ -125,9 +134,7 @@ class DBStep:
                 f"expect_field[{row}.{col}]: row out of range (len={len(self._rows)})"
             )
         if col not in self._rows[row]:
-            return self._fail(
-                f"expect_field[{row}.{col}]: column not in result"
-            )
+            return self._fail(f"expect_field[{row}.{col}]: column not in result")
         got = self._rows[row][col]
         if not equal_json_scalar(got, want):
             self._fail(f"expect_field[{row}.{col}]: want {want!r}, got {got!r}")
@@ -206,7 +213,9 @@ class DBStep:
             method=self._kind,
             name=f"sql {self._kind} {_sql_preview(self._sql)}",
             url=_sql_preview(self._sql),
-            status_or_code=len(self._rows) if self._kind == "query" else self._result.rows_affected,
+            status_or_code=len(self._rows)
+            if self._kind == "query"
+            else self._result.rows_affected,
             started_at=self._started_at,
             ended_at=self._ended_at,
             failures=list(self._failures),

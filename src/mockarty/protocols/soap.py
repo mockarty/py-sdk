@@ -37,7 +37,13 @@ class SoapResponse:
     as an :class:`xml.etree.ElementTree.Element` so callers can mix
     raw assertions with XPath-style descents."""
 
-    def __init__(self, status_code: int, headers: dict[str, str], body: bytes, fault: Optional[dict[str, str]]):
+    def __init__(
+        self,
+        status_code: int,
+        headers: dict[str, str],
+        body: bytes,
+        fault: Optional[dict[str, str]],
+    ):
         self.status_code = status_code
         self.headers = headers
         self.body = body
@@ -136,8 +142,16 @@ class SoapClient:
         """
         envelope = _wrap_envelope(body_xml, self._version)
         action = soap_action if soap_action is not None else self._soap_action
-        content_type = "text/xml; charset=utf-8" if self._version == "1.1" else "application/soap+xml; charset=utf-8"
-        headers = {"Content-Type": content_type, "SOAPAction": f'"{action}"'} if action else {"Content-Type": content_type}
+        content_type = (
+            "text/xml; charset=utf-8"
+            if self._version == "1.1"
+            else "application/soap+xml; charset=utf-8"
+        )
+        headers = (
+            {"Content-Type": content_type, "SOAPAction": f'"{action}"'}
+            if action
+            else {"Content-Type": content_type}
+        )
         if extra_headers:
             headers.update(extra_headers)
 
@@ -170,7 +184,14 @@ class SoapClient:
         if fault:
             for k, v in fault.items():
                 params[f"fault_{k}"] = v
-        self._record(step_name, started, status, None if status == "passed" else Exception(message), params, finished=finished)
+        self._record(
+            step_name,
+            started,
+            status,
+            None if status == "passed" else Exception(message),
+            params,
+            finished=finished,
+        )
 
         return SoapResponse(
             status_code=resp.status_code,

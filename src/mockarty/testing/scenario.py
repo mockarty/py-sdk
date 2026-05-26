@@ -143,6 +143,7 @@ class Scenario(AbstractContextManager["Scenario"]):
         # Imported lazily to avoid a circular import with decorators.py
         # which already imports from this module's context helpers.
         from mockarty.testing.decorators import attach as _attach
+
         _attach(name, body, content_type=content_type)
 
 

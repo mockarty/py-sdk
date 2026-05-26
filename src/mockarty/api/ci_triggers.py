@@ -64,9 +64,7 @@ class CITriggerAPI(SyncAPIBase):
         perf launch with ``ci_trigger_id`` and wants to poll the
         external CI job state.
         """
-        resp = self._request(
-            "GET", "/api/v1/ci/runs", params={"taskId": task_id}
-        )
+        resp = self._request("GET", "/api/v1/ci/runs", params={"taskId": task_id})
         if resp.status_code == 404:
             return None
         payload = resp.json() or {}
@@ -105,9 +103,7 @@ class AsyncCITriggerAPI(AsyncAPIBase):
         return dict(payload.get("trigger") or {})
 
     async def get_run_by_task(self, task_id: str) -> dict[str, Any] | None:
-        resp = await self._request(
-            "GET", "/api/v1/ci/runs", params={"taskId": task_id}
-        )
+        resp = await self._request("GET", "/api/v1/ci/runs", params={"taskId": task_id})
         if resp.status_code == 404:
             return None
         payload = resp.json() or {}

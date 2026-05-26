@@ -61,7 +61,8 @@ class KafkaFacet:
         self._t._flush_pending()
         v = self._t._snapshot_vars()
         step = KafkaProduceStep(
-            self._t, self._broker,
+            self._t,
+            self._broker,
             topic=interpolate(topic, v),
             key=interpolate(key, v),
         )
@@ -71,7 +72,8 @@ class KafkaFacet:
     def consume(self, topic: str) -> "KafkaConsumeStep":
         self._t._flush_pending()
         step = KafkaConsumeStep(
-            self._t, self._broker,
+            self._t,
+            self._broker,
             ConsumeOptions(
                 topic=interpolate(topic, self._t._snapshot_vars()),
                 max_messages=1,
@@ -82,7 +84,9 @@ class KafkaFacet:
 
 
 class KafkaProduceStep:
-    def __init__(self, tester: Tester, broker: KafkaBroker, topic: str, key: str) -> None:
+    def __init__(
+        self, tester: Tester, broker: KafkaBroker, topic: str, key: str
+    ) -> None:
         self._t = tester
         self._broker = broker
         self._topic = topic
@@ -145,7 +149,9 @@ class KafkaProduceStep:
             return self._fail("skipped: fail-fast triggered by earlier step")._abort  # type: ignore
         self._started_at = time.time()
         try:
-            self._broker.produce(self._topic, self._key, self._payload, dict(self._headers))
+            self._broker.produce(
+                self._topic, self._key, self._payload, dict(self._headers)
+            )
         except Exception as e:
             self._err = e
             self._ended_at = time.time()
@@ -174,7 +180,9 @@ class KafkaProduceStep:
 
 
 class KafkaConsumeStep:
-    def __init__(self, tester: Tester, broker: KafkaBroker, opts: ConsumeOptions) -> None:
+    def __init__(
+        self, tester: Tester, broker: KafkaBroker, opts: ConsumeOptions
+    ) -> None:
         self._t = tester
         self._broker = broker
         self._opts = opts
@@ -273,6 +281,7 @@ class KafkaConsumeStep:
         except (JSONPathError, ValueError) as e:
             return self._fail(f"extract[{idx}] {path}: {e}")
         from .http import _stringify
+
         self._t.set_var(name, _stringify(got))
         return self
 

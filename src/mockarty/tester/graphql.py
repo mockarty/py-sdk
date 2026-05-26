@@ -104,6 +104,7 @@ class GraphQLStep:
         except JSONPathError as e:
             return self._fail(f"extract {path}: {e}")
         from .http import _stringify  # share canonical stringify
+
         self._t.set_var(name, _stringify(got))
         return self
 
@@ -147,10 +148,16 @@ class GraphQLStep:
                     url = "/" + url
                 url = self._t.base_url + url
 
-        headers = {"Content-Type": "application/json", **self._t._default_headers, **self._headers}
+        headers = {
+            "Content-Type": "application/json",
+            **self._t._default_headers,
+            **self._headers,
+        }
         try:
             self._started_at = time.time()
-            self._resp = self._t._http.request("POST", url, headers=headers, content=raw.encode())
+            self._resp = self._t._http.request(
+                "POST", url, headers=headers, content=raw.encode()
+            )
             self._ended_at = time.time()
         except Exception as e:
             self._ended_at = time.time()

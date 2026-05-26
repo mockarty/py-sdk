@@ -27,14 +27,22 @@ class GraphQLError(RuntimeError):
 
     def __init__(self, errors: list[dict[str, Any]]):
         self.errors = errors
-        message = errors[0].get("message", "graphql error") if errors else "graphql error"
+        message = (
+            errors[0].get("message", "graphql error") if errors else "graphql error"
+        )
         super().__init__(message)
 
 
 class GraphQLResponse:
     """Parsed GraphQL response."""
 
-    def __init__(self, status_code: int, data: Any, errors: list[dict[str, Any]], extensions: dict[str, Any]):
+    def __init__(
+        self,
+        status_code: int,
+        data: Any,
+        errors: list[dict[str, Any]],
+        extensions: dict[str, Any],
+    ):
         self.status_code = status_code
         self.data = data
         self.errors = errors
@@ -134,11 +142,18 @@ class GraphQLClient:
         try:
             parsed = resp.json() if resp.content else {}
         except json.JSONDecodeError as exc:
-            self._record(step_name, started, "broken", exc, {
-                "operation": op_label,
-                "http_status": str(resp.status_code),
-                "response": cap_preview(resp.text, self._payload_cap),
-            }, finished=finished)
+            self._record(
+                step_name,
+                started,
+                "broken",
+                exc,
+                {
+                    "operation": op_label,
+                    "http_status": str(resp.status_code),
+                    "response": cap_preview(resp.text, self._payload_cap),
+                },
+                finished=finished,
+            )
             raise
 
         errors = parsed.get("errors") or []
@@ -154,7 +169,11 @@ class GraphQLClient:
             message = f"HTTP {resp.status_code}"
         elif errors:
             status = "failed"
-            message = errors[0].get("message", "graphql error") if isinstance(errors[0], dict) else "graphql error"
+            message = (
+                errors[0].get("message", "graphql error")
+                if isinstance(errors[0], dict)
+                else "graphql error"
+            )
 
         params = {
             "operation": op_label,
@@ -163,7 +182,14 @@ class GraphQLClient:
             "response": cap_preview(resp.text, self._payload_cap),
             "error_count": str(len(errors)),
         }
-        self._record(step_name, started, status, None if status == "passed" else RuntimeError(message), params, finished=finished)
+        self._record(
+            step_name,
+            started,
+            status,
+            None if status == "passed" else RuntimeError(message),
+            params,
+            finished=finished,
+        )
 
         response = GraphQLResponse(
             status_code=resp.status_code,
@@ -224,7 +250,7 @@ def _extract_operation_name(query: str) -> Optional[str]:
     head = lines[0]
     for keyword in ("query", "mutation", "subscription"):
         if head.startswith(keyword + " "):
-            rest = head[len(keyword) + 1:].strip()
+            rest = head[len(keyword) + 1 :].strip()
             name = ""
             for ch in rest:
                 if ch.isalnum() or ch == "_":
@@ -233,5 +259,3 @@ def _extract_operation_name(query: str) -> Optional[str]:
                     break
             return name or None
     return None
-
-
