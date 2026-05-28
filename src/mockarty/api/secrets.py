@@ -1,6 +1,30 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
 
-"""Secrets Storage API resource (Phase A0 — centralised encrypted secrets)."""
+"""Secrets Storage API resource (Phase A0 — centralised encrypted secrets).
+
+Server wire shapes (admin webui handlers):
+
+    GET    /api/v1/stores/secrets                       → {"stores": [...], ...}
+    POST   /api/v1/stores/secrets                       → {"store":  {...}}
+    GET    /api/v1/stores/secrets/:id                   → {"store":  {...}}
+    PUT    /api/v1/stores/secrets/:id                   → {"store":  {...}}
+    DELETE /api/v1/stores/secrets/:id                   → {"message": "...", "id": ...}
+
+    GET    /stores/secrets/:id/entries                  → {"entries": [...], ...}
+    POST   /stores/secrets/:id/entries                  → {"entry":   <flat dict>}
+    GET    /stores/secrets/:id/entries/:k               → <flat dict>   (NO envelope)
+    PUT    /stores/secrets/:id/entries/:k               → {"message": "...", "id": "..."}
+    POST   /stores/secrets/:id/entries/:k/rotate        → {"message": "...", "id": "..."}
+    DELETE /stores/secrets/:id/entries/:k               → {"message": "..."}
+
+The SDK unwraps the ``store`` / ``stores`` / ``entry`` / ``entries`` envelopes
+before returning so callers see the inner object directly. Every entry-level
+call threads ``?namespace=<X>`` because the handlers read NS from the query
+string only — a body-level ``namespace`` field is silently ignored.
+
+Valid backend values: ``inline`` (default, local AES-GCM via KeyStore),
+``vault``, ``aws_sm``, ``gcp_sm``, ``azure_kv``, ``custom_api``.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +32,23 @@ from typing import Any
 from urllib.parse import quote
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
+
+
+def _unwrap_one(payload: Any, key: str) -> dict[str, Any]:
+    """Return ``payload[key]`` when present, else the payload itself.
+
+    Defensive against future server shape changes (if a handler stops
+    wrapping its single-item responses, the SDK keeps working).
+    """
+    if isinstance(payload, dict) and key in payload and isinstance(payload[key], dict):
+        return payload[key]
+    return payload if isinstance(payload, dict) else {}
+
+
+def _unwrap_list(payload: Any, key: str) -> list[dict[str, Any]]:
+    if isinstance(payload, dict) and key in payload and isinstance(payload[key], list):
+        return payload[key]
+    return payload if isinstance(payload, list) else []
 
 
 class SecretsAPI(SyncAPIBase):
@@ -20,57 +61,83 @@ class SecretsAPI(SyncAPIBase):
 
     # ── Stores ────────────────────────────────────────────────────────
 
-    def list_stores(self) -> list[dict[str, Any]]:
-        """Return every secret store in the client's namespace."""
-        resp = self._request(
-            "GET", "/api/v1/stores/secrets", params={"namespace": self._namespace}
-        )
-        data = resp.json()
-        return data if isinstance(data, list) else []
+    def list_stores(self, namespace: str | None = None) -> list[dict[str, Any]]:
+        """Return every secret store in the given namespace (or the client's
+        default if ``namespace`` is omitted)."""
+        ns = namespace or self._namespace
+        resp = self._request("GET", "/api/v1/stores/secrets", params={"namespace": ns})
+        return _unwrap_list(resp.json(), "stores")
 
     def create_store(
         self,
         name: str,
         *,
         description: str | None = None,
-        backend: str = "software",
+        backend: str = "inline",
         namespace: str | None = None,
     ) -> dict[str, Any]:
-        """Create a new secret store. ``backend`` is ``"software"`` or ``"vault"``."""
-        body: dict[str, Any] = {
-            "name": name,
-            "backend": backend,
-            "namespace": namespace or self._namespace,
-        }
+        """Create a new secret store.
+
+        ``backend`` is one of ``inline`` | ``vault`` | ``aws_sm`` | ``gcp_sm``
+        | ``azure_kv`` | ``custom_api``. Default ``inline`` uses local
+        AES-GCM via the admin node's KeyStore.
+        """
+        ns = namespace or self._namespace
+        body: dict[str, Any] = {"name": name, "backend": backend}
         if description is not None:
             body["description"] = description
-        resp = self._request("POST", "/api/v1/stores/secrets", json=body)
-        return resp.json()
-
-    def get_store(self, store_id: str) -> dict[str, Any]:
         resp = self._request(
-            "GET", f"/api/v1/stores/secrets/{quote(store_id, safe='')}"
+            "POST",
+            "/api/v1/stores/secrets",
+            params={"namespace": ns},
+            json=body,
         )
-        return resp.json()
+        return _unwrap_one(resp.json(), "store")
 
-    def update_store(self, store_id: str, **fields: Any) -> dict[str, Any]:
+    def get_store(
+        self, store_id: str, *, namespace: str | None = None
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         resp = self._request(
-            "PUT", f"/api/v1/stores/secrets/{quote(store_id, safe='')}", json=fields
+            "GET",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}",
+            params={"namespace": ns},
         )
-        return resp.json()
+        return _unwrap_one(resp.json(), "store")
 
-    def delete_store(self, store_id: str) -> None:
-        self._request("DELETE", f"/api/v1/stores/secrets/{quote(store_id, safe='')}")
+    def update_store(
+        self, store_id: str, *, namespace: str | None = None, **fields: Any
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
+        resp = self._request(
+            "PUT",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}",
+            params={"namespace": ns},
+            json=fields,
+        )
+        return _unwrap_one(resp.json(), "store")
+
+    def delete_store(self, store_id: str, *, namespace: str | None = None) -> None:
+        ns = namespace or self._namespace
+        self._request(
+            "DELETE",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}",
+            params={"namespace": ns},
+        )
 
     # ── Entries ───────────────────────────────────────────────────────
 
-    def list_entries(self, store_id: str) -> list[dict[str, Any]]:
+    def list_entries(
+        self, store_id: str, *, namespace: str | None = None
+    ) -> list[dict[str, Any]]:
         """Return entry metadata (values are never included)."""
+        ns = namespace or self._namespace
         resp = self._request(
-            "GET", f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries"
+            "GET",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries",
+            params={"namespace": ns},
         )
-        data = resp.json()
-        return data if isinstance(data, list) else []
+        return _unwrap_list(resp.json(), "entries")
 
     def create_entry(
         self,
@@ -79,24 +146,35 @@ class SecretsAPI(SyncAPIBase):
         value: str,
         *,
         description: str | None = None,
+        namespace: str | None = None,
     ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         body: dict[str, Any] = {"key": key, "value": value}
         if description is not None:
             body["description"] = description
         resp = self._request(
             "POST",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries",
+            params={"namespace": ns},
             json=body,
         )
-        return resp.json()
+        return _unwrap_one(resp.json(), "entry")
 
-    def get_entry(self, store_id: str, key: str) -> dict[str, Any]:
-        """Fetch the decrypted value. Requires ``secret:read`` permission."""
+    def get_entry(
+        self, store_id: str, key: str, *, namespace: str | None = None
+    ) -> dict[str, Any]:
+        """Fetch the decrypted value. Requires ``secret:read`` permission.
+
+        The server returns a flat dict (NOT enveloped) on this endpoint.
+        """
+        ns = namespace or self._namespace
         resp = self._request(
             "GET",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}",
+            params={"namespace": ns},
         )
-        return resp.json()
+        data = resp.json()
+        return data if isinstance(data, dict) else {}
 
     def update_entry(
         self,
@@ -105,29 +183,40 @@ class SecretsAPI(SyncAPIBase):
         value: str,
         *,
         description: str | None = None,
+        namespace: str | None = None,
     ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         body: dict[str, Any] = {"value": value}
         if description is not None:
             body["description"] = description
         resp = self._request(
             "PUT",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}",
+            params={"namespace": ns},
             json=body,
         )
-        return resp.json()
+        return resp.json() if hasattr(resp, "json") else {}
 
-    def rotate_entry(self, store_id: str, key: str) -> dict[str, Any]:
+    def rotate_entry(
+        self, store_id: str, key: str, *, namespace: str | None = None
+    ) -> dict[str, Any]:
         """Generate a new random value, bumping the entry's version."""
+        ns = namespace or self._namespace
         resp = self._request(
             "POST",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}/rotate",
+            params={"namespace": ns},
         )
-        return resp.json()
+        return resp.json() if hasattr(resp, "json") else {}
 
-    def delete_entry(self, store_id: str, key: str) -> None:
+    def delete_entry(
+        self, store_id: str, key: str, *, namespace: str | None = None
+    ) -> None:
+        ns = namespace or self._namespace
         self._request(
             "DELETE",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}",
+            params={"namespace": ns},
         )
 
     # ── Vault integration ─────────────────────────────────────────────
@@ -146,56 +235,78 @@ class SecretsAPI(SyncAPIBase):
 class AsyncSecretsAPI(AsyncAPIBase):
     """Asynchronous Secrets Storage API (mirrors :class:`SecretsAPI`)."""
 
-    async def list_stores(self) -> list[dict[str, Any]]:
+    async def list_stores(
+        self, namespace: str | None = None
+    ) -> list[dict[str, Any]]:
+        ns = namespace or self._namespace
         resp = await self._request(
-            "GET", "/api/v1/stores/secrets", params={"namespace": self._namespace}
+            "GET", "/api/v1/stores/secrets", params={"namespace": ns}
         )
-        data = resp.json()
-        return data if isinstance(data, list) else []
+        return _unwrap_list(resp.json(), "stores")
 
     async def create_store(
         self,
         name: str,
         *,
         description: str | None = None,
-        backend: str = "software",
+        backend: str = "inline",
         namespace: str | None = None,
     ) -> dict[str, Any]:
-        body: dict[str, Any] = {
-            "name": name,
-            "backend": backend,
-            "namespace": namespace or self._namespace,
-        }
+        ns = namespace or self._namespace
+        body: dict[str, Any] = {"name": name, "backend": backend}
         if description is not None:
             body["description"] = description
-        resp = await self._request("POST", "/api/v1/stores/secrets", json=body)
-        return resp.json()
-
-    async def get_store(self, store_id: str) -> dict[str, Any]:
         resp = await self._request(
-            "GET", f"/api/v1/stores/secrets/{quote(store_id, safe='')}"
+            "POST",
+            "/api/v1/stores/secrets",
+            params={"namespace": ns},
+            json=body,
         )
-        return resp.json()
+        return _unwrap_one(resp.json(), "store")
 
-    async def update_store(self, store_id: str, **fields: Any) -> dict[str, Any]:
+    async def get_store(
+        self, store_id: str, *, namespace: str | None = None
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
+        resp = await self._request(
+            "GET",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}",
+            params={"namespace": ns},
+        )
+        return _unwrap_one(resp.json(), "store")
+
+    async def update_store(
+        self, store_id: str, *, namespace: str | None = None, **fields: Any
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         resp = await self._request(
             "PUT",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}",
+            params={"namespace": ns},
             json=fields,
         )
-        return resp.json()
+        return _unwrap_one(resp.json(), "store")
 
-    async def delete_store(self, store_id: str) -> None:
+    async def delete_store(
+        self, store_id: str, *, namespace: str | None = None
+    ) -> None:
+        ns = namespace or self._namespace
         await self._request(
-            "DELETE", f"/api/v1/stores/secrets/{quote(store_id, safe='')}"
+            "DELETE",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}",
+            params={"namespace": ns},
         )
 
-    async def list_entries(self, store_id: str) -> list[dict[str, Any]]:
+    async def list_entries(
+        self, store_id: str, *, namespace: str | None = None
+    ) -> list[dict[str, Any]]:
+        ns = namespace or self._namespace
         resp = await self._request(
-            "GET", f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries"
+            "GET",
+            f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries",
+            params={"namespace": ns},
         )
-        data = resp.json()
-        return data if isinstance(data, list) else []
+        return _unwrap_list(resp.json(), "entries")
 
     async def create_entry(
         self,
@@ -204,23 +315,31 @@ class AsyncSecretsAPI(AsyncAPIBase):
         value: str,
         *,
         description: str | None = None,
+        namespace: str | None = None,
     ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         body: dict[str, Any] = {"key": key, "value": value}
         if description is not None:
             body["description"] = description
         resp = await self._request(
             "POST",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries",
+            params={"namespace": ns},
             json=body,
         )
-        return resp.json()
+        return _unwrap_one(resp.json(), "entry")
 
-    async def get_entry(self, store_id: str, key: str) -> dict[str, Any]:
+    async def get_entry(
+        self, store_id: str, key: str, *, namespace: str | None = None
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         resp = await self._request(
             "GET",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}",
+            params={"namespace": ns},
         )
-        return resp.json()
+        data = resp.json()
+        return data if isinstance(data, dict) else {}
 
     async def update_entry(
         self,
@@ -229,28 +348,39 @@ class AsyncSecretsAPI(AsyncAPIBase):
         value: str,
         *,
         description: str | None = None,
+        namespace: str | None = None,
     ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         body: dict[str, Any] = {"value": value}
         if description is not None:
             body["description"] = description
         resp = await self._request(
             "PUT",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}",
+            params={"namespace": ns},
             json=body,
         )
-        return resp.json()
+        return resp.json() if hasattr(resp, "json") else {}
 
-    async def rotate_entry(self, store_id: str, key: str) -> dict[str, Any]:
+    async def rotate_entry(
+        self, store_id: str, key: str, *, namespace: str | None = None
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
         resp = await self._request(
             "POST",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}/rotate",
+            params={"namespace": ns},
         )
-        return resp.json()
+        return resp.json() if hasattr(resp, "json") else {}
 
-    async def delete_entry(self, store_id: str, key: str) -> None:
+    async def delete_entry(
+        self, store_id: str, key: str, *, namespace: str | None = None
+    ) -> None:
+        ns = namespace or self._namespace
         await self._request(
             "DELETE",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}",
+            params={"namespace": ns},
         )
 
     async def configure_vault(
