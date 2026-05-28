@@ -14,11 +14,19 @@ class PromptsAPI(SyncAPIBase):
     """Synchronous Prompts Storage API."""
 
     def list_prompts(self) -> list[dict[str, Any]]:
+        """Wire shape: server emits ``{templates:[...], count, namespace}`` —
+        unwrap. Older builds returned [] silently because the response is a
+        dict, not a bare list.
+        """
         resp = self._request(
             "GET", "/api/v1/stores/prompts", params={"namespace": self._namespace}
         )
         data = resp.json()
-        return data if isinstance(data, list) else []
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("templates") or data.get("prompts") or []
+        return []
 
     def create_prompt(
         self,
@@ -93,11 +101,16 @@ class AsyncPromptsAPI(AsyncAPIBase):
     """Asynchronous Prompts Storage API."""
 
     async def list_prompts(self) -> list[dict[str, Any]]:
+        """Async mirror of ``list_prompts`` — see sync version for envelope notes."""
         resp = await self._request(
             "GET", "/api/v1/stores/prompts", params={"namespace": self._namespace}
         )
         data = resp.json()
-        return data if isinstance(data, list) else []
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("templates") or data.get("prompts") or []
+        return []
 
     async def create_prompt(
         self,
