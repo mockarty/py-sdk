@@ -23,14 +23,22 @@ class FuzzingAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/fuzzing/configs", json=config)
         return FuzzingConfig.model_validate(resp.json())
 
-    def list_configs(self) -> list[FuzzingConfig]:
-        """List all fuzzing configurations."""
-        resp = self._request("GET", "/api/v1/fuzzing/configs")
+    def list_configs(self, namespace: str | None = None) -> list[FuzzingConfig]:
+        """List fuzzing configurations.
+
+        Wire shape: ``{"configs": [...], "total": N, "limit": N, "offset": N}``.
+        The server scopes results by ``?namespace=`` query string and falls
+        back to the default namespace when none is supplied, so callers
+        outside the default need to pass it explicitly.
+        """
+        ns = namespace or self._namespace
+        params = {"namespace": ns} if ns else None
+        resp = self._request("GET", "/api/v1/fuzzing/configs", params=params)
         data = resp.json()
         if isinstance(data, list):
             return [FuzzingConfig.model_validate(c) for c in data]
         if isinstance(data, dict):
-            items = data.get("items") or data.get("configs") or []
+            items = data.get("configs") or data.get("items") or []
             return [FuzzingConfig.model_validate(c) for c in items]
         return []
 
@@ -51,8 +59,23 @@ class FuzzingAPI(SyncAPIBase):
         self._request("DELETE", f"/api/v1/fuzzing/configs/{config_id}")
 
     def start(self, config: FuzzingConfig | dict[str, Any]) -> FuzzingRun:
-        """Start a fuzzing test run."""
-        resp = self._request("POST", "/api/v1/fuzzing/run", json=config)
+        """Start a fuzzing test run with the given inline configuration.
+
+        Wire shape: POST /api/v1/fuzzing/run expects an outer envelope
+        ``{"configId": "...", "config": {...}, "runnerId": "...", ...}``
+        — NOT a bare FuzzConfig. The SDK wraps the supplied config in
+        ``{"config": ...}`` so the caller passes a plain FuzzingConfig
+        as before.
+        """
+        body = {"config": config}
+        resp = self._request("POST", "/api/v1/fuzzing/run", json=body)
+        return FuzzingRun.model_validate(resp.json())
+
+    def start_from_config(self, config_id: str) -> FuzzingRun:
+        """Start a fuzz run referencing a previously-saved config ID."""
+        resp = self._request(
+            "POST", "/api/v1/fuzzing/run", json={"configId": config_id}
+        )
         return FuzzingRun.model_validate(resp.json())
 
     def stop(self, run_id: str) -> None:
@@ -313,14 +336,18 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/fuzzing/configs", json=config)
         return FuzzingConfig.model_validate(resp.json())
 
-    async def list_configs(self) -> list[FuzzingConfig]:
-        """List all fuzzing configurations."""
-        resp = await self._request("GET", "/api/v1/fuzzing/configs")
+    async def list_configs(
+        self, namespace: str | None = None
+    ) -> list[FuzzingConfig]:
+        """List fuzzing configurations (namespace-scoped on the server)."""
+        ns = namespace or self._namespace
+        params = {"namespace": ns} if ns else None
+        resp = await self._request("GET", "/api/v1/fuzzing/configs", params=params)
         data = resp.json()
         if isinstance(data, list):
             return [FuzzingConfig.model_validate(c) for c in data]
         if isinstance(data, dict):
-            items = data.get("items") or data.get("configs") or []
+            items = data.get("configs") or data.get("items") or []
             return [FuzzingConfig.model_validate(c) for c in items]
         return []
 
@@ -343,8 +370,16 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         await self._request("DELETE", f"/api/v1/fuzzing/configs/{config_id}")
 
     async def start(self, config: FuzzingConfig | dict[str, Any]) -> FuzzingRun:
-        """Start a fuzzing test run."""
-        resp = await self._request("POST", "/api/v1/fuzzing/run", json=config)
+        """Start a fuzzing test run (wraps config in the server's outer envelope)."""
+        body = {"config": config}
+        resp = await self._request("POST", "/api/v1/fuzzing/run", json=body)
+        return FuzzingRun.model_validate(resp.json())
+
+    async def start_from_config(self, config_id: str) -> FuzzingRun:
+        """Start a fuzz run referencing a previously-saved config ID."""
+        resp = await self._request(
+            "POST", "/api/v1/fuzzing/run", json={"configId": config_id}
+        )
         return FuzzingRun.model_validate(resp.json())
 
     async def stop(self, run_id: str) -> None:

@@ -28,10 +28,24 @@ class FuzzingConfig(BaseModel):
 
 
 class FuzzingRun(BaseModel):
-    """A running fuzzing test instance."""
+    """A running fuzzing test instance.
 
-    id: Optional[str] = None
+    Wire shape on POST /api/v1/fuzzing/run is the three-field envelope
+    ``{"taskId": "...", "resultId": "...", "runnerId": "..."}``. We
+    project:
+      * ``id``        → resultId (fuzz_results.id, the user-visible
+                         "run" id consumed by ``stop`` / ``get_result``
+                         / list_findings)
+      * ``task_id``   → runner_tasks.id (correlate with Tasks API)
+      * ``runner_id`` → assigned runner UUID (empty when auto-picked)
+    """
+
+    id: Optional[str] = Field(None, alias="resultId")
+    task_id: Optional[str] = Field(None, alias="taskId")
+    runner_id: Optional[str] = Field(None, alias="runnerId")
     status: Optional[str] = None
+
+    model_config = {"populate_by_name": True, "extra": "ignore"}
 
 
 class FuzzingResult(BaseModel):

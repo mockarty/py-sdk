@@ -70,27 +70,51 @@ class PerfConfig(BaseModel):
 
 
 class PerfTask(BaseModel):
-    """A running performance test task."""
+    """A running performance test task.
 
-    id: str = ""
+    Wire shape on POST /api/v1/perf/run is the single-field envelope
+    ``{"taskId": "<uuid>"}``. We accept BOTH ``id`` and ``taskId`` as
+    aliases so the model populates correctly regardless of which field
+    a future server returns.
+    """
+
+    id: str = Field("", alias="taskId")
     status: str = ""
     created_at: Optional[str] = Field(None, alias="createdAt")
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "ignore"}
 
 
 class PerfResult(BaseModel):
-    """Result of a completed performance test."""
+    """Result of a completed performance test.
+
+    Mirrors ``runner.PerfTestResult`` on the server. ``task_id`` is the
+    foreign key onto the originating perf task — use it to correlate a
+    result with the value returned by ``PerfAPI.run()``. ``id`` is the
+    result row's OWN UUID, distinct from ``task_id``.
+    """
 
     id: str = ""
+    task_id: Optional[str] = Field(None, alias="taskId")
+    config_id: Optional[str] = Field(None, alias="configId")
+    namespace: Optional[str] = None
     name: Optional[str] = None
     status: str = ""
+    duration_ms: Optional[int] = Field(None, alias="durationMs")
+    total_requests: Optional[int] = Field(None, alias="totalRequests")
+    failed_requests: Optional[int] = Field(None, alias="failedRequests")
+    total_vus: Optional[int] = Field(None, alias="totalVUs")
+    started_at: Optional[str] = Field(None, alias="startedAt")
+    completed_at: Optional[str] = Field(None, alias="completedAt")
+    thresholds_passed: Optional[bool] = Field(None, alias="thresholdsPassed")
+    thresholds_data: Optional[dict[str, Any]] = Field(None, alias="thresholdsData")
+    metrics_data: Optional[dict[str, Any]] = Field(None, alias="metricsData")
+    # Back-compat aliases (older servers / older code).
     metrics: Optional[dict[str, Any]] = None
     created_at: Optional[str] = Field(None, alias="createdAt")
     finished_at: Optional[str] = Field(None, alias="finishedAt")
-    duration_ms: Optional[int] = Field(None, alias="durationMs")
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "ignore"}
 
 
 class PerfComparison(BaseModel):
