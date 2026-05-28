@@ -36,11 +36,20 @@ class UndefinedAPI(SyncAPIBase):
         self._request("DELETE", "/api/v1/undefined-requests/all")
 
     def create_mock(self, request_id: str) -> Mock:
-        """Create a mock from an undefined request."""
+        """Auto-generate a mock from a recorded undefined request.
+
+        Targets ``/convert`` (server derives the mock from the stored
+        row, protocol auto-detected) and unwraps the ``{mock, mockId,
+        protocol}`` envelope. The older ``/create-mock`` path required
+        a caller-supplied ``{mockData}`` body and 400'd on a bare call.
+        """
         resp = self._request(
-            "POST", f"/api/v1/undefined-requests/{request_id}/create-mock"
+            "POST", f"/api/v1/undefined-requests/{request_id}/convert"
         )
-        return Mock.model_validate(resp.json())
+        data = resp.json()
+        if isinstance(data, dict) and "mock" in data:
+            return Mock.model_validate(data["mock"])
+        return Mock.model_validate(data)
 
 
 class AsyncUndefinedAPI(AsyncAPIBase):
@@ -70,8 +79,11 @@ class AsyncUndefinedAPI(AsyncAPIBase):
         await self._request("DELETE", "/api/v1/undefined-requests/all")
 
     async def create_mock(self, request_id: str) -> Mock:
-        """Create a mock from an undefined request."""
+        """Async mirror — see sync ``create_mock`` for the /convert + unwrap notes."""
         resp = await self._request(
-            "POST", f"/api/v1/undefined-requests/{request_id}/create-mock"
+            "POST", f"/api/v1/undefined-requests/{request_id}/convert"
         )
-        return Mock.model_validate(resp.json())
+        data = resp.json()
+        if isinstance(data, dict) and "mock" in data:
+            return Mock.model_validate(data["mock"])
+        return Mock.model_validate(data)
