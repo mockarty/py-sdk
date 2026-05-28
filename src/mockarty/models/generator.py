@@ -12,9 +12,15 @@ from mockarty.models.mock import Mock
 
 
 class GeneratorRequest(BaseModel):
-    """Request payload for generating mocks from a specification."""
+    """Request payload for generating mocks from a specification.
 
-    spec: Optional[str] = None
+    Wire field renamed: the server reads ``content`` (inline spec body),
+    NOT ``spec``. Older SDK builds sent ``spec`` and every generator
+    call 400'd with 'either url or content must be provided'. The
+    Python-friendly ``spec=`` keyword is preserved via the alias.
+    """
+
+    spec: Optional[str] = Field(None, alias="content")
     url: Optional[str] = None
     namespace: Optional[str] = None
     path_prefix: Optional[str] = Field(None, alias="pathPrefix")
