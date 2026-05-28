@@ -198,14 +198,27 @@ class SecretsAPI(SyncAPIBase):
         return resp.json() if hasattr(resp, "json") else {}
 
     def rotate_entry(
-        self, store_id: str, key: str, *, namespace: str | None = None
+        self,
+        store_id: str,
+        key: str,
+        new_value: str,
+        *,
+        namespace: str | None = None,
     ) -> dict[str, Any]:
-        """Generate a new random value, bumping the entry's version."""
+        """Replace the entry's value with ``new_value``, bumping its version.
+
+        Server wire shape requires ``{value: ...}`` in the body — older SDK
+        builds posted nil and rotate calls 400'd with 'invalid request
+        payload'. The new value is mandatory.
+        """
+        if not new_value:
+            raise ValueError("rotate_entry: new_value is required")
         ns = namespace or self._namespace
         resp = self._request(
             "POST",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}/rotate",
             params={"namespace": ns},
+            json={"value": new_value},
         )
         return resp.json() if hasattr(resp, "json") else {}
 
@@ -363,13 +376,22 @@ class AsyncSecretsAPI(AsyncAPIBase):
         return resp.json() if hasattr(resp, "json") else {}
 
     async def rotate_entry(
-        self, store_id: str, key: str, *, namespace: str | None = None
+        self,
+        store_id: str,
+        key: str,
+        new_value: str,
+        *,
+        namespace: str | None = None,
     ) -> dict[str, Any]:
+        """Async mirror of ``SecretsAPI.rotate_entry`` — see sync docstring."""
+        if not new_value:
+            raise ValueError("rotate_entry: new_value is required")
         ns = namespace or self._namespace
         resp = await self._request(
             "POST",
             f"/api/v1/stores/secrets/{quote(store_id, safe='')}/entries/{quote(key, safe='')}/rotate",
             params={"namespace": ns},
+            json={"value": new_value},
         )
         return resp.json() if hasattr(resp, "json") else {}
 
