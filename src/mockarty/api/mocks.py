@@ -161,11 +161,11 @@ class MockAPI(SyncAPIBase):
 
     def batch_delete(self, ids: list[str]) -> None:
         """Delete multiple mocks by their IDs."""
-        self._request("DELETE", "/api/v1/mocks/batch", json={"ids": ids})
+        self._request("DELETE", "/api/v1/mocks/batch", json={"mockIds": ids})
 
     def batch_restore(self, ids: list[str]) -> None:
         """Restore multiple soft-deleted mocks."""
-        self._request("POST", "/api/v1/mocks/batch/restore", json={"ids": ids})
+        self._request("POST", "/api/v1/mocks/batch/restore", json={"mockIds": ids})
 
     def logs(self, mock_id: str, offset: int = 0, limit: int = 50) -> MockLogs:
         """Retrieve request logs for a specific mock."""
@@ -213,7 +213,7 @@ class MockAPI(SyncAPIBase):
         self._request(
             "POST",
             "/api/v1/mocks/copy-to-namespace",
-            json={"ids": ids, "targetNamespace": target_namespace},
+            json={"mockIds": ids, "targetNamespace": target_namespace},
         )
 
     def move_to_folder(self, ids: list[str], folder_id: str | None) -> None:
@@ -221,7 +221,7 @@ class MockAPI(SyncAPIBase):
         self._request(
             "PATCH",
             "/api/v1/mocks/batch/move",
-            json={"ids": ids, "folderId": folder_id},
+            json={"mockIds": ids, "folderId": folder_id},
         )
 
     def batch_update_tags(self, ids: list[str], tags: list[str]) -> None:
@@ -229,7 +229,7 @@ class MockAPI(SyncAPIBase):
         self._request(
             "PATCH",
             "/api/v1/mocks/batch/tags",
-            json={"ids": ids, "tags": tags},
+            json={"mockIds": ids, "tagsToAdd": tags},
         )
 
     def versions(self, mock_id: str) -> list[Mock]:
@@ -332,11 +332,11 @@ class AsyncMockAPI(AsyncAPIBase):
 
     async def batch_delete(self, ids: list[str]) -> None:
         """Delete multiple mocks."""
-        await self._request("DELETE", "/api/v1/mocks/batch", json={"ids": ids})
+        await self._request("DELETE", "/api/v1/mocks/batch", json={"mockIds": ids})
 
     async def batch_restore(self, ids: list[str]) -> None:
         """Restore multiple soft-deleted mocks."""
-        await self._request("POST", "/api/v1/mocks/batch/restore", json={"ids": ids})
+        await self._request("POST", "/api/v1/mocks/batch/restore", json={"mockIds": ids})
 
     async def logs(self, mock_id: str, offset: int = 0, limit: int = 50) -> MockLogs:
         """Retrieve request logs for a specific mock."""
@@ -386,7 +386,7 @@ class AsyncMockAPI(AsyncAPIBase):
         await self._request(
             "POST",
             "/api/v1/mocks/copy-to-namespace",
-            json={"ids": ids, "targetNamespace": target_namespace},
+            json={"mockIds": ids, "targetNamespace": target_namespace},
         )
 
     async def move_to_folder(self, ids: list[str], folder_id: str | None) -> None:
@@ -394,7 +394,7 @@ class AsyncMockAPI(AsyncAPIBase):
         await self._request(
             "PATCH",
             "/api/v1/mocks/batch/move",
-            json={"ids": ids, "folderId": folder_id},
+            json={"mockIds": ids, "folderId": folder_id},
         )
 
     async def batch_update_tags(self, ids: list[str], tags: list[str]) -> None:
@@ -402,7 +402,7 @@ class AsyncMockAPI(AsyncAPIBase):
         await self._request(
             "PATCH",
             "/api/v1/mocks/batch/tags",
-            json={"ids": ids, "tags": tags},
+            json={"mockIds": ids, "tagsToAdd": tags},
         )
 
     async def versions(self, mock_id: str) -> list[Mock]:
