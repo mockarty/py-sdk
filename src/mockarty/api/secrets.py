@@ -248,9 +248,7 @@ class SecretsAPI(SyncAPIBase):
 class AsyncSecretsAPI(AsyncAPIBase):
     """Asynchronous Secrets Storage API (mirrors :class:`SecretsAPI`)."""
 
-    async def list_stores(
-        self, namespace: str | None = None
-    ) -> list[dict[str, Any]]:
+    async def list_stores(self, namespace: str | None = None) -> list[dict[str, Any]]:
         ns = namespace or self._namespace
         resp = await self._request(
             "GET", "/api/v1/stores/secrets", params={"namespace": ns}

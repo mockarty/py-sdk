@@ -43,9 +43,7 @@ class UndefinedAPI(SyncAPIBase):
         protocol}`` envelope. The older ``/create-mock`` path required
         a caller-supplied ``{mockData}`` body and 400'd on a bare call.
         """
-        resp = self._request(
-            "POST", f"/api/v1/undefined-requests/{request_id}/convert"
-        )
+        resp = self._request("POST", f"/api/v1/undefined-requests/{request_id}/convert")
         data = resp.json()
         if isinstance(data, dict) and "mock" in data:
             return Mock.model_validate(data["mock"])

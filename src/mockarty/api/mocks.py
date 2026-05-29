@@ -336,7 +336,9 @@ class AsyncMockAPI(AsyncAPIBase):
 
     async def batch_restore(self, ids: list[str]) -> None:
         """Restore multiple soft-deleted mocks."""
-        await self._request("POST", "/api/v1/mocks/batch/restore", json={"mockIds": ids})
+        await self._request(
+            "POST", "/api/v1/mocks/batch/restore", json={"mockIds": ids}
+        )
 
     async def logs(self, mock_id: str, offset: int = 0, limit: int = 50) -> MockLogs:
         """Retrieve request logs for a specific mock."""

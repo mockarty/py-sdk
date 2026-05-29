@@ -336,9 +336,7 @@ class AsyncFuzzingAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/fuzzing/configs", json=config)
         return FuzzingConfig.model_validate(resp.json())
 
-    async def list_configs(
-        self, namespace: str | None = None
-    ) -> list[FuzzingConfig]:
+    async def list_configs(self, namespace: str | None = None) -> list[FuzzingConfig]:
         """List fuzzing configurations (namespace-scoped on the server)."""
         ns = namespace or self._namespace
         params = {"namespace": ns} if ns else None
