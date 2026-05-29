@@ -27,8 +27,12 @@ def main() -> None:
             entry = client.secrets.get_entry(store["id"], "stripe_api_key")
             print(f"[3] v{entry['version']} value length={len(entry['value'])}")
 
-            rotated = client.secrets.rotate_entry(store["id"], "stripe_api_key")
-            print(f"[4] rotated to v{rotated['version']}")
+            # Rotate response is a minimal ack; re-fetch to show new state.
+            client.secrets.rotate_entry(
+                store["id"], "stripe_api_key", "sk_live_rotated_value"
+            )
+            after = client.secrets.get_entry(store["id"], "stripe_api_key")
+            print(f"[4] rotated to v{after['version']}")
 
             entries = client.secrets.list_entries(store["id"])
             print(f"[5] {len(entries)} entries in store")
