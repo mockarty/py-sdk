@@ -1,4 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
+# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 
 """Base classes for sync and async API resources."""
 

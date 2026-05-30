@@ -1,4 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
+# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 
 """Pydantic v2 models matching Mockarty's fuzz JSON config schema.
 

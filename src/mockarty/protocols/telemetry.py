@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Mockarty. All rights reserved.
+# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 """Step-capture vocabulary shared by every Mockarty protocol client.
 
 The Python SDK's external_runs API posts the entire run (status, steps,

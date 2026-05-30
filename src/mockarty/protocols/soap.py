@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Mockarty. All rights reserved.
+# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 """SOAP test client with auto-step capture.
 
 Wire shape — SOAP 1.1 over HTTP POST::

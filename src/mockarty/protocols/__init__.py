@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Mockarty. All rights reserved.
+# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 """Protocol clients for Mockarty's Python SDK.
 
 This subpackage hosts thin clients for the protocols Mockarty supports

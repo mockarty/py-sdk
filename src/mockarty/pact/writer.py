@@ -1,4 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
+# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 
 """Serialise a :class:`mockarty.pact.types.Pact` to V3- or V4-shaped JSON.
 
