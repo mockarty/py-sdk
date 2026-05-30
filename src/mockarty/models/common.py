@@ -56,8 +56,17 @@ class MockLogs(BaseModel):
 
 
 class PerfConfig(BaseModel):
-    """Performance test configuration."""
+    """Performance test configuration.
 
+    ``id`` / ``namespace`` / timestamps are populated by the server on
+    create/get/list (POST/GET /api/v1/perf-configs) and are required to
+    address a saved config via get_config / update_config / delete_config.
+    They are optional on the request side so a caller can still build a
+    config inline for perf.run().
+    """
+
+    id: Optional[str] = None
+    namespace: Optional[str] = None
     name: Optional[str] = None
     script: Optional[str] = None
     vus: Optional[int] = None
@@ -65,6 +74,8 @@ class PerfConfig(BaseModel):
     stages: Optional[list[dict[str, Any]]] = None
     thresholds: Optional[dict[str, Any]] = None
     environment: Optional[dict[str, str]] = None
+    created_at: Optional[str] = Field(default=None, alias="createdAt")
+    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
 
     model_config = {"populate_by_name": True}
 
