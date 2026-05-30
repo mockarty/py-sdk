@@ -48,6 +48,9 @@ from .rabbitmq import (  # noqa: F401
 )
 from .soap import SOAPFacet, SOAPStep  # noqa: F401
 from .db import DBFacet, DBStep, SQLConn, DBExecResult, DBRow  # noqa: F401
+from .s3 import S3Facet, S3Step, S3Client  # noqa: F401
+from .smtp import SMTPFacet, SMTPStep, SMTPSender  # noqa: F401
+from .socketio import SocketIOFacet, SocketIOStep  # noqa: F401
 from .ergonomics import wrap, eventually, parallel  # noqa: F401
 from .external_run import to_report_kwargs  # noqa: F401
 
@@ -80,6 +83,14 @@ __all__ = [
     "SQLConn",
     "DBExecResult",
     "DBRow",
+    "S3Facet",
+    "S3Step",
+    "S3Client",
+    "SMTPFacet",
+    "SMTPStep",
+    "SMTPSender",
+    "SocketIOFacet",
+    "SocketIOStep",
     "wrap",
     "eventually",
     "parallel",

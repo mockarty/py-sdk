@@ -103,6 +103,21 @@ class Tester:
 
         return DBFacet(self, conn)
 
+    def s3(self, client):  # -> S3Facet
+        from .s3 import S3Facet
+
+        return S3Facet(self, client)
+
+    def smtp(self, sender):  # -> SMTPFacet
+        from .smtp import SMTPFacet
+
+        return SMTPFacet(self, sender)
+
+    def socketio(self, url: str):  # -> SocketIOFacet
+        from .socketio import SocketIOFacet
+
+        return SocketIOFacet(self, url)
+
     def set_var(self, name: str, value: str) -> None:
         with self._lock:
             self._vars[name] = value
