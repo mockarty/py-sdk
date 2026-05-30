@@ -228,6 +228,33 @@ def publish_and_verify_pact(client: MockartyClient) -> None:
     return pact_id
 
 
+def import_pact_file(client: MockartyClient) -> None:
+    """Import a pact FILE produced by a pact framework — the one-call bridge.
+
+    Most CI pipelines run consumer tests that write a pact file to disk
+    (Mockarty's ``mockarty.pact`` writer, pact-python, pact-js, pact-jvm).
+    ``import_pact`` reads that file and publishes it to Mockarty as a
+    contract in a single call, so you never paste JSON into the UI.
+
+    Typical CI flow::
+
+        from mockarty.pact import Pact, SpecVersion, writer
+        path = writer.write(my_pact, SpecVersion.V3, "./pacts")
+        client.contracts.import_pact(str(path), version=os.environ["GIT_SHA"])
+
+    ``import_pact`` also accepts a raw JSON string or a parsed dict.
+    """
+    pact_path = "./pacts/order-service-user-service.json"
+    try:
+        result = client.contracts.import_pact(pact_path, version="2.1.0")
+    except (FileNotFoundError, OSError):
+        print(f"(no pact file at {pact_path} — run a consumer test first)")
+        return
+    print(f"Imported pact contract: {result.get('id')}")
+    print(f"  Consumer: {result['consumer']['name']}")
+    print(f"  Provider: {result['provider']['name']}")
+
+
 def can_i_deploy_check(client: MockartyClient) -> None:
     """Check whether a service version can be safely deployed.
 
@@ -491,6 +518,8 @@ def main() -> None:
 
         print("=== Pact Contracts ===")
         pact_id = publish_and_verify_pact(client)
+        print()
+        import_pact_file(client)
         print()
         can_i_deploy_check(client)
         print()

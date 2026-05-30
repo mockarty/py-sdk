@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from typing import Any
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
@@ -18,6 +20,56 @@ from mockarty.models.contract import (
     ValidatePayloadRequest,
 )
 from mockarty.models.mock import Mock
+
+
+def _build_pact_import(
+    pact: str | dict[str, Any], version: str | None
+) -> tuple[dict[str, Any], str | None]:
+    """Build the POST /contract/pacts body from a pact file path or dict.
+
+    ``pact`` may be a path to a Pact JSON file, the raw pact JSON string,
+    or an already-parsed dict. The pact is validated to name a consumer
+    and provider; the version defaults to the pact's
+    ``metadata.pactSpecification.version`` when not given explicitly.
+
+    Returns ``(body, derived_version)``; the raw pact content is forwarded
+    verbatim as ``pactContent`` so the admin parses Pact v2/v3/v4 itself.
+    """
+    if isinstance(pact, dict):
+        doc = pact
+        content = json.dumps(pact)
+    else:
+        # A path on disk, or raw JSON text. Treat as a file when it points
+        # at an existing file; otherwise parse it as inline JSON.
+        if os.path.exists(pact):
+            with open(pact, encoding="utf-8") as fh:
+                content = fh.read()
+        else:
+            content = pact
+        try:
+            doc = json.loads(content)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"import_pact: not valid pact JSON: {exc}") from exc
+
+    if not isinstance(doc, dict):
+        raise ValueError("import_pact: pact must be a JSON object")
+    consumer = (doc.get("consumer") or {}).get("name")
+    provider = (doc.get("provider") or {}).get("name")
+    if not consumer:
+        raise ValueError("import_pact: pact consumer name is required")
+    if not provider:
+        raise ValueError("import_pact: pact provider name is required")
+
+    resolved = version
+    if not resolved:
+        resolved = (doc.get("metadata") or {}).get("pactSpecification", {}).get(
+            "version"
+        )
+
+    body: dict[str, Any] = {"pactContent": content}
+    if resolved:
+        body["version"] = resolved
+    return body, resolved
 
 
 class ContractAPI(SyncAPIBase):
@@ -115,6 +167,42 @@ class ContractAPI(SyncAPIBase):
     def publish_pact(self, pact: dict[str, Any]) -> dict[str, Any]:
         """Publish a pact contract."""
         resp = self._request("POST", "/api/v1/contract/pacts", json=pact)
+        return resp.json()
+
+    def import_pact(
+        self,
+        pact: str | dict[str, Any],
+        *,
+        version: str | None = None,
+        namespace: str | None = None,
+    ) -> dict[str, Any]:
+        """Import a Pact contract into Mockarty in one call.
+
+        This is the bridge from a pact written by any framework (Mockarty's
+        ``mockarty.pact`` writer, pact-python, pact-js, pact-jvm) to a
+        first-class Mockarty contract — replacing the manual "write pact
+        file then paste it into the UI" flow.
+
+        Args:
+            pact: A path to a Pact JSON file, the raw pact JSON string, or
+                an already-parsed pact dict.
+            version: Consumer application version (pact-broker semantics).
+                Defaults to the pact's ``metadata.pactSpecification.version``
+                when omitted. In CI this is usually the git SHA.
+            namespace: Workspace to publish into; defaults to the client's
+                namespace.
+
+        Returns:
+            The created contract as returned by the server (nested
+            ``consumer``/``provider`` objects, ``id``, ``version``).
+        """
+        body, _ = _build_pact_import(pact, version)
+        resp = self._request(
+            "POST",
+            "/api/v1/contract/pacts",
+            json=body,
+            params={"namespace": namespace or self._namespace},
+        )
         return resp.json()
 
     def verify_pact(
@@ -690,6 +778,28 @@ class AsyncContractAPI(AsyncAPIBase):
     async def publish_pact(self, pact: dict[str, Any]) -> dict[str, Any]:
         """Publish a pact contract."""
         resp = await self._request("POST", "/api/v1/contract/pacts", json=pact)
+        return resp.json()
+
+    async def import_pact(
+        self,
+        pact: str | dict[str, Any],
+        *,
+        version: str | None = None,
+        namespace: str | None = None,
+    ) -> dict[str, Any]:
+        """Import a Pact contract into Mockarty in one call.
+
+        Async counterpart of :meth:`ContractAPI.import_pact`. Accepts a pact
+        file path, raw pact JSON string, or parsed dict; derives the version
+        from the pact body when not supplied; publishes to the contract API.
+        """
+        body, _ = _build_pact_import(pact, version)
+        resp = await self._request(
+            "POST",
+            "/api/v1/contract/pacts",
+            json=body,
+            params={"namespace": namespace or self._namespace},
+        )
         return resp.json()
 
     async def verify_pact(
