@@ -488,24 +488,59 @@ def format_exception(exc: Optional[BaseException]) -> Optional[StatusDetails]:
 
 
 def make_history_id(full_name: str, parameters: Iterable[Parameter]) -> str:
-    """Stable hash matching ``allure_commons.utils.md5`` shape.
+    """Stable hash byte-identical to ``allure_commons.utils.get_history_id``.
 
     Allure's report uses ``historyId`` to group retries / parameterised
-    iterations into a single test history. We hash ``fullName`` plus the
-    canonicalised non-excluded parameters — identical to Allure's own
-    algorithm (md5 over JSON([name, value]) entries).
+    iterations into a single test history. Two runs with the same
+    ``historyId`` are treated as "the same test" in the trend / retry view.
+
+    The algorithm reproduces allure-python exactly
+    (``allure-python-commons`` ``utils.md5`` + ``get_history_id``):
+
+    * md5 over ``full_name`` followed by the **values** of the non-excluded
+      parameters, **sorted by parameter name**;
+    * arguments are concatenated with **no separator** (each ``m.update``);
+    * parameter *names* are NOT part of the hash — only values.
+
+    Reference: allure-framework/allure-python ``allure-python-commons/src/
+    allure_commons/utils.py`` (``md5``, ``get_history_id``).
     """
+    return _allure_md5(
+        full_name,
+        *(
+            p.value
+            for p in sorted(
+                (p for p in parameters if not p.excluded),
+                key=lambda p: p.name,
+            )
+        ),
+    )
+
+
+def make_test_case_id(full_name: str) -> str:
+    """Stable, parameter-independent ``testCaseId`` = ``md5(full_name)``.
+
+    Matches allure-pytest's ``test_result.testCaseId = md5(full_name)``. Unlike
+    ``historyId`` it does NOT fold in parameters, so every iteration of a
+    parameterised test shares one ``testCaseId`` — this is the signal TCM
+    discovery matches on when no explicit id was provided.
+    """
+    return _allure_md5(full_name)
+
+
+def _allure_md5(*args: Any) -> str:
+    """Reproduce ``allure_commons.utils.md5``: concat UTF-8 args, no separator."""
     import hashlib
 
     h = hashlib.md5()
-    h.update(full_name.encode("utf-8"))
-    for p in parameters:
-        if p.excluded:
-            continue
-        h.update(p.name.encode("utf-8"))
-        h.update(b"=")
-        h.update(p.value.encode("utf-8"))
-        h.update(b"\x00")
+    for arg in args:
+        if isinstance(arg, bytes):
+            data = arg
+        elif isinstance(arg, str):
+            data = arg.encode("utf-8")
+        else:
+            data = repr(arg).encode("utf-8")
+        h.update(data)
     return h.hexdigest()
 
 
@@ -725,12 +760,19 @@ def case_frame_to_result(
 
     fn = full_name or make_full_name(package, test_class, test_method or name)
     uuid_str = str(_uuid_mod.uuid4())
+    # testCaseId: emit BOTH discovery signals. When the user set an explicit
+    # id (decorator / case_id) we honour it verbatim — that's the id-based
+    # match key. Otherwise we fall back to md5(fullName), the parameter-
+    # independent fullName-based key allure-pytest emits, so TCM discovery
+    # can still match the test across runs.
+    explicit_id = getattr(case, "case_id", None)
+    test_case_id = explicit_id if explicit_id else make_test_case_id(fn)
     return TestResult(
         uuid=uuid_str,
         name=title,
         fullName=fn,
         historyId=make_history_id(fn, param_objs),
-        testCaseId=getattr(case, "case_id", None),
+        testCaseId=test_case_id,
         status=final_status,
         stage=STAGE_FINISHED,
         statusDetails=sd_top,
@@ -782,6 +824,7 @@ __all__ = [
     "format_exception",
     "make_full_name",
     "make_history_id",
+    "make_test_case_id",
     "normalize_status",
     "now_ms",
     "worst_status",

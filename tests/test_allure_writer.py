@@ -46,6 +46,7 @@ from mockarty.allure_writer import (
     format_exception,
     make_full_name,
     make_history_id,
+    make_test_case_id,
     normalize_status,
     now_ms,
     worst_status,
@@ -210,6 +211,20 @@ class TestStatusHelpers:
 # ── History id ──────────────────────────────────────────────────────────
 
 
+def _canonical_allure_history_id(full_name, params):
+    """Independent reimplementation of allure-python's get_history_id:
+    md5(full_name + non-excluded param VALUES sorted by name), no separators.
+    """
+    import hashlib
+
+    kept = sorted((p for p in params if not p.excluded), key=lambda p: p.name)
+    m = hashlib.md5()
+    m.update(full_name.encode("utf-8"))
+    for p in kept:
+        m.update(p.value.encode("utf-8"))
+    return m.hexdigest()
+
+
 class TestHistoryId:
     def test_stable_across_runs(self):
         ps = [Parameter(name="x", value="1"), Parameter(name="y", value="2")]
@@ -217,6 +232,33 @@ class TestHistoryId:
         b = make_history_id("m.c.method", ps)
         assert a == b
         assert len(a) == 32  # md5 hex
+
+    def test_matches_allure_python_algorithm(self):
+        # Pinned literal computed from allure-python's md5(full_name, *values).
+        # Regression guard against folding parameter NAMES or separators into
+        # the hash (which would break history linking against allure-pytest).
+        assert (
+            make_history_id("auth.LoginTest.test_login", [Parameter("env", "stage")])
+            == "5f5a70338a980316ba08ab2b04378fa3"
+        )
+
+    def test_matches_independent_canonical(self):
+        fn = "pkg.Cls.method"
+        ps = [
+            Parameter("b", "2"),
+            Parameter("a", "1"),
+            Parameter("t", "x", excluded=True),
+        ]
+        assert make_history_id(fn, ps) == _canonical_allure_history_id(fn, ps)
+
+    def test_parameter_order_independent(self):
+        # allure-pytest sorts parameters by name before hashing: two
+        # iterations declaring the same params in different orders must land
+        # in the SAME history series.
+        fn = "m.c.method"
+        a = make_history_id(fn, [Parameter("y", "2"), Parameter("x", "1")])
+        b = make_history_id(fn, [Parameter("x", "1"), Parameter("y", "2")])
+        assert a == b
 
     def test_excluded_parameter_does_not_affect_history(self):
         with_excl = [
@@ -232,6 +274,35 @@ class TestHistoryId:
         a = make_history_id("m.c.method", [Parameter(name="x", value="1")])
         b = make_history_id("m.c.method", [Parameter(name="x", value="2")])
         assert a != b
+
+
+class TestTestCaseId:
+    def test_is_md5_of_full_name(self):
+        import hashlib
+
+        fn = "auth.LoginTest.test_login"
+        assert make_test_case_id(fn) == hashlib.md5(fn.encode("utf-8")).hexdigest()
+
+    def test_parameter_independent(self):
+        # testCaseId must NOT vary with parameters (it is the fullName-based
+        # discovery key). Same fullName → same testCaseId regardless of params.
+        fn = "pkg.Cls.method"
+        assert make_test_case_id(fn) == make_test_case_id(fn)
+        # And it differs from a parameterised historyId.
+        hid = make_history_id(fn, [Parameter("x", "1")])
+        assert make_test_case_id(fn) != hid
+
+    def test_explicit_case_id_preserved_else_fullname_md5(self, tmp_path):
+        import hashlib
+
+        # No explicit id → testCaseId falls back to md5(fullName).
+        case = _ctx.CaseFrame(case_name="t", auto_create=True)
+        r = case_frame_to_result(case, name="t", full_name="pkg.Cls.test_t")
+        assert r.testCaseId == hashlib.md5(b"pkg.Cls.test_t").hexdigest()
+        # Explicit id (decorator / case_id) → honoured verbatim.
+        case2 = _ctx.CaseFrame(case_name="t2", case_id="CASE-42", auto_create=False)
+        r2 = case_frame_to_result(case2, name="t2", full_name="pkg.Cls.test_t2")
+        assert r2.testCaseId == "CASE-42"
 
 
 # ── Auto-labels ─────────────────────────────────────────────────────────
