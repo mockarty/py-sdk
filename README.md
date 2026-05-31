@@ -224,6 +224,46 @@ with MockartyClient(base_url="http://...", api_key="...", namespace="qa") as cli
 errors join with `"; "`, ISO-8601 UTC timestamps. Same vocabulary as
 the Go (`tester.ToExternalRun`) and Java (`ExternalRunBridge`) SDKs.
 
+### Sync the test inventory to TCM (discovery)
+
+Where `external_runs` ships per-test *results*, **discovery** ships the
+full *inventory* of tests your suite knows about so the TCM catalogue
+mirrors the code base — including tests that didn't run. New tests are
+created, existing ones keep their human-authored metadata, and (with
+`prune_missing=True`) tests removed from the code are marked orphaned.
+
+```python
+from mockarty import DiscoveryCase, MockartyClient
+
+with MockartyClient(base_url="http://...", api_key="...", namespace="qa") as client:
+    result = client.discovery.sync(
+        source="pytest:auth-suite",   # scope key; pruning is scoped to it
+        cases=[
+            DiscoveryCase(
+                full_name="tests/auth_test.py::test_login",  # deterministic identity
+                name="test_login",
+                suite="auth",
+                source_ref="tests/auth_test.py:12",
+                labels=["smoke"],
+            ),
+        ],
+        framework="pytest",
+        prune_missing=True,
+    )
+    print(result.created, result.updated, result.orphaned, result.total)
+```
+
+Or let the bundled pytest plugin build the manifest from every collected
+item for you — opt in with the `--mockarty-discover` flag:
+
+```bash
+MOCKARTY_BASE_URL=http://... MOCKARTY_API_KEY=... \
+    pytest --mockarty-discover --mockarty-discover-source pytest:auth-suite
+```
+
+Add `--mockarty-discover-prune` to orphan tests removed from the code.
+The plugin is dormant until the flag (or `MOCKARTY_DISCOVER=1`) is set.
+
 ## Protocol Clients
 
 Beyond *configuring* mocks, the SDK ships test clients to *drive* the

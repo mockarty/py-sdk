@@ -21,6 +21,12 @@ from __future__ import annotations
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
+from mockarty.api.discovery import (
+    AsyncDiscoveryAPI,
+    DiscoveryAPI,
+    DiscoveryCase,
+    SyncResult,
+)
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.external_runs import (
     EXTERNAL_RUN_SCHEMA_VERSION,
@@ -337,6 +343,11 @@ __all__ = [
     "AsyncTestPlansAPI",
     "ExternalRunsAPI",
     "AsyncExternalRunsAPI",
+    # Discovery (test-inventory sync)
+    "DiscoveryAPI",
+    "AsyncDiscoveryAPI",
+    "DiscoveryCase",
+    "SyncResult",
     "EXTERNAL_RUN_SCHEMA_VERSION",
     "EXTERNAL_STATUS_PASSED",
     "EXTERNAL_STATUS_FAILED",

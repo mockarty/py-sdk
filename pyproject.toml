@@ -81,6 +81,7 @@ Changelog = "https://github.com/mockarty/py-sdk/releases"
 
 [project.entry-points.pytest11]
 mockarty = "mockarty.testing.plugin"
+mockarty_discovery = "mockarty.testing.discovery_plugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mockarty"]

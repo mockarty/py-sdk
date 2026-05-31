@@ -20,6 +20,7 @@ from mockarty.api.chaos import ChaosAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
+from mockarty.api.discovery import DiscoveryAPI
 from mockarty.api.entity_search import EntitySearchAPI
 from mockarty.api.external_runs import ExternalRunsAPI
 from mockarty.api.flow_runs import FlowRunsAPI
@@ -108,6 +109,7 @@ class MockartyClient:
         "_environments",
         "_entity_search",
         "_external_runs",
+        "_discovery",
         "_flow_runs",
         "_secrets",
         "_security",
@@ -401,6 +403,19 @@ class MockartyClient:
         if self._external_runs is None:
             self._external_runs = ExternalRunsAPI(self._http, self._namespace)
         return self._external_runs
+
+    @property
+    def discovery(self) -> DiscoveryAPI:
+        """Test-discovery sync API (POST /tcm/discovery).
+
+        Ships the full test inventory an SDK/CI adapter knows about so the
+        TCM catalogue mirrors the code base. New tests are created, existing
+        ones keep their metadata, and (with ``prune_missing``) tests absent
+        from the manifest are marked orphaned.
+        """
+        if self._discovery is None:
+            self._discovery = DiscoveryAPI(self._http, self._namespace)
+        return self._discovery
 
     @property
     def flow_runs(self) -> FlowRunsAPI:
