@@ -8,16 +8,11 @@ from __future__ import annotations
 from typing import Optional
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
-from mockarty.models.testrun import MergedRunList, MergedRunView, TestRun
+from mockarty.models.testrun import TestRun
 
-# Aggregated report formats supported by ``/test-runs/merges/:id/report``.
-# The server rejects anything else — see backlog #55 rationale: merged runs
-# span heterogeneous source modes and have no plan/DAG shape to project into
-# Allure/JUnit/HTML, so the surface is narrow on purpose.
-MERGED_RUN_REPORT_FORMAT_UNIFIED = "unified"
-MERGED_RUN_REPORT_FORMAT_MARKDOWN = "markdown"
-
-# Aggregate report formats (POST /test-runs/reports/aggregate).
+# Aggregate report formats (POST /test-runs/reports/aggregate). This is the
+# stateless replacement for the persistent merge surface removed server-side
+# in migration 100 — recomputed per call, no parent row.
 AGGREGATE_REPORT_FORMAT_UNIFIED = "unified"
 AGGREGATE_REPORT_FORMAT_MARKDOWN = "markdown"
 AGGREGATE_REPORT_FORMAT_HTML = "html"
@@ -138,75 +133,8 @@ class TestRunAPI(SyncAPIBase):
 
     # ── Merged test runs (T-12 / backlog #55) ──────────────────────────
     #
-    # A "merged run" is a parent row (``mode="merged"``) that aggregates
-    # several existing runs of possibly-different modes. The sources are kept
-    # live — detaching or finishing them updates the cached totals on the
-    # parent asynchronously (terminal-transition hook). See
-    # ``internal/webui/test_runs_merges*.go`` for the HTTP contract.
-
-    def merge_runs(
-        self,
-        name: str,
-        source_ids: list[str],
-    ) -> MergedRunView:
-        """Create a merged test run aggregating ``source_ids``.
-
-        Equivalent to ``POST /api/v1/test-runs/merges``. ``source_ids`` must
-        contain at least one UUID; the server additionally enforces cross-
-        namespace rules (admin/support bypass).
-
-        Returns the freshly-created parent row and the initial source snapshot.
-        """
-        body = {"name": name, "sourceRunIds": list(source_ids)}
-        resp = self._request("POST", "/api/v1/test-runs/merges", json=body)
-        return MergedRunView.model_validate(resp.json())
-
-    def list_merged_runs(
-        self,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-    ) -> MergedRunList:
-        """List merged runs in the client's namespace, newest first.
-
-        Envelope: ``items, total, limit, offset``. Server hard-caps ``limit``
-        at 500.
-        """
-        params: dict[str, str] = {}
-        if limit is not None and limit > 0:
-            params["limit"] = str(limit)
-        if offset is not None and offset > 0:
-            params["offset"] = str(offset)
-        resp = self._request("GET", "/api/v1/test-runs/merges", params=params or None)
-        return MergedRunList.model_validate(resp.json())
-
-    def get_merged_run(self, merged_run_id: str) -> MergedRunView:
-        """Fetch a merged run with the latest source snapshot."""
-        resp = self._request("GET", f"/api/v1/test-runs/merges/{merged_run_id}")
-        return MergedRunView.model_validate(resp.json())
-
-    def delete_merged_run(self, merged_run_id: str) -> None:
-        """Delete the merge parent. Source runs are untouched."""
-        self._request("DELETE", f"/api/v1/test-runs/merges/{merged_run_id}")
-
-    def get_merged_run_report(
-        self,
-        merged_run_id: str,
-        format: str = MERGED_RUN_REPORT_FORMAT_UNIFIED,
-    ) -> bytes:
-        """Fetch the aggregated merged-run report.
-
-        ``format`` must be :data:`MERGED_RUN_REPORT_FORMAT_UNIFIED` (default
-        — JSON envelope) or :data:`MERGED_RUN_REPORT_FORMAT_MARKDOWN`.
-        Returns the raw response bytes; callers decode JSON / write to file as
-        appropriate.
-        """
-        fmt = format or MERGED_RUN_REPORT_FORMAT_UNIFIED
-        resp = self._request(
-            "GET",
-            f"/api/v1/test-runs/merges/{merged_run_id}/report",
-            params={"format": fmt},
-        )
-        return resp.content
+    # Aggregate report: a stateless report over several run IDs. Replaces the
+    # removed persistent merge surface — nothing is created server-side.
 
     def aggregate_runs_report(
         self,
@@ -301,56 +229,7 @@ class AsyncTestRunAPI(AsyncAPIBase):
         resp = await self._request("GET", "/api/v1/test-runs/active")
         return _unwrap(resp.json())
 
-    # ── Merged test runs (T-12 / backlog #55) ──────────────────────────
-
-    async def merge_runs(
-        self,
-        name: str,
-        source_ids: list[str],
-    ) -> MergedRunView:
-        """Create a merged test run aggregating ``source_ids``."""
-        body = {"name": name, "sourceRunIds": list(source_ids)}
-        resp = await self._request("POST", "/api/v1/test-runs/merges", json=body)
-        return MergedRunView.model_validate(resp.json())
-
-    async def list_merged_runs(
-        self,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-    ) -> MergedRunList:
-        """List merged runs in the client's namespace, newest first."""
-        params: dict[str, str] = {}
-        if limit is not None and limit > 0:
-            params["limit"] = str(limit)
-        if offset is not None and offset > 0:
-            params["offset"] = str(offset)
-        resp = await self._request(
-            "GET", "/api/v1/test-runs/merges", params=params or None
-        )
-        return MergedRunList.model_validate(resp.json())
-
-    async def get_merged_run(self, merged_run_id: str) -> MergedRunView:
-        """Fetch a merged run with the latest source snapshot."""
-        resp = await self._request("GET", f"/api/v1/test-runs/merges/{merged_run_id}")
-        return MergedRunView.model_validate(resp.json())
-
-    async def delete_merged_run(self, merged_run_id: str) -> None:
-        """Delete the merge parent. Source runs are untouched."""
-        await self._request("DELETE", f"/api/v1/test-runs/merges/{merged_run_id}")
-
-    async def get_merged_run_report(
-        self,
-        merged_run_id: str,
-        format: str = MERGED_RUN_REPORT_FORMAT_UNIFIED,
-    ) -> bytes:
-        """Fetch the aggregated merged-run report (unified JSON or markdown)."""
-        fmt = format or MERGED_RUN_REPORT_FORMAT_UNIFIED
-        resp = await self._request(
-            "GET",
-            f"/api/v1/test-runs/merges/{merged_run_id}/report",
-            params={"format": fmt},
-        )
-        return resp.content
+    # Aggregate report (stateless; replaces the removed merge surface).
 
     async def aggregate_runs_report(
         self,

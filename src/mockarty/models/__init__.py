@@ -103,7 +103,7 @@ from mockarty.models.store import (
     StoreData,
     StoreEntry,
 )
-from mockarty.models.testrun import MergedRunList, MergedRunView, MergedTestRun, TestRun
+from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
 __all__ = [
@@ -205,9 +205,6 @@ __all__ = [
     "StoreData",
     "StoreEntry",
     # Test run models
-    "MergedRunList",
-    "MergedRunView",
-    "MergedTestRun",
     "TestRun",
     # Undefined request models
     "UndefinedRequest",

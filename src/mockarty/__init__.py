@@ -185,7 +185,7 @@ from mockarty.models.testplan import (
     UnifiedReportCounts,
     Webhook,
 )
-from mockarty.models.testrun import MergedRunList, MergedRunView, MergedTestRun, TestRun
+from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
 __version__ = "0.3.0"
@@ -280,9 +280,6 @@ __all__ = [
     # Import models
     "ImportResult",
     # Test run models
-    "MergedRunList",
-    "MergedRunView",
-    "MergedTestRun",
     "TestRun",
     # Test plan models
     "TestPlan",
