@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
@@ -260,12 +262,17 @@ class TestMockAPIDelete:
 
     @respx.mock
     def test_restore(self, client: MockartyClient) -> None:
-        route = respx.post("http://localhost:5770/api/v1/mocks/res-1/restore").mock(
-            return_value=httpx.Response(200, json={"status": "restored"})
+        # restore() routes through the batch endpoint — the per-mock route is
+        # a write disguised as a GET, so the SDK uses POST /mocks/batch/restore
+        # (same path the Go SDK uses) with a single-element mockIds list.
+        route = respx.post("http://localhost:5770/api/v1/mocks/batch/restore").mock(
+            return_value=httpx.Response(200, json={"restoredCount": 1})
         )
 
         client.mocks.restore("res-1")
         assert route.called
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"mockIds": ["res-1"]}
 
     @respx.mock
     def test_purge(self, client: MockartyClient) -> None:
@@ -299,14 +306,30 @@ class TestMockAPILogs:
 
     @respx.mock
     def test_logs_as_envelope(self, client: MockartyClient) -> None:
-        """Server returns a logs envelope with total."""
+        """Server returns model.LogsMock: {"id", "requests": [...]}.
+
+        This is the real wire contract — the request rows live under
+        "requests", not "logs"/"items". Reading the wrong key silently
+        returned an empty list before the fix.
+        """
         respx.get("http://localhost:5770/api/v1/mocks/log-mock/logs").mock(
             return_value=httpx.Response(
                 200,
-                json={
-                    "logs": [{"id": "l1"}],
-                    "total": 100,
-                },
+                json={"id": "log-mock", "requests": [{"id": "l1"}, {"id": "l2"}]},
+            )
+        )
+
+        logs = client.mocks.logs("log-mock")
+        assert len(logs.logs) == 2
+        assert logs.logs[0].id == "l1"
+
+    @respx.mock
+    def test_logs_envelope_fallback_keys(self, client: MockartyClient) -> None:
+        """logs/items stay accepted as forward-compat fallbacks."""
+        respx.get("http://localhost:5770/api/v1/mocks/log-mock/logs").mock(
+            return_value=httpx.Response(
+                200,
+                json={"logs": [{"id": "l1"}], "total": 100},
             )
         )
 

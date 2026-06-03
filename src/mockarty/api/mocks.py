@@ -144,8 +144,16 @@ class MockAPI(SyncAPIBase):
         self._request("DELETE", f"/api/v1/mocks/{mock_id}")
 
     def restore(self, mock_id: str) -> None:
-        """Restore a previously soft-deleted mock."""
-        self._request("POST", f"/api/v1/mocks/{mock_id}/restore")
+        """Restore a previously soft-deleted mock.
+
+        Routes through POST /api/v1/mocks/batch/restore with a single ID.
+        The per-mock route is GET /mocks/{id}/restore (a write disguised as
+        a GET); the batch action is the canonical, proven path the Go SDK
+        also uses, so all three SDKs restore identically.
+        """
+        self._request(
+            "POST", "/api/v1/mocks/batch/restore", json={"mockIds": [mock_id]}
+        )
 
     def purge(self, mock_id: str) -> None:
         """Permanently delete a mock (cannot be restored)."""
@@ -182,7 +190,12 @@ class MockAPI(SyncAPIBase):
             return MockLogs(logs=logs, total=len(logs))
 
         if isinstance(data, dict):
-            raw_logs = data.get("logs") or data.get("items") or []
+            # Server returns model.LogsMock -> {"id", "requests": [...]}.
+            # "requests" is the real key; logs/items kept as forward-compat
+            # fallbacks so a future envelope rename doesn't silently zero out.
+            raw_logs = (
+                data.get("requests") or data.get("logs") or data.get("items") or []
+            )
             logs = [RequestLog.model_validate(entry) for entry in raw_logs]
             return MockLogs(logs=logs, total=data.get("total", len(logs)))
 
@@ -315,8 +328,14 @@ class AsyncMockAPI(AsyncAPIBase):
         await self._request("DELETE", f"/api/v1/mocks/{mock_id}")
 
     async def restore(self, mock_id: str) -> None:
-        """Restore a previously soft-deleted mock."""
-        await self._request("POST", f"/api/v1/mocks/{mock_id}/restore")
+        """Restore a previously soft-deleted mock.
+
+        Routes through POST /api/v1/mocks/batch/restore with a single ID —
+        the canonical path the Go SDK uses, so all SDKs restore identically.
+        """
+        await self._request(
+            "POST", "/api/v1/mocks/batch/restore", json={"mockIds": [mock_id]}
+        )
 
     async def purge(self, mock_id: str) -> None:
         """Permanently delete a mock."""
@@ -355,7 +374,12 @@ class AsyncMockAPI(AsyncAPIBase):
             return MockLogs(logs=logs, total=len(logs))
 
         if isinstance(data, dict):
-            raw_logs = data.get("logs") or data.get("items") or []
+            # Server returns model.LogsMock -> {"id", "requests": [...]}.
+            # "requests" is the real key; logs/items kept as forward-compat
+            # fallbacks so a future envelope rename doesn't silently zero out.
+            raw_logs = (
+                data.get("requests") or data.get("logs") or data.get("items") or []
+            )
             logs = [RequestLog.model_validate(entry) for entry in raw_logs]
             return MockLogs(logs=logs, total=data.get("total", len(logs)))
 

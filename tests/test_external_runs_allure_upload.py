@@ -110,3 +110,29 @@ class TestUploadAllureDir:
         body = json.loads(route.calls[0].request.content)
         assert body["labels"]["feature"] == "auth"
         assert body["labels"]["severity"] == "critical"
+
+    def test_testcaseid_maps_to_resolution_key(self, writer, client):
+        # Allure's testCaseId is the author-pinned resolution key — it MUST
+        # land in payload["testCaseId"] (server tries it before fullName/name),
+        # NOT payload["caseId"] (Mockarty's internal UUID). fullName is sent as
+        # a first-class resolution key, and auto_create stays honoured so an
+        # unresolved case is still created.
+        r = aw.TestResult(
+            uuid="u1",
+            name="login_works",
+            fullName="pkg.Auth.login_works",
+            status="passed",
+            testCaseId="CASE-1",
+        )
+        writer.write_result(r)
+        with respx.mock(base_url="http://test") as router:
+            route = router.post("/api/v1/namespaces/default/tcm/external-runs").mock(
+                return_value=httpx.Response(200, json={})
+            )
+            client.external_runs.upload_allure_dir(writer.output_dir)
+        body = json.loads(route.calls[0].request.content)
+        assert body["testCaseId"] == "CASE-1"
+        assert "caseId" not in body  # never smuggled in as the internal UUID
+        assert body["fullName"] == "pkg.Auth.login_works"
+        assert body["caseName"] == "login_works"
+        assert body["autoCreate"] is True

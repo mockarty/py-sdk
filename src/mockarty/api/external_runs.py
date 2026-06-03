@@ -92,6 +92,7 @@ def _build_payload(
     case_name: Optional[str],
     plan_id: Optional[str],
     auto_create: bool,
+    test_case_id: Optional[str] = None,
     framework: Optional[str],
     framework_version: Optional[str],
     external_id: Optional[str],
@@ -123,6 +124,11 @@ def _build_payload(
     }
     if case_id:
         payload["caseId"] = case_id
+    if test_case_id:
+        # Author-pinned identity (Allure testCaseId / @allure.id). Distinct
+        # from caseId (Mockarty's internal UUID): the server tries testCaseId
+        # BEFORE fullName/name when resolving the case (migration 402).
+        payload["testCaseId"] = test_case_id
     if case_name:
         payload["caseName"] = case_name
     if plan_id:
@@ -177,6 +183,7 @@ class ExternalRunsAPI(SyncAPIBase):
         *,
         status: str,
         case_id: Optional[str] = None,
+        test_case_id: Optional[str] = None,
         case_name: Optional[str] = None,
         plan_id: Optional[str] = None,
         auto_create: bool = False,
@@ -231,6 +238,7 @@ class ExternalRunsAPI(SyncAPIBase):
         body = _build_payload(
             status=status,
             case_id=case_id,
+            test_case_id=test_case_id,
             case_name=case_name,
             plan_id=plan_id,
             auto_create=auto_create,
@@ -334,6 +342,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         *,
         status: str,
         case_id: Optional[str] = None,
+        test_case_id: Optional[str] = None,
         case_name: Optional[str] = None,
         plan_id: Optional[str] = None,
         auto_create: bool = False,
@@ -362,6 +371,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         body = _build_payload(
             status=status,
             case_id=case_id,
+            test_case_id=test_case_id,
             case_name=case_name,
             plan_id=plan_id,
             auto_create=auto_create,
@@ -538,16 +548,26 @@ def allure_result_to_external_payload(
         )
     return {
         "status": wire_status,
-        "case_id": doc.get("testCaseId"),
+        # Allure's testCaseId (@allure.id) is the author-pinned identity, NOT
+        # Mockarty's internal case UUID — map it to test_case_id so the server
+        # resolves by it (tried before fullName/name). Mapping it to case_id
+        # made every upload look up a non-existent UUID.
+        "test_case_id": doc.get("testCaseId"),
         "case_name": name,
         "plan_id": plan_id,
-        "auto_create": auto_create if not doc.get("testCaseId") else False,
+        # Honour the caller's auto_create regardless of testCaseId: the server
+        # only creates when resolution (testCaseId → fullName → name) misses,
+        # so this never produces duplicates.
+        "auto_create": auto_create,
         "framework": framework,
         "external_id": doc.get("uuid"),
         "test_display_name": name,
         "duration_ms": duration_ms,
         "error": err,
         "labels": labels or None,
+        # fullName is a first-class resolution key (migration 321), not just
+        # display metadata — send it as full_name AND keep the metadata mirror.
+        "full_name": full_name,
         "metadata": {"allureFullName": full_name} if full_name else None,
         "steps": steps or None,
         "attachments": attachments or None,
