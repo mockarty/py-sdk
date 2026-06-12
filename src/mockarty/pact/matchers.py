@@ -714,6 +714,213 @@ class XMLPath(Matcher):
         return self.inner.validate(node.text or "", self.path_expr)
 
 
+# ── Scalar & format matchers (server-parity catalogue) ────────────────
+
+# Default format patterns — kept byte-for-byte identical to the
+# server-side matcher engine (internal/contract/pact_matcher.go) so the
+# consumer mock server and the provider verifier agree on what a "date"
+# or "uuid" is.
+_DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
+_TIME_RE = r"^\d{2}:\d{2}:\d{2}(\.\d+)?$"
+_DATETIME_RE = r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$"
+_UUID_RE = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+_SEMVER_RE = r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$"
+_IPV4_RE = r"^(\d{1,3}\.){3}\d{1,3}$"
+
+
+class Null(Matcher):
+    """Matches the JSON ``null`` literal."""
+
+    def __init__(self) -> None:
+        super().__init__(None)
+
+    def v3_rule(self) -> Dict[str, Any]:
+        return {"match": "null"}
+
+    def v4_rule(self) -> Dict[str, Any]:
+        return {"matchers": [{"match": "null"}], "combine": "AND"}
+
+    def validate(self, actual: Any, path: str = "$") -> List[Mismatch]:
+        return [] if actual is None else [Mismatch(path, "null", actual)]
+
+
+class NotNull(Matcher):
+    """Matches any value that is not ``null`` — the sibling of :class:`Null`."""
+
+    def __init__(self, example: Any = "") -> None:
+        super().__init__(example)
+
+    def v3_rule(self) -> Dict[str, Any]:
+        return {"match": "notNull"}
+
+    def v4_rule(self) -> Dict[str, Any]:
+        return {"matchers": [{"match": "notNull"}], "combine": "AND"}
+
+    def validate(self, actual: Any, path: str = "$") -> List[Mismatch]:
+        return [] if actual is not None else [Mismatch(path, "non-null value", actual)]
+
+
+class Include(Matcher):
+    """Matches a string that contains ``substring``."""
+
+    __slots__ = ("substring",)
+
+    def __init__(self, substring: str, example: Optional[str] = None) -> None:
+        super().__init__(example if example is not None else substring)
+        self.substring = substring
+
+    def v3_rule(self) -> Dict[str, Any]:
+        return {"match": "include", "value": self.substring}
+
+    def v4_rule(self) -> Dict[str, Any]:
+        return {"matchers": [{"match": "include", "value": self.substring}], "combine": "AND"}
+
+    def validate(self, actual: Any, path: str = "$") -> List[Mismatch]:
+        if not isinstance(actual, str) or self.substring not in actual:
+            return [Mismatch(path, f"string including {self.substring!r}", actual)]
+        return []
+
+
+class ContentType(Matcher):
+    """Matches a string whose value starts with ``content_type`` (tolerating
+    trailing parameters like ``; charset=utf-8``)."""
+
+    __slots__ = ("content_type",)
+
+    def __init__(self, content_type: str, example: Optional[str] = None) -> None:
+        super().__init__(example if example is not None else content_type)
+        self.content_type = content_type
+
+    def v3_rule(self) -> Dict[str, Any]:
+        return {"match": "contentType", "value": self.content_type}
+
+    def v4_rule(self) -> Dict[str, Any]:
+        return {"matchers": [{"match": "contentType", "value": self.content_type}], "combine": "AND"}
+
+    def validate(self, actual: Any, path: str = "$") -> List[Mismatch]:
+        if not isinstance(actual, str):
+            return [Mismatch(path, "content-type string", actual)]
+        if self.content_type and not actual.strip().startswith(self.content_type):
+            return [Mismatch(path, f"content type starting with {self.content_type!r}", actual)]
+        return []
+
+
+class AtLeastOne(Matcher):
+    """Matches an array that contains at least one element."""
+
+    def __init__(self, example: Any = None) -> None:
+        super().__init__([example] if example is not None else [None])
+
+    def v3_rule(self) -> Dict[str, Any]:
+        return {"match": "atLeastOne"}
+
+    def v4_rule(self) -> Dict[str, Any]:
+        return {"matchers": [{"match": "atLeastOne"}], "combine": "AND"}
+
+    def validate(self, actual: Any, path: str = "$") -> List[Mismatch]:
+        if not isinstance(actual, list):
+            return [Mismatch(path, "array", actual)]
+        if not actual:
+            return [Mismatch(path, "non-empty array", actual)]
+        return []
+
+
+class _FormatMatcher(Matcher):
+    """Base for the regex-backed format matchers (date / time / uuid / …).
+
+    A caller-supplied ``regex`` overrides the default pattern, mirroring
+    the server which lets the consumer narrow the format.
+    """
+
+    __slots__ = ("_match", "_regex", "_compiled")
+
+    def __init__(self, example: str, match_name: str, default_regex: str, regex: Optional[str] = None) -> None:
+        super().__init__(example)
+        self._match = match_name
+        self._regex = regex or ""
+        try:
+            self._compiled = re.compile(regex if regex else default_regex)
+        except re.error as exc:  # pragma: no cover — defensive
+            raise ValueError(f"invalid {match_name} regex {regex!r}: {exc}") from exc
+
+    def v3_rule(self) -> Dict[str, Any]:
+        rule: Dict[str, Any] = {"match": self._match}
+        if self._regex:
+            rule["regex"] = self._regex
+        return rule
+
+    def v4_rule(self) -> Dict[str, Any]:
+        entry: Dict[str, Any] = {"match": self._match}
+        if self._regex:
+            entry["regex"] = self._regex
+        return {"matchers": [entry], "combine": "AND"}
+
+    def validate(self, actual: Any, path: str = "$") -> List[Mismatch]:
+        if not isinstance(actual, str):
+            return [Mismatch(path, f"{self._match} string", actual)]
+        if not self._compiled.match(actual):
+            return [Mismatch(path, f"{self._match} matching /{self._compiled.pattern}/", actual)]
+        return []
+
+
+class Date(_FormatMatcher):
+    """Matches an ISO date string (``2026-06-12``)."""
+
+    __slots__ = ()
+
+    def __init__(self, example: str = "2026-01-01", regex: Optional[str] = None) -> None:
+        super().__init__(example, "date", _DATE_RE, regex)
+
+
+class Time(_FormatMatcher):
+    """Matches a ``HH:MM:SS[.fraction]`` string."""
+
+    __slots__ = ()
+
+    def __init__(self, example: str = "10:30:00", regex: Optional[str] = None) -> None:
+        super().__init__(example, "time", _TIME_RE, regex)
+
+
+class DateTime(_FormatMatcher):
+    """Matches an RFC 3339 / ISO 8601 timestamp (``2026-06-12T10:30:00Z``)."""
+
+    __slots__ = ()
+
+    def __init__(self, example: str = "2026-01-01T00:00:00Z", regex: Optional[str] = None) -> None:
+        super().__init__(example, "timestamp", _DATETIME_RE, regex)
+
+
+# pact-jvm / pact-js parity alias.
+Timestamp = DateTime
+
+
+class UUID(_FormatMatcher):
+    """Matches a canonical UUID string."""
+
+    __slots__ = ()
+
+    def __init__(self, example: str = "00000000-0000-0000-0000-000000000000", regex: Optional[str] = None) -> None:
+        super().__init__(example, "uuid", _UUID_RE, regex)
+
+
+class Semver(_FormatMatcher):
+    """Matches a SemVer 2.0 version string (``1.2.3``, ``1.2.3-rc.1``)."""
+
+    __slots__ = ()
+
+    def __init__(self, example: str = "1.0.0") -> None:
+        super().__init__(example, "semver", _SEMVER_RE, None)
+
+
+class IPv4(_FormatMatcher):
+    """Matches a dotted-quad IPv4 address string."""
+
+    __slots__ = ()
+
+    def __init__(self, example: str = "127.0.0.1") -> None:
+        super().__init__(example, "ipv4", _IPV4_RE, None)
+
+
 # ── Walker (shared by Like / EachLike / consumers) ────────────────────
 
 
@@ -822,13 +1029,19 @@ MatcherLike = Union[Matcher, Any]
 
 __all__ = [
     "ArrayContains",
+    "AtLeastOne",
     "Boolean",
+    "ContentType",
+    "Date",
+    "DateTime",
     "Decimal",
     "EachKey",
     "EachKeyLike",
     "EachLike",
     "EachValue",
     "Equality",
+    "IPv4",
+    "Include",
     "Integer",
     "JSONPath",
     "Like",
@@ -839,7 +1052,13 @@ __all__ = [
     "MinMaxType",
     "MinType",
     "Mismatch",
+    "NotNull",
+    "Null",
     "Regex",
+    "Semver",
     "Term",
+    "Time",
+    "Timestamp",
+    "UUID",
     "XMLPath",
 ]
