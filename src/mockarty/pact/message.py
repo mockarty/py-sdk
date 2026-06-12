@@ -45,6 +45,7 @@ from mockarty.pact.matchers import Matcher
 
 
 MESSAGE_INTERACTION_TYPE = "Asynchronous/Messages"
+SYNC_MESSAGE_INTERACTION_TYPE = "Synchronous/Messages"
 
 MessageHandler = Callable[[bytes, Mapping[str, str]], None]
 """Consumer handler: raises if it cannot decode/process the bytes."""
@@ -54,12 +55,28 @@ MessageProducer = Callable[[str, list[dict[str, Any]]], tuple[bytes, Mapping[str
 
 
 @dataclasses.dataclass
+class MessageReply:
+    """One expected reply in a synchronous (request/response) message.
+
+    Matchers inside ``content`` are extracted to ``matchingRules`` exactly like
+    a request body.
+    """
+
+    content: Any = None
+    metadata: dict[str, str] = dataclasses.field(default_factory=dict)
+    content_type: str = ""
+
+
+@dataclasses.dataclass
 class Message:
     description: str = ""
     states: list[dict[str, Any]] = dataclasses.field(default_factory=list)
     metadata: dict[str, str] = dataclasses.field(default_factory=dict)
     content: Any = None
     content_type: str = ""
+    # Non-empty => SYNCHRONOUS message: ``content`` is the request and each
+    # entry here is an expected reply.
+    responses: list["MessageReply"] = dataclasses.field(default_factory=list)
 
 
 class MessagePact:
@@ -104,6 +121,23 @@ class MessagePact:
 
     def with_content_type(self, ct: str) -> MessagePact:
         self._require_cursor().content_type = ct
+        return self
+
+    def expects_response(self, body: Any) -> MessagePact:
+        """Declare an expected reply, turning this into a SYNCHRONOUS message:
+        ``with_content`` becomes the request the consumer sends and each
+        ``expects_response`` adds one acceptable reply. Call more than once to
+        allow several acceptable replies."""
+        self._require_cursor().responses.append(
+            MessageReply(content=body, content_type="application/json")
+        )
+        return self
+
+    def with_response_metadata(self, meta: Mapping[str, str]) -> MessagePact:
+        """Attach metadata to the most recently declared response."""
+        c = self._require_cursor()
+        if c.responses:
+            c.responses[-1].metadata.update(dict(meta))
         return self
 
     def _require_cursor(self) -> Message:
@@ -230,8 +264,9 @@ def _encode_body(body: Any, content_type: str) -> bytes:
 
 
 def _serialise_v4(m: Message) -> dict[str, Any]:
+    sync = bool(m.responses)
     ix: dict[str, Any] = {
-        "type": MESSAGE_INTERACTION_TYPE,
+        "type": SYNC_MESSAGE_INTERACTION_TYPE if sync else MESSAGE_INTERACTION_TYPE,
         "description": m.description,
     }
     if m.states:
@@ -239,7 +274,10 @@ def _serialise_v4(m: Message) -> dict[str, Any]:
             {k: v for k, v in s.items() if v not in (None, {}, "")} for s in m.states
         ]
     rules: dict[str, dict[str, Any]] = {}
-    content_value = _walk_and_extract(m.content, "$.body", rules)
+    # Root the body at "$" (not "$.body"): the server re-roots message body
+    # rules under the "body" category, so "$.id" becomes "$.body.id". Using
+    # "$.body" here would double it to "$.body.body.id".
+    content_value = _walk_and_extract(m.content, "$", rules)
     ix["contents"] = {
         "contentType": m.content_type or "application/json",
         "content": content_value,
@@ -248,6 +286,24 @@ def _serialise_v4(m: Message) -> dict[str, Any]:
         ix["matchingRules"] = {"body": rules}
     if m.metadata:
         ix["metadata"] = m.metadata
+    if sync:
+        # Synchronous/Messages: contents above is the request; response[] holds
+        # the expected replies, each with its own contents + matchingRules.
+        responses: list[dict[str, Any]] = []
+        for r in m.responses:
+            r_rules: dict[str, dict[str, Any]] = {}
+            entry: dict[str, Any] = {
+                "contents": {
+                    "contentType": r.content_type or "application/json",
+                    "content": _walk_and_extract(r.content, "$", r_rules),
+                }
+            }
+            if r_rules:
+                entry["matchingRules"] = {"body": r_rules}
+            if r.metadata:
+                entry["metadata"] = r.metadata
+            responses.append(entry)
+        ix["response"] = responses
     return ix
 
 
@@ -270,9 +326,11 @@ def _walk_and_extract(body: Any, path: str, rules: dict[str, dict[str, Any]]) ->
     """Strip matchers out of the body into a `path -> rule` map,
     returning the body with matchers replaced by their examples."""
     if isinstance(body, Matcher):
-        spec = getattr(body, "spec", None)
-        if spec is not None:
-            rules[path] = {"matchers": [spec]}
+        # Messages are written V4, so use the matcher's V4 rule entry
+        # ({"matchers": [...], "combine": "AND"}). The previous code looked for
+        # a non-existent `.spec` attribute, so message-content matchers NEVER
+        # emitted matchingRules — they were silently dropped to plain examples.
+        rules[path] = body.v4_rule()
         return _walk_and_extract(body.example, path, rules)
     if isinstance(body, dict):
         return {k: _walk_and_extract(v, f"{path}.{k}", rules) for k, v in body.items()}
@@ -318,9 +376,11 @@ def _decode_states(ix: dict[str, Any]) -> list[dict[str, Any]]:
 
 __all__ = [
     "MESSAGE_INTERACTION_TYPE",
+    "SYNC_MESSAGE_INTERACTION_TYPE",
     "Message",
     "MessageHandler",
     "MessagePact",
     "MessageProducer",
+    "MessageReply",
     "parse_message_pact_doc",
 ]
