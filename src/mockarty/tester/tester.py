@@ -126,6 +126,15 @@ class Tester:
 
         return WebSocketFacet(self, url)
 
+    def grpc(self, invoker):  # -> GRPCFacet
+        """gRPC facet — the fluent assertion layer over a user-supplied invoker
+        (any object with ``invoke_json(full_method, req) -> dict``, raising on a
+        gRPC error). Mirrors the Go/Java port.
+        """
+        from .grpc import GRPCFacet
+
+        return GRPCFacet(self, invoker)
+
     def set_var(self, name: str, value: str) -> None:
         with self._lock:
             self._vars[name] = value
