@@ -115,3 +115,77 @@ def test_pyclient_sse_live(live):
     t.finish()
     assert t.ok(), f"python tester SSE DSL failed against live SSE mock: {t.errors()}"
     assert t.vars()["first"] == "connected"
+
+
+def test_pyclient_graphql_live(live):
+    c, ns = live
+    route = _rt("/graphql")
+    _seed_mock(c, {
+        "namespace": ns,
+        "pathPrefix": route,
+        "graphql": {"operation": "query", "field": "user"},
+        "response": {"statusCode": 200, "headers": {"Content-Type": ["application/json"]},
+                     "payload": {"data": {"user": {"id": "u-graphql-1", "name": "Mockarty"}}}},
+    })
+    t = Tester()
+    (t.graphql(f"{SERVER}/stubs/{ns}{route}")
+        .query("query { user { id name } }")
+        .expect_status(200)
+        .expect_no_errors()
+        .expect_field("$.data.user.id", "u-graphql-1")
+        .extract("$.data.user.name", "uname")
+        .done())
+    t.finish()
+    assert t.ok(), f"python GraphQL DSL failed against live mock: {t.errors()}"
+    assert t.vars()["uname"] == "Mockarty"
+
+
+def test_pyclient_soap_live(live):
+    c, ns = live
+    route = _rt("/soap/calc")
+    resp_xml = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
+        '<soap:Body><AddResponse xmlns="urn:Calc"><result>5</result></AddResponse></soap:Body>'
+        '</soap:Envelope>'
+    )
+    _seed_mock(c, {
+        "namespace": ns,
+        "pathPrefix": route,
+        "soap": {"path": route, "service": "Calc", "method": "Add", "action": "urn:Calc/Add"},
+        "response": {"statusCode": 200, "headers": {"Content-Type": ["text/xml; charset=utf-8"]},
+                     "payload": resp_xml},
+    })
+    t = Tester()
+    (t.soap(f"{SERVER}/stubs/{ns}{route}")
+        .call("urn:Calc/Add", '<Add xmlns="urn:Calc"><a>2</a><b>3</b></Add>')
+        .expect_status(200)
+        .expect_no_fault()
+        .expect_xpath_contains("//*[local-name()='result']", "5")
+        .done())
+    t.finish()
+    assert t.ok(), f"python SOAP DSL failed against live mock: {t.errors()}"
+
+
+def test_pyclient_http_rich_live(live):
+    """POST with a JSON body + header/query conditions, multi-assert + extract chain."""
+    c, ns = live
+    route = _rt("/orders")
+    _seed_mock(c, {
+        "namespace": ns,
+        "http": {"route": route, "httpMethod": "POST",
+                 "headers": [{"path": "X-Tenant", "assertAction": "equals", "value": "acme"}]},
+        "response": {"statusCode": 201, "headers": {"Content-Type": ["application/json"]},
+                     "payload": {"orderId": "ord-777", "status": "created", "items": 3}},
+    })
+    t = Tester()
+    (t.http().post(f"{SERVER}/stubs/{ns}{route}")
+        .header("X-Tenant", "acme")
+        .json({"sku": "ABC", "qty": 3})
+        .expect_status(201)
+        .expect_json_path("$.status", "created")
+        .expect_json_path("$.items", 3)
+        .extract("$.orderId", "oid"))
+    t.finish()
+    assert t.ok(), f"python rich-HTTP DSL failed against live mock: {t.errors()}"
+    assert t.vars()["oid"] == "ord-777"
