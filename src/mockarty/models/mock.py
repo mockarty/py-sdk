@@ -220,15 +220,23 @@ class Mock(BaseModel):
 class SaveMockResponse(BaseModel):
     """Response returned by the mock create/update endpoint.
 
-    Wire shape (admin node, ``POST /api/v1/mocks``)::
+    Wire shape (admin node, ``POST /api/v1/mocks``). As of 2026-06-21 (G2
+    envelope unification) the server emits the mock's fields at the TOP LEVEL
+    — matching ``GET /mocks/:id`` — and retains the ``mock`` wrapper as a
+    deprecated mirror for one release cycle::
 
         {
           "id":      "<mock-id>",
-          "mock":    {...full mock...},
+          "name":    "...", "method": "...", ...   # flat mock fields (new)
+          "mock":    {...full mock...},            # deprecated wrapper (kept)
           "isNew":   <true|false>,   # true = an existing mock was replaced
           "success": true,
           "message": "Mock created successfully"
         }
+
+    This model reads ``mock`` when present and falls back to reconstructing it
+    from the top-level fields, so it parses both the legacy wrapped shape and a
+    future flat-only server.
 
     The server's ``isNew`` field is semantically *"was overwrite"* — it
     is true when an existing record was replaced. The legacy field name
@@ -273,6 +281,20 @@ class SaveMockResponse(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+        # G2 flat-shape fallback: when the server omits the deprecated "mock"
+        # wrapper (future flat-only response), reconstruct it from the
+        # top-level mock fields so `.mock` stays populated. Status/envelope
+        # keys are excluded — everything else is a mock field.
+        if "mock" not in data:
+            envelope_keys = {
+                "id", "message", "isNew", "is_new", "overwritten", "success",
+                "mockId", "protocol", "requestId", "warning",
+                "shadowsProxyMockId", "_meta",
+            }
+            flat = {k: v for k, v in data.items() if k not in envelope_keys}
+            if flat:
+                data = dict(data)
+                data["mock"] = flat
         canonical_key = (
             "isNew" if "isNew" in data else ("is_new" if "is_new" in data else None)
         )
