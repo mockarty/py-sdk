@@ -286,8 +286,12 @@ class SaveMockResponse(BaseModel):
         # top-level mock fields so `.mock` stays populated. Status/envelope
         # keys are excluded — everything else is a mock field.
         if "mock" not in data:
+            # NOTE: "id" is NOT an envelope key here — in the flat shape the
+            # top-level "id" IS the mock's id, so it must flow into the
+            # reconstructed mock. The envelope's own identifier is "mockId"
+            # (convert endpoint), which stays excluded.
             envelope_keys = {
-                "id", "message", "isNew", "is_new", "overwritten", "success",
+                "message", "isNew", "is_new", "overwritten", "success",
                 "mockId", "protocol", "requestId", "warning",
                 "shadowsProxyMockId", "_meta",
             }
