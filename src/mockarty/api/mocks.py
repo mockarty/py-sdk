@@ -84,9 +84,18 @@ def _unwrap_meta(data: Any) -> Any:
 class MockAPI(SyncAPIBase):
     """Synchronous Mock API resource."""
 
-    def create(self, mock: Mock | dict[str, Any]) -> SaveMockResponse:
-        """Create a new mock. Returns whether an existing mock was overwritten."""
-        resp = self._request("POST", "/api/v1/mocks", json=mock)
+    def create(
+        self, mock: Mock | dict[str, Any], intent: str | None = None
+    ) -> SaveMockResponse:
+        """Create a new mock. Returns whether an existing mock was overwritten.
+
+        When a similar mock already exists the server returns HTTP 409
+        ``duplicate_entity``. Pass ``intent="create_new"`` to keep both (e.g.
+        several condition-differentiated mocks on one route) or
+        ``intent="overwrite"`` to replace the existing one in place.
+        """
+        params = {"intent": intent} if intent else None
+        resp = self._request("POST", "/api/v1/mocks", json=mock, params=params)
         data = resp.json()
         if isinstance(data, dict) and isinstance(data.get("mock"), dict):
             data = dict(data)
@@ -269,9 +278,17 @@ class MockAPI(SyncAPIBase):
 class AsyncMockAPI(AsyncAPIBase):
     """Asynchronous Mock API resource."""
 
-    async def create(self, mock: Mock | dict[str, Any]) -> SaveMockResponse:
-        """Create a new mock."""
-        resp = await self._request("POST", "/api/v1/mocks", json=mock)
+    async def create(
+        self, mock: Mock | dict[str, Any], intent: str | None = None
+    ) -> SaveMockResponse:
+        """Create a new mock.
+
+        When a similar mock already exists the server returns HTTP 409
+        ``duplicate_entity``. Pass ``intent="create_new"`` to keep both, or
+        ``intent="overwrite"`` to replace the existing one in place.
+        """
+        params = {"intent": intent} if intent else None
+        resp = await self._request("POST", "/api/v1/mocks", json=mock, params=params)
         data = resp.json()
         if isinstance(data, dict) and isinstance(data.get("mock"), dict):
             data = dict(data)

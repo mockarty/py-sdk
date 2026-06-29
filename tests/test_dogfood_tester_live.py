@@ -189,3 +189,39 @@ def test_pyclient_http_rich_live(live):
     t.finish()
     assert t.ok(), f"python rich-HTTP DSL failed against live mock: {t.errors()}"
     assert t.vars()["oid"] == "ord-777"
+
+
+def test_pyclient_create_intent_live(live):
+    """The SDK ``mocks.create(..., intent=...)`` resolves the dedup 409 conflict:
+    two condition-differentiated mocks on one route both seed via create_new and
+    each routes its own body. Proves the intent param reaches the server."""
+    from mockarty import MockartyClient
+
+    c, ns = live
+    token = c.headers["Authorization"].removeprefix("Bearer ")
+    route = _rt("/process")
+    sdk = MockartyClient(base_url=SERVER, api_key=token, namespace=ns, max_retries=0)
+    try:
+        def _m(action: str, handled_by: str) -> dict:
+            return {
+                "namespace": ns,
+                "http": {"route": route, "httpMethod": "POST",
+                         "conditions": [
+                             {"path": "action", "assertAction": "equals", "value": action}]},
+                "response": {"statusCode": 200, "headers": {"Content-Type": ["application/json"]},
+                             "payload": {"handled_by": handled_by, "action": action}},
+            }
+        # First create is unique; the second is "similar" (same route, diff
+        # conditions) → without intent it would 409. create_new keeps both.
+        sdk.mocks.create(_m("create", "mock-A"), intent="create_new")
+        sdk.mocks.create(_m("delete", "mock-B"), intent="create_new")
+
+        t = Tester()
+        (t.http().post(f"{SERVER}/stubs/{ns}{route}").json({"action": "create"})
+            .expect_status(200).expect_json_path("$.handled_by", "mock-A"))
+        (t.http().post(f"{SERVER}/stubs/{ns}{route}").json({"action": "delete"})
+            .expect_status(200).expect_json_path("$.handled_by", "mock-B"))
+        t.finish()
+        assert t.ok(), f"python create-intent dogfood failed: {t.errors()}"
+    finally:
+        sdk.close()
