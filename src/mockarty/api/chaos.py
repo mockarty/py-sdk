@@ -186,6 +186,48 @@ class ChaosAPI(SyncAPIBase):
         """
         self._request("POST", f"/api/v1/chaos/experiments/{experiment_id}/abort")
 
+    def approve(self, experiment_id: str, note: str | None = None) -> None:
+        """Release an experiment created with safety.requireApproval.
+
+        POST /api/v1/chaos/experiments/:id/approve
+        """
+        body = {"note": note} if note else None
+        self._request(
+            "POST", f"/api/v1/chaos/experiments/{experiment_id}/approve", json=body
+        )
+
+    def unapprove(self, experiment_id: str) -> None:
+        """Withdraw a previously granted approval (while still pending).
+
+        POST /api/v1/chaos/experiments/:id/unapprove
+        """
+        self._request("POST", f"/api/v1/chaos/experiments/{experiment_id}/unapprove")
+
+    def list_schedules(self) -> list[dict[str, Any]]:
+        """List recurring chaos schedules.
+
+        GET /api/v1/chaos/schedules
+        """
+        resp = self._request("GET", "/api/v1/chaos/schedules")
+        data = resp.json()
+        if isinstance(data, dict):
+            return data.get("schedules") or []
+        return []
+
+    def pause_schedule(self, schedule_id: str) -> None:
+        """Pause a recurring schedule.
+
+        POST /api/v1/chaos/schedules/:id/pause
+        """
+        self._request("POST", f"/api/v1/chaos/schedules/{schedule_id}/pause")
+
+    def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a recurring schedule.
+
+        DELETE /api/v1/chaos/schedules/:id
+        """
+        self._request("DELETE", f"/api/v1/chaos/schedules/{schedule_id}")
+
     # ── Experiment Results & Metrics ──────────────────────────────────
 
     def get_metrics(self, experiment_id: str) -> list[dict[str, Any]]:
@@ -747,6 +789,52 @@ class AsyncChaosAPI(AsyncAPIBase):
         POST /api/v1/chaos/experiments/:id/abort
         """
         await self._request("POST", f"/api/v1/chaos/experiments/{experiment_id}/abort")
+
+    async def approve(self, experiment_id: str, note: str | None = None) -> None:
+        """Release an experiment created with safety.requireApproval.
+
+        POST /api/v1/chaos/experiments/:id/approve
+        """
+        body = {"note": note} if note else None
+        await self._request(
+            "POST", f"/api/v1/chaos/experiments/{experiment_id}/approve", json=body
+        )
+
+    async def unapprove(self, experiment_id: str) -> None:
+        """Withdraw a previously granted approval (while still pending).
+
+        POST /api/v1/chaos/experiments/:id/unapprove
+        """
+        await self._request(
+            "POST", f"/api/v1/chaos/experiments/{experiment_id}/unapprove"
+        )
+
+    async def list_schedules(self) -> list[dict[str, Any]]:
+        """List recurring chaos schedules.
+
+        GET /api/v1/chaos/schedules
+        """
+        resp = await self._request("GET", "/api/v1/chaos/schedules")
+        data = resp.json()
+        if isinstance(data, dict):
+            return data.get("schedules") or []
+        return []
+
+    async def pause_schedule(self, schedule_id: str) -> None:
+        """Pause a recurring schedule.
+
+        POST /api/v1/chaos/schedules/:id/pause
+        """
+        await self._request(
+            "POST", f"/api/v1/chaos/schedules/{schedule_id}/pause"
+        )
+
+    async def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a recurring schedule.
+
+        DELETE /api/v1/chaos/schedules/:id
+        """
+        await self._request("DELETE", f"/api/v1/chaos/schedules/{schedule_id}")
 
     # ── Experiment Results & Metrics ──────────────────────────────────
 
