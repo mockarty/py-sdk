@@ -59,6 +59,8 @@ from mockarty.api.testplans import (
 )
 from mockarty.api.undefined import AsyncUndefinedAPI, UndefinedAPI
 from mockarty.async_client import AsyncMockartyClient
+from mockarty.builders.load_builder import LoadRequest, LoadTest
+from mockarty.builders.uitest_builder import UITest
 from mockarty.builders.mock_builder import MockBuilder, OneOfBuilder
 from mockarty.client import MockartyClient
 from mockarty.errors import (
@@ -158,8 +160,10 @@ from mockarty.models.imports import ImportResult
 from mockarty.models.mock import (
     Callback,
     ContentResponse,
+    ResponseScript,
     Extract,
     Mock,
+    MockVersion,
     OneOf,
     Proxy,
     SaveMockResponse,
@@ -185,7 +189,7 @@ from mockarty.models.testplan import (
     UnifiedReportCounts,
     Webhook,
 )
-from mockarty.models.testrun import MergedRunList, MergedRunView, MergedTestRun, TestRun
+from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
 __version__ = "0.3.0"
@@ -197,9 +201,14 @@ __all__ = [
     # Builders
     "MockBuilder",
     "OneOfBuilder",
+    "LoadTest",
+    "UITest",
+    "LoadRequest",
     # Core models
     "Mock",
+    "MockVersion",
     "ContentResponse",
+    "ResponseScript",
     "OneOf",
     "Proxy",
     "Callback",
@@ -280,9 +289,6 @@ __all__ = [
     # Import models
     "ImportResult",
     # Test run models
-    "MergedRunList",
-    "MergedRunView",
-    "MergedTestRun",
     "TestRun",
     # Test plan models
     "TestPlan",

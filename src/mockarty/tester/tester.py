@@ -118,6 +118,23 @@ class Tester:
 
         return SocketIOFacet(self, url)
 
+    def websocket(self, url: str):  # -> WebSocketFacet
+        """Raw WebSocket facet bound to a ws:// / wss:// URL (or a relative
+        path / http(s) URL auto-rewritten to ws/wss). Mirrors the Go/Java port.
+        """
+        from .websocket import WebSocketFacet
+
+        return WebSocketFacet(self, url)
+
+    def grpc(self, invoker):  # -> GRPCFacet
+        """gRPC facet — the fluent assertion layer over a user-supplied invoker
+        (any object with ``invoke_json(full_method, req) -> dict``, raising on a
+        gRPC error). Mirrors the Go/Java port.
+        """
+        from .grpc import GRPCFacet
+
+        return GRPCFacet(self, invoker)
+
     def set_var(self, name: str, value: str) -> None:
         with self._lock:
             self._vars[name] = value

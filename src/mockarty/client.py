@@ -43,6 +43,8 @@ from mockarty.api.recorder import RecorderAPI
 from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
 from mockarty.api.tags import TagAPI
+from mockarty.api.uitests import UITestAPI
+from mockarty.api.gitsync import GitSyncAPI
 from mockarty.api.templates import TemplateAPI
 from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
@@ -100,6 +102,8 @@ class MockartyClient:
         "_test_runs",
         "_test_plans",
         "_tags",
+        "_ui_tests",
+        "_git_sync",
         "_folders",
         "_undefined",
         "_stats",
@@ -191,7 +195,7 @@ class MockartyClient:
 
     @property
     def ci_triggers(self) -> CITriggerAPI:
-        """CI Triggers API (Phase 4 generic webhooks). Use to find a
+        """CI Triggers API (generic webhooks). Use to find a
         saved trigger ID for ``ci_trigger_id`` on perf/fuzz launches
         and to poll the linked CI run state."""
         if self._ci_triggers is None:
@@ -340,6 +344,20 @@ class MockartyClient:
         if self._tags is None:
             self._tags = TagAPI(self._http, self._namespace)
         return self._tags
+
+    @property
+    def ui_tests(self) -> UITestAPI:
+        """Recorded-UI-test API (save / run / poll / export)."""
+        if self._ui_tests is None:
+            self._ui_tests = UITestAPI(self._http, self._namespace)
+        return self._ui_tests
+
+    @property
+    def git_sync(self) -> GitSyncAPI:
+        """Git-sync API — bind a repo, pull/push autotest collections."""
+        if self._git_sync is None:
+            self._git_sync = GitSyncAPI(self._http, self._namespace)
+        return self._git_sync
 
     @property
     def folders(self) -> FolderAPI:

@@ -41,6 +41,8 @@ from mockarty.api.recorder import AsyncRecorderAPI
 from mockarty.api.stats import AsyncStatsAPI
 from mockarty.api.stores import AsyncStoreAPI
 from mockarty.api.tags import AsyncTagAPI
+from mockarty.api.uitests import AsyncUITestAPI
+from mockarty.api.gitsync import AsyncGitSyncAPI
 from mockarty.api.templates import AsyncTemplateAPI
 from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
@@ -106,6 +108,8 @@ class AsyncMockartyClient:
         self._test_runs: AsyncTestRunAPI | None = None
         self._test_plans: AsyncTestPlansAPI | None = None
         self._tags: AsyncTagAPI | None = None
+        self._ui_tests: AsyncUITestAPI | None = None
+        self._git_sync: AsyncGitSyncAPI | None = None
         self._folders: AsyncFolderAPI | None = None
         self._undefined: AsyncUndefinedAPI | None = None
         self._stats: AsyncStatsAPI | None = None
@@ -167,6 +171,8 @@ class AsyncMockartyClient:
         self._test_runs = None
         self._test_plans = None
         self._tags = None
+        self._ui_tests = None
+        self._git_sync = None
         self._folders = None
         self._undefined = None
         self._stats = None
@@ -185,7 +191,7 @@ class AsyncMockartyClient:
 
     @property
     def ci_triggers(self) -> AsyncCITriggerAPI:
-        """CI Triggers API (Phase 4 generic webhooks)."""
+        """CI Triggers API (generic webhooks)."""
         if self._ci_triggers is None:
             self._ci_triggers = AsyncCITriggerAPI(self._http, self._namespace)
         return self._ci_triggers
@@ -322,6 +328,20 @@ class AsyncMockartyClient:
         if self._tags is None:
             self._tags = AsyncTagAPI(self._http, self._namespace)
         return self._tags
+
+    @property
+    def ui_tests(self) -> AsyncUITestAPI:
+        """Recorded-UI-test API (save / run / poll / export)."""
+        if self._ui_tests is None:
+            self._ui_tests = AsyncUITestAPI(self._http, self._namespace)
+        return self._ui_tests
+
+    @property
+    def git_sync(self) -> AsyncGitSyncAPI:
+        """Git-sync API — bind a repo, pull/push autotest collections."""
+        if self._git_sync is None:
+            self._git_sync = AsyncGitSyncAPI(self._http, self._namespace)
+        return self._git_sync
 
     @property
     def folders(self) -> AsyncFolderAPI:
