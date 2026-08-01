@@ -141,6 +141,9 @@ def test_case(
                 finally:
                     _ctx.pop_case()
 
+            # Expose the bound case id so the Allure test-plan matcher can
+            # select this test by `id` (mockarty.testing.testplan).
+            async_wrapper.__mockarty_case_id__ = case_id  # type: ignore[attr-defined]
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(fn)
@@ -151,6 +154,7 @@ def test_case(
             finally:
                 _ctx.pop_case()
 
+        wrapper.__mockarty_case_id__ = case_id  # type: ignore[attr-defined]
         return wrapper  # type: ignore[return-value]
 
     return decorator

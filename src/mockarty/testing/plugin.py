@@ -36,6 +36,7 @@ import pytest
 from mockarty.testing import allure_interop as _allure_mirror
 from mockarty.testing import context as _ctx
 from mockarty.testing import decorators as _dec
+from mockarty.testing import testplan as _testplan
 from mockarty.testing.fixtures import mock_cleanup, mockarty_client
 
 # Native Allure-2 writer — engages when MOCKARTY_ALLURE_RESULTS_DIR is set,
@@ -60,7 +61,13 @@ _IMPLICIT_CASE_FLAG = "_mockarty_implicit_allure_case"
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register markers + activate the Allure→Mockarty mirror (default-ON)."""
+    """Register markers + activate the Allure→Mockarty mirror (default-ON).
+
+    Also loads the Allure test plan up front, so a broken/missing plan
+    fails the session BEFORE the suite is collected instead of degrading
+    into a silent full run.
+    """
+    _load_testplan(config)
     config.addinivalue_line(
         "markers",
         "mockarty_case(case_id=None, name=None, plan=None, auto_create=False): "
@@ -96,9 +103,12 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Lift ``@pytest.mark.mockarty_case``/``mockarty_attach_report`` markers
-    onto the underlying function so the post-test hook can read them
-    uniformly."""
+    """Apply the Allure test plan, then lift Mockarty markers.
+
+    Order matters: the plan is applied FIRST so markers are only lifted onto
+    tests that will actually run.
+    """
+    _apply_testplan(config, items)
     for item in items:
         if not isinstance(item, pytest.Function):
             continue
@@ -113,6 +123,114 @@ def pytest_collection_modifyitems(
             item.obj = _dec.test_case(**kwargs)(item.obj)
         if item.get_closest_marker("mockarty_attach_report") is not None:
             item.obj = _dec.attach_report(item.obj)
+
+
+# ── Allure test plan (ALLURE_TESTPLAN_PATH) ─────────────────────────────
+
+#: The loaded plan (or None) and, later, the applied-plan summary.
+_TESTPLAN_ATTR = "_mockarty_testplan"
+_TESTPLAN_STATE_ATTR = "_mockarty_testplan_state"
+
+
+def _load_testplan(config: pytest.Config) -> None:
+    """Read ``ALLURE_TESTPLAN_PATH`` once, at configure time.
+
+    An unreadable / malformed plan raises :class:`pytest.UsageError` (exit
+    code 4) right here — before collection — because a selective run that
+    silently degrades into a full run is the failure mode this exists to
+    prevent, so it must be loud and early.
+    """
+    try:
+        plan = _testplan.load_testplan()
+    except _testplan.TestPlanError as exc:
+        raise pytest.UsageError(f"mockarty: {exc}") from exc
+    setattr(config, _TESTPLAN_ATTR, plan)
+
+
+def _apply_testplan(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Restrict the collected items to the ones the Allure plan selects.
+
+    * no plan configured → returns immediately, nothing is filtered;
+    * empty plan (``"tests": []``) → every test is deselected. pytest then
+      exits with code 5 ("no tests ran"), never a green "everything passed",
+      and :func:`pytest_terminal_summary` says why.
+    """
+    plan = getattr(config, _TESTPLAN_ATTR, None)
+    if plan is None:
+        return
+
+    total = len(items)
+    selected, deselected = _testplan.select_items(items, plan)
+    setattr(
+        config,
+        _TESTPLAN_STATE_ATTR,
+        {
+            "path": plan.path,
+            "version": plan.version,
+            "entries": len(plan.entries),
+            "collected": total,
+            "selected": len(selected),
+            "deselected": len(deselected),
+            "empty": plan.is_empty,
+        },
+    )
+    items[:] = selected
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+
+
+def pytest_report_header(config: pytest.Config) -> Optional[str]:
+    """Announce an active test plan in the pytest header."""
+    plan = getattr(config, _TESTPLAN_ATTR, None)
+    if plan is None:
+        return None
+    return (
+        f"mockarty: Allure test plan active — {len(plan.entries)} entries "
+        f"from {_testplan.ENV_TESTPLAN_PATH}={plan.path} "
+        "(only the listed tests will run)"
+    )
+
+
+def pytest_terminal_summary(terminalreporter: Any) -> None:
+    """Make an empty / non-matching test plan impossible to miss."""
+    config = getattr(terminalreporter, "config", None)
+    state = getattr(config, _TESTPLAN_STATE_ATTR, None)
+    if not state:
+        return
+    if state["empty"]:
+        terminalreporter.section("mockarty test plan", red=True, bold=True)
+        terminalreporter.write_line(
+            f"The Allure test plan {state['path']} is EMPTY "
+            '("tests": []) — 0 of '
+            f"{state['collected']} collected tests were executed. "
+            "This run proves nothing; it is NOT a pass."
+        )
+        return
+    if state["selected"] == 0:
+        terminalreporter.section("mockarty test plan", red=True, bold=True)
+        terminalreporter.write_line(
+            f"The Allure test plan {state['path']} lists {state['entries']} "
+            f"test(s), but NONE matched the {state['collected']} collected "
+            "tests — 0 tests were executed. Check that the plan's "
+            "'id'/'selector' values match this suite."
+        )
+        if _allure_pytest_installed():
+            terminalreporter.write_line(
+                "Note: allure-pytest is installed and reads the same file. "
+                "It only understands its own 'package.Class#test' selector "
+                "form, so a plan written with another selector shape is "
+                "filtered out by it before this plugin sees it."
+            )
+
+
+def _allure_pytest_installed() -> bool:
+    """True when the reference allure-pytest adapter is importable."""
+    try:  # pragma: no cover — trivial import probe
+        import allure_pytest  # type: ignore # noqa: F401
+
+        return True
+    except Exception:
+        return False
 
 
 @pytest.hookimpl(hookwrapper=True)
