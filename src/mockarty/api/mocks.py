@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 from mockarty.models.common import MockLogs, Page, RequestLog
-from mockarty.models.mock import Mock, SaveMockResponse
+from mockarty.models.mock import Mock, MockVersion, SaveMockResponse
 
 
 # Mapping of ``_meta`` keys → top-level Mock field aliases. The admin
@@ -24,6 +24,41 @@ _META_LIFT: dict[str, str] = {
     "lastUse": "lastUse",
     "expireAt": "expireAt",
 }
+
+
+def _parse_versions(data: Any) -> list[MockVersion]:
+    """Decode the GET /mocks/:id/versions envelope into revision rows.
+
+    Wire shape: ``{mock_id, versions: [...], count}``. A bare list is still
+    accepted for the oldest path.
+    """
+    if isinstance(data, dict):
+        rows = data.get("versions") or []
+    elif isinstance(data, list):
+        rows = data
+    else:
+        rows = []
+    return [MockVersion.model_validate(row) for row in rows]
+
+
+def _parse_version_envelope(
+    data: Any, mock_id: str, version: int
+) -> tuple[MockVersion, Optional[MockVersion]]:
+    """Decode ``{version, previous_version}`` into (current, previous).
+
+    A null ``version`` means the revision does not exist — raising beats
+    handing back an empty row that reads as "revision 0 exists".
+    """
+    if not isinstance(data, dict):
+        raise ValueError(f"unexpected mock-version payload for {mock_id}: {data!r}")
+    current = data.get("version")
+    if current is None:
+        raise ValueError(f"mock {mock_id} has no version {version}")
+    previous = data.get("previous_version")
+    return (
+        MockVersion.model_validate(current),
+        MockVersion.model_validate(previous) if previous else None,
+    )
 
 
 def _decode_mock_list(data: Any, offset: int, limit: int) -> Page[Mock]:
@@ -84,9 +119,18 @@ def _unwrap_meta(data: Any) -> Any:
 class MockAPI(SyncAPIBase):
     """Synchronous Mock API resource."""
 
-    def create(self, mock: Mock | dict[str, Any]) -> SaveMockResponse:
-        """Create a new mock. Returns whether an existing mock was overwritten."""
-        resp = self._request("POST", "/api/v1/mocks", json=mock)
+    def create(
+        self, mock: Mock | dict[str, Any], intent: str | None = None
+    ) -> SaveMockResponse:
+        """Create a new mock. Returns whether an existing mock was overwritten.
+
+        When a similar mock already exists the server returns HTTP 409
+        ``duplicate_entity``. Pass ``intent="create_new"`` to keep both (e.g.
+        several condition-differentiated mocks on one route) or
+        ``intent="overwrite"`` to replace the existing one in place.
+        """
+        params = {"intent": intent} if intent else None
+        resp = self._request("POST", "/api/v1/mocks", json=mock, params=params)
         data = resp.json()
         if isinstance(data, dict) and isinstance(data.get("mock"), dict):
             data = dict(data)
@@ -144,8 +188,16 @@ class MockAPI(SyncAPIBase):
         self._request("DELETE", f"/api/v1/mocks/{mock_id}")
 
     def restore(self, mock_id: str) -> None:
-        """Restore a previously soft-deleted mock."""
-        self._request("POST", f"/api/v1/mocks/{mock_id}/restore")
+        """Restore a previously soft-deleted mock.
+
+        Routes through POST /api/v1/mocks/batch/restore with a single ID.
+        The per-mock route is GET /mocks/{id}/restore (a write disguised as
+        a GET); the batch action is the canonical, proven path the Go SDK
+        also uses, so all three SDKs restore identically.
+        """
+        self._request(
+            "POST", "/api/v1/mocks/batch/restore", json={"mockIds": [mock_id]}
+        )
 
     def purge(self, mock_id: str) -> None:
         """Permanently delete a mock (cannot be restored)."""
@@ -182,24 +234,44 @@ class MockAPI(SyncAPIBase):
             return MockLogs(logs=logs, total=len(logs))
 
         if isinstance(data, dict):
-            raw_logs = data.get("logs") or data.get("items") or []
+            # Server returns model.LogsMock -> {"id", "requests": [...]}.
+            # "requests" is the real key; logs/items kept as forward-compat
+            # fallbacks so a future envelope rename doesn't silently zero out.
+            raw_logs = (
+                data.get("requests") or data.get("logs") or data.get("items") or []
+            )
             logs = [RequestLog.model_validate(entry) for entry in raw_logs]
             return MockLogs(logs=logs, total=data.get("total", len(logs)))
 
         return MockLogs()
 
-    def list_versions(self, mock_id: str) -> list[Mock]:
-        """List all versions of a mock."""
-        resp = self._request("GET", f"/api/v1/mocks/{mock_id}/versions")
-        data = resp.json()
-        if isinstance(data, list):
-            return [Mock.model_validate(m) for m in data]
-        return []
+    def list_versions(self, mock_id: str) -> list[MockVersion]:
+        """List a mock's version history, newest first.
 
-    def get_version(self, mock_id: str, version: int) -> Mock:
-        """Get a specific version of a mock."""
+        Wire shape: ``{mock_id, versions: [...], count}``. The rows are
+        revision records, not mocks — the mock body of a revision hangs off
+        ``.mock``. (The envelope used to be treated as a bare list, so this
+        silently returned ``[]`` for every mock that had a history.)
+        """
+        resp = self._request("GET", f"/api/v1/mocks/{mock_id}/versions")
+        return _parse_versions(resp.json())
+
+    def get_version(self, mock_id: str, version: int) -> MockVersion:
+        """Get a specific revision of a mock.
+
+        Wire shape: ``{version: {...}, previous_version: {...}}``. Use
+        :meth:`get_version_with_previous` when the preceding revision is
+        needed for a diff.
+        """
+        current, _ = self.get_version_with_previous(mock_id, version)
+        return current
+
+    def get_version_with_previous(
+        self, mock_id: str, version: int
+    ) -> tuple[MockVersion, Optional[MockVersion]]:
+        """Get a revision together with the one before it (None for v1)."""
         resp = self._request("GET", f"/api/v1/mocks/{mock_id}/versions/{version}")
-        return Mock.model_validate(resp.json())
+        return _parse_version_envelope(resp.json(), mock_id, version)
 
     def restore_version(self, mock_id: str, version: int) -> None:
         """Restore a mock to a specific version."""
@@ -233,14 +305,8 @@ class MockAPI(SyncAPIBase):
             json={"mockIds": ids, "tagsToAdd": tags},
         )
 
-    def versions(self, mock_id: str) -> list[Mock]:
-        """Retrieve version history for a mock.
 
-        .. deprecated:: Use :meth:`list_versions` instead.
-        """
-        return self.list_versions(mock_id)
-
-    def chain(self, chain_id: str) -> list[Mock]:
+    def get_chain(self, chain_id: str) -> list[Mock]:
         """Get all mocks in a chain by chain ID."""
         resp = self._request("GET", f"/api/v1/mocks/chains/{chain_id}")
         data = resp.json()
@@ -256,9 +322,17 @@ class MockAPI(SyncAPIBase):
 class AsyncMockAPI(AsyncAPIBase):
     """Asynchronous Mock API resource."""
 
-    async def create(self, mock: Mock | dict[str, Any]) -> SaveMockResponse:
-        """Create a new mock."""
-        resp = await self._request("POST", "/api/v1/mocks", json=mock)
+    async def create(
+        self, mock: Mock | dict[str, Any], intent: str | None = None
+    ) -> SaveMockResponse:
+        """Create a new mock.
+
+        When a similar mock already exists the server returns HTTP 409
+        ``duplicate_entity``. Pass ``intent="create_new"`` to keep both, or
+        ``intent="overwrite"`` to replace the existing one in place.
+        """
+        params = {"intent": intent} if intent else None
+        resp = await self._request("POST", "/api/v1/mocks", json=mock, params=params)
         data = resp.json()
         if isinstance(data, dict) and isinstance(data.get("mock"), dict):
             data = dict(data)
@@ -315,8 +389,14 @@ class AsyncMockAPI(AsyncAPIBase):
         await self._request("DELETE", f"/api/v1/mocks/{mock_id}")
 
     async def restore(self, mock_id: str) -> None:
-        """Restore a previously soft-deleted mock."""
-        await self._request("POST", f"/api/v1/mocks/{mock_id}/restore")
+        """Restore a previously soft-deleted mock.
+
+        Routes through POST /api/v1/mocks/batch/restore with a single ID —
+        the canonical path the Go SDK uses, so all SDKs restore identically.
+        """
+        await self._request(
+            "POST", "/api/v1/mocks/batch/restore", json={"mockIds": [mock_id]}
+        )
 
     async def purge(self, mock_id: str) -> None:
         """Permanently delete a mock."""
@@ -355,24 +435,33 @@ class AsyncMockAPI(AsyncAPIBase):
             return MockLogs(logs=logs, total=len(logs))
 
         if isinstance(data, dict):
-            raw_logs = data.get("logs") or data.get("items") or []
+            # Server returns model.LogsMock -> {"id", "requests": [...]}.
+            # "requests" is the real key; logs/items kept as forward-compat
+            # fallbacks so a future envelope rename doesn't silently zero out.
+            raw_logs = (
+                data.get("requests") or data.get("logs") or data.get("items") or []
+            )
             logs = [RequestLog.model_validate(entry) for entry in raw_logs]
             return MockLogs(logs=logs, total=data.get("total", len(logs)))
 
         return MockLogs()
 
-    async def list_versions(self, mock_id: str) -> list[Mock]:
-        """List all versions of a mock."""
+    async def list_versions(self, mock_id: str) -> list[MockVersion]:
+        """List a mock's version history, newest first (see the sync twin)."""
         resp = await self._request("GET", f"/api/v1/mocks/{mock_id}/versions")
-        data = resp.json()
-        if isinstance(data, list):
-            return [Mock.model_validate(m) for m in data]
-        return []
+        return _parse_versions(resp.json())
 
-    async def get_version(self, mock_id: str, version: int) -> Mock:
-        """Get a specific version of a mock."""
+    async def get_version(self, mock_id: str, version: int) -> MockVersion:
+        """Get a specific revision of a mock (see the sync twin)."""
+        current, _ = await self.get_version_with_previous(mock_id, version)
+        return current
+
+    async def get_version_with_previous(
+        self, mock_id: str, version: int
+    ) -> tuple[MockVersion, Optional[MockVersion]]:
+        """Get a revision together with the one before it (None for v1)."""
         resp = await self._request("GET", f"/api/v1/mocks/{mock_id}/versions/{version}")
-        return Mock.model_validate(resp.json())
+        return _parse_version_envelope(resp.json(), mock_id, version)
 
     async def restore_version(self, mock_id: str, version: int) -> None:
         """Restore a mock to a specific version."""
@@ -408,14 +497,7 @@ class AsyncMockAPI(AsyncAPIBase):
             json={"mockIds": ids, "tagsToAdd": tags},
         )
 
-    async def versions(self, mock_id: str) -> list[Mock]:
-        """Retrieve version history for a mock.
-
-        .. deprecated:: Use :meth:`list_versions` instead.
-        """
-        return await self.list_versions(mock_id)
-
-    async def chain(self, chain_id: str) -> list[Mock]:
+    async def get_chain(self, chain_id: str) -> list[Mock]:
         """Get all mocks in a chain by chain ID."""
         resp = await self._request("GET", f"/api/v1/mocks/chains/{chain_id}")
         data = resp.json()

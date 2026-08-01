@@ -91,8 +91,10 @@ from mockarty.models.imports import ImportResult
 from mockarty.models.mock import (
     Callback,
     ContentResponse,
+    ResponseScript,
     Extract,
     Mock,
+    MockVersion,
     OneOf,
     Proxy,
     SaveMockResponse,
@@ -103,7 +105,7 @@ from mockarty.models.store import (
     StoreData,
     StoreEntry,
 )
-from mockarty.models.testrun import MergedRunList, MergedRunView, MergedTestRun, TestRun
+from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
 __all__ = [
@@ -192,8 +194,10 @@ __all__ = [
     # Mock models
     "Callback",
     "ContentResponse",
+    "ResponseScript",
     "Extract",
     "Mock",
+    "MockVersion",
     "OneOf",
     "Proxy",
     "SaveMockResponse",
@@ -205,9 +209,6 @@ __all__ = [
     "StoreData",
     "StoreEntry",
     # Test run models
-    "MergedRunList",
-    "MergedRunView",
-    "MergedTestRun",
     "TestRun",
     # Undefined request models
     "UndefinedRequest",

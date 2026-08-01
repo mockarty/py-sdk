@@ -85,6 +85,18 @@ class ErrorDetails(BaseModel):
     details: Optional[dict[str, Any]] = None
 
 
+class ResponseScript(BaseModel):
+    """A JavaScript scripted response: the code receives ``request`` and fills
+    ``response`` when the mock is hit. See the Scripted Responses guide."""
+
+    code: str
+    language: Optional[str] = None
+    timeout_ms: Optional[int] = Field(None, alias="timeoutMs")
+    allow_net: Optional[bool] = Field(None, alias="allowNet")
+
+    model_config = {"populate_by_name": True}
+
+
 class ContentResponse(BaseModel):
     """The response body and metadata a mock returns.
 
@@ -102,6 +114,7 @@ class ContentResponse(BaseModel):
     sse_event_chain: Optional[SSEEventChain] = Field(None, alias="sseEventChain")
     graphql_errors: Optional[list[GraphQLError]] = Field(None, alias="graphqlErrors")
     soap_fault: Optional[SOAPFault] = Field(None, alias="soapFault")
+    script: Optional[ResponseScript] = None
     mcp_is_error: Optional[bool] = Field(None, alias="mcpIsError")
 
     model_config = {"populate_by_name": True}
@@ -217,18 +230,54 @@ class Mock(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MockVersion(BaseModel):
+    """One entry of a mock's version history.
+
+    The server stores the mock body of every revision alongside the revision
+    metadata, so a version row is NOT a :class:`Mock` — the mock itself lives
+    on :attr:`mock`. Decoding rows straight into ``Mock`` produced entries
+    whose ``id`` was the version-row id and whose body was empty.
+    """
+
+    id: Optional[str] = None
+    mock_id: Optional[str] = Field(None, alias="mock_id")
+    version: int = 0
+    """Revision number, as passed to ``get_version`` / ``restore_version``."""
+    mock: Optional[Mock] = None
+    """The mock body as it was at this revision."""
+    tags: Optional[list[str]] = None
+    lifecycle_state: Optional[str] = Field(None, alias="lifecycle_state")
+    environment: Optional[str] = None
+    created_at: Optional[int] = Field(None, alias="created_at")
+    created_by: Optional[str] = Field(None, alias="created_by")
+    created_by_email: Optional[str] = Field(None, alias="created_by_email")
+    modified_by: Optional[str] = Field(None, alias="modified_by")
+    modified_by_email: Optional[str] = Field(None, alias="modified_by_email")
+    closed_at: Optional[int] = Field(None, alias="closed_at")
+
+    model_config = {"populate_by_name": True}
+
+
 class SaveMockResponse(BaseModel):
     """Response returned by the mock create/update endpoint.
 
-    Wire shape (admin node, ``POST /api/v1/mocks``)::
+    Wire shape (admin node, ``POST /api/v1/mocks``). As of 2026-06-21 (G2
+    envelope unification) the server emits the mock's fields at the TOP LEVEL
+    — matching ``GET /mocks/:id`` — and retains the ``mock`` wrapper as a
+    deprecated mirror for one release cycle::
 
         {
           "id":      "<mock-id>",
-          "mock":    {...full mock...},
+          "name":    "...", "method": "...", ...   # flat mock fields (new)
+          "mock":    {...full mock...},            # deprecated wrapper (kept)
           "isNew":   <true|false>,   # true = an existing mock was replaced
           "success": true,
           "message": "Mock created successfully"
         }
+
+    This model reads ``mock`` when present and falls back to reconstructing it
+    from the top-level fields, so it parses both the legacy wrapped shape and a
+    future flat-only server.
 
     The server's ``isNew`` field is semantically *"was overwrite"* — it
     is true when an existing record was replaced. The legacy field name
@@ -273,6 +322,24 @@ class SaveMockResponse(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+        # G2 flat-shape fallback: when the server omits the deprecated "mock"
+        # wrapper (future flat-only response), reconstruct it from the
+        # top-level mock fields so `.mock` stays populated. Status/envelope
+        # keys are excluded — everything else is a mock field.
+        if "mock" not in data:
+            # NOTE: "id" is NOT an envelope key here — in the flat shape the
+            # top-level "id" IS the mock's id, so it must flow into the
+            # reconstructed mock. The envelope's own identifier is "mockId"
+            # (convert endpoint), which stays excluded.
+            envelope_keys = {
+                "message", "isNew", "is_new", "overwritten", "success",
+                "mockId", "protocol", "requestId", "warning",
+                "shadowsProxyMockId", "_meta",
+            }
+            flat = {k: v for k, v in data.items() if k not in envelope_keys}
+            if flat:
+                data = dict(data)
+                data["mock"] = flat
         canonical_key = (
             "isNew" if "isNew" in data else ("is_new" if "is_new" in data else None)
         )

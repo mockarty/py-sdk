@@ -516,6 +516,35 @@ class TestSaveMockResponse:
         assert result.message == "Mock created successfully"
         assert result.mock.id == "mock_1779037659"
 
+    def test_deserialize_flat_shape_reconstructs_mock(self) -> None:
+        """G2 envelope unification: a flat-only response (mock fields at the
+        top level, no ``mock`` wrapper) reconstructs ``.mock`` from the
+        top-level fields — including the mock's own ``id`` (which lives at
+        the top level in the flat shape, NOT as an envelope key)."""
+        raw = {
+            "id": "mock_42",
+            "namespace": "sandbox",
+            "http": {"route": "/api/flat", "httpMethod": "GET"},
+            "isNew": True,
+            "success": True,
+            "message": "Mock created successfully",
+        }
+        result = SaveMockResponse.model_validate(raw)
+        assert result.id == "mock_42"
+        assert result.mock.id == "mock_42"  # reconstructed from top-level id
+        assert result.mock.namespace == "sandbox"
+        assert result.is_new is True
+        assert result.success is True
+
+    def test_wrapper_wins_over_flat(self) -> None:
+        """When BOTH the wrapper and flat fields are present (the dual-emit
+        transition shape), the explicit ``mock`` wrapper is used verbatim and
+        the flat fallback does not run."""
+        raw = {"id": "m9", "namespace": "flat-ns",
+               "mock": {"id": "m9", "namespace": "wrapper-ns"}, "isNew": False}
+        result = SaveMockResponse.model_validate(raw)
+        assert result.mock.namespace == "wrapper-ns"
+
     def test_deserialize_legacy_overwritten_field(self) -> None:
         """A downgraded server emitting only the legacy ``overwritten``
         key must still decode — guards against the fix over-correcting."""
