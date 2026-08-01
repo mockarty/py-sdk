@@ -7,7 +7,8 @@ mocking the HTTP transport via respx and asserting:
 
 * Every ``*-result.json`` triggers a POST.
 * Attachment bodies are read off disk and base64-encoded.
-* status mapping (``broken`` → ``failed`` on the wire).
+* status mapping (``broken`` is carried through — the server enum has it, and
+  an assertion failure and a test that blew up are different findings).
 * Labels propagated as a flat dict.
 * missing directory → FileNotFoundError.
 * on_error='warn' continues; on_error='raise' propagates.
@@ -24,6 +25,10 @@ import pytest
 import respx
 
 from mockarty import allure_writer as aw
+from mockarty.api.external_runs import (
+    AllureUploadEmptyError,
+    AllureUploadPartialError,
+)
 from mockarty.client import MockartyClient
 
 
@@ -58,11 +63,11 @@ class TestUploadAllureDir:
             out = client.external_runs.upload_allure_dir(writer.output_dir)
         assert len(out) == 4
         assert route.call_count == 4
-        # Inspect one payload — broken should be mapped to failed for the wire.
+        # Inspect one payload — broken rides the wire as broken.
         bodies = [json.loads(c.request.content) for c in route.calls]
         statuses = [b["status"] for b in bodies]
         assert "failed" in statuses
-        assert "broken" not in statuses  # mapped away
+        assert "broken" in statuses  # carried, not flattened onto failed
         # Attachment is included for the passed test only.
         passed_payload = next(b for b in bodies if b["status"] == "passed")
         assert "attachments" in passed_payload
@@ -84,7 +89,15 @@ class TestUploadAllureDir:
                 return_value=httpx.Response(200, json={})
             )
             with pytest.warns(RuntimeWarning):
-                out = client.external_runs.upload_allure_dir(writer.output_dir, on_error="warn")
+                # warn keeps going past the bad file, but the caller is still
+                # told which results never reached Mockarty — a half-lost
+                # upload must not look identical to a clean one.
+                with pytest.raises(AllureUploadPartialError) as excinfo:
+                    client.external_runs.upload_allure_dir(
+                        writer.output_dir, on_error="warn"
+                    )
+        assert excinfo.value.skipped
+        out = excinfo.value.results
         # The good one still uploaded.
         assert len(out) == 1
 
@@ -110,3 +123,65 @@ class TestUploadAllureDir:
         body = json.loads(route.calls[0].request.content)
         assert body["labels"]["feature"] == "auth"
         assert body["labels"]["severity"] == "critical"
+
+    def test_testcaseid_maps_to_resolution_key(self, writer, client):
+        # Allure's testCaseId is the author-pinned resolution key — it MUST
+        # land in payload["testCaseId"] (server tries it before fullName/name),
+        # NOT payload["caseId"] (Mockarty's internal UUID). fullName is sent as
+        # a first-class resolution key, and auto_create stays honoured so an
+        # unresolved case is still created.
+        r = aw.TestResult(
+            uuid="u1",
+            name="login_works",
+            fullName="pkg.Auth.login_works",
+            status="passed",
+            testCaseId="CASE-1",
+        )
+        writer.write_result(r)
+        with respx.mock(base_url="http://test") as router:
+            route = router.post("/api/v1/namespaces/default/tcm/external-runs").mock(
+                return_value=httpx.Response(200, json={})
+            )
+            client.external_runs.upload_allure_dir(writer.output_dir)
+        body = json.loads(route.calls[0].request.content)
+        assert body["testCaseId"] == "CASE-1"
+        assert "caseId" not in body  # never smuggled in as the internal UUID
+        assert body["fullName"] == "pkg.Auth.login_works"
+        assert body["caseName"] == "login_works"
+        assert body["autoCreate"] is True
+
+    @pytest.mark.parametrize(
+        "label_name",
+        ["AS_ID", "as_id", "ALLURE_ID", "allureId"],
+    )
+    def test_allure_testops_id_label_pins_test_case_id(
+        self, writer, client, label_name
+    ):
+        # Allure TestOps adapters express @AllureId(123) as a label, not as the
+        # testCaseId field. Reading only the field lost the identity of every
+        # suite migrated from TestOps: each upload looked new and the
+        # autotest-to-case link was dropped.
+        r = aw.TestResult(
+            uuid="u-label",
+            name="login_works",
+            fullName="pkg.Auth.login_works",
+            status="passed",
+            labels=[aw.Label(label_name, "42")],
+        )
+        writer.write_result(r)
+        with respx.mock(base_url="http://test") as router:
+            route = router.post("/api/v1/namespaces/default/tcm/external-runs").mock(
+                return_value=httpx.Response(200, json={})
+            )
+            client.external_runs.upload_allure_dir(writer.output_dir)
+        body = json.loads(route.calls[0].request.content)
+        assert body["testCaseId"] == "42"
+        assert "caseId" not in body
+
+    def test_empty_directory_is_an_error(self, writer, client, tmp_path):
+        # A CI step that finds nothing to upload means the run produced
+        # nothing; an empty list turned that into a silently green pipeline.
+        empty = tmp_path / "empty-results"
+        empty.mkdir()
+        with pytest.raises(AllureUploadEmptyError):
+            client.external_runs.upload_allure_dir(str(empty))

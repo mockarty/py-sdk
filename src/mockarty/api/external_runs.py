@@ -92,6 +92,7 @@ def _build_payload(
     case_name: Optional[str],
     plan_id: Optional[str],
     auto_create: bool,
+    test_case_id: Optional[str] = None,
     framework: Optional[str],
     framework_version: Optional[str],
     external_id: Optional[str],
@@ -103,6 +104,7 @@ def _build_payload(
     started_at: Optional[str],
     finished_at: Optional[str],
     labels: Optional[dict[str, str]],
+    parameters: Optional[dict[str, str]] = None,
     metadata: Optional[dict[str, Any]],
     steps: Optional[list[dict[str, Any]]],
     attachments: Optional[Iterable[dict[str, Any]]],
@@ -123,6 +125,11 @@ def _build_payload(
     }
     if case_id:
         payload["caseId"] = case_id
+    if test_case_id:
+        # Author-pinned identity (Allure testCaseId / @allure.id). Distinct
+        # from caseId (Mockarty's internal UUID): the server tries testCaseId
+        # BEFORE fullName/name when resolving the case (migration 402).
+        payload["testCaseId"] = test_case_id
     if case_name:
         payload["caseName"] = case_name
     if plan_id:
@@ -149,6 +156,8 @@ def _build_payload(
         payload["finishedAt"] = finished_at
     if labels:
         payload["labels"] = dict(labels)
+    if parameters:
+        payload["parameters"] = dict(parameters)
     if metadata:
         payload["metadata"] = dict(metadata)
     if steps:
@@ -177,6 +186,7 @@ class ExternalRunsAPI(SyncAPIBase):
         *,
         status: str,
         case_id: Optional[str] = None,
+        test_case_id: Optional[str] = None,
         case_name: Optional[str] = None,
         plan_id: Optional[str] = None,
         auto_create: bool = False,
@@ -191,6 +201,7 @@ class ExternalRunsAPI(SyncAPIBase):
         started_at: Optional[str] = None,
         finished_at: Optional[str] = None,
         labels: Optional[dict[str, str]] = None,
+        parameters: Optional[dict[str, str]] = None,
         metadata: Optional[dict[str, Any]] = None,
         steps: Optional[list[dict[str, Any]]] = None,
         attachments: Optional[Iterable[dict[str, Any]]] = None,
@@ -209,7 +220,7 @@ class ExternalRunsAPI(SyncAPIBase):
         Defaults are tuned for the 80% case: pass ``case_id`` (UUID) or
         ``case_name`` plus ``status`` and the rest is optional.
 
-        Phase 2.6 fields (Mockarty extensions beyond the Allure base):
+        Mockarty extension fields (Mockarty extensions beyond the Allure base):
 
         - ``full_name``           — deterministic test identifier
           ("package.Class::test[param=value]") for duplicate-prevention
@@ -231,6 +242,7 @@ class ExternalRunsAPI(SyncAPIBase):
         body = _build_payload(
             status=status,
             case_id=case_id,
+            test_case_id=test_case_id,
             case_name=case_name,
             plan_id=plan_id,
             auto_create=auto_create,
@@ -245,6 +257,7 @@ class ExternalRunsAPI(SyncAPIBase):
             started_at=started_at,
             finished_at=finished_at,
             labels=labels,
+            parameters=parameters,
             metadata=metadata,
             steps=steps,
             attachments=attachments,
@@ -334,6 +347,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         *,
         status: str,
         case_id: Optional[str] = None,
+        test_case_id: Optional[str] = None,
         case_name: Optional[str] = None,
         plan_id: Optional[str] = None,
         auto_create: bool = False,
@@ -348,6 +362,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         started_at: Optional[str] = None,
         finished_at: Optional[str] = None,
         labels: Optional[dict[str, str]] = None,
+        parameters: Optional[dict[str, str]] = None,
         metadata: Optional[dict[str, Any]] = None,
         steps: Optional[list[dict[str, Any]]] = None,
         attachments: Optional[Iterable[dict[str, Any]]] = None,
@@ -362,6 +377,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         body = _build_payload(
             status=status,
             case_id=case_id,
+            test_case_id=test_case_id,
             case_name=case_name,
             plan_id=plan_id,
             auto_create=auto_create,
@@ -376,6 +392,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
             started_at=started_at,
             finished_at=finished_at,
             labels=labels,
+            parameters=parameters,
             metadata=metadata,
             steps=steps,
             attachments=attachments,
@@ -428,14 +445,17 @@ def _upload_allure_dir_impl(
     if not os.path.isdir(directory):
         raise FileNotFoundError(f"allure-results directory not found: {directory}")
     out: list[dict[str, Any]] = []
+    skipped: list[str] = []
     pattern = os.path.join(directory, "*-result.json")
-    for path in sorted(glob.glob(pattern)):
+    paths = sorted(glob.glob(pattern))
+    for path in paths:
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 doc = json.load(fh)
         except Exception as exc:
             if on_error == "raise":
                 raise
+            skipped.append(f"{os.path.basename(path)}: {exc}")
             _warnings.warn(
                 f"mockarty: failed to read {path}: {exc}",
                 RuntimeWarning,
@@ -456,11 +476,21 @@ def _upload_allure_dir_impl(
         except Exception as exc:
             if on_error == "raise":
                 raise
+            skipped.append(f"{os.path.basename(path)}: {exc}")
             _warnings.warn(
                 f"mockarty: upload failed for {path}: {exc}",
                 RuntimeWarning,
                 stacklevel=2,
             )
+    if skipped:
+        # "warn" keeps going past a bad file, but the caller must still learn
+        # that N results never reached Mockarty — returning only the successes
+        # made a half-lost upload indistinguishable from a clean one.
+        raise AllureUploadPartialError(uploaded=len(out), skipped=skipped, results=out)
+    if not paths:
+        raise AllureUploadEmptyError(
+            f"no *-result.json in {directory} — nothing was reported to Mockarty"
+        )
     return out
 
 
@@ -480,11 +510,17 @@ def allure_result_to_external_payload(
     """
     name = doc.get("name") or doc.get("fullName") or "unnamed"
     full_name = doc.get("fullName")
-    status_raw = (doc.get("status") or "passed").lower()
-    if status_raw not in ("passed", "failed", "broken", "skipped"):
-        status_raw = "failed"
-    # Server enum doesn't know "broken"; map to "failed".
-    wire_status = "failed" if status_raw == "broken" else status_raw
+    # An absent status means we never observed an outcome — it is NOT a pass.
+    # The server's status vocabulary includes "broken" (an assertion failure and
+    # a test that blew up are different findings, and both Allure TestOps and
+    # Test IT report them separately), so it is carried through rather than
+    # flattened onto "failed".
+    status_raw = (doc.get("status") or "").strip().lower()
+    if status_raw == "error":
+        status_raw = "broken"
+    if status_raw not in ("passed", "failed", "broken", "skipped", "cancelled"):
+        status_raw = "broken"
+    wire_status = status_raw
     start = doc.get("start")
     stop = doc.get("stop")
     duration_ms = int(stop) - int(start) if (start and stop) else 0
@@ -504,16 +540,17 @@ def allure_result_to_external_payload(
     # Steps → wire shape (name + status + error).
     steps: list[dict[str, Any]] = []
     for s in doc.get("steps") or []:
-        s_status = (s.get("status") or "passed").lower()
-        if s_status == "broken":
-            s_status = "failed"
+        s_status = (s.get("status") or "").strip().lower()
+        if s_status == "error":
+            s_status = "broken"
+        if s_status not in ("passed", "failed", "skipped", "broken"):
+            # A step with no recorded status has not been observed to pass.
+            s_status = "broken"
         sd_s = s.get("statusDetails") or {}
         steps.append(
             {
                 "name": s.get("name", ""),
-                "status": s_status
-                if s_status in ("passed", "failed", "skipped", "broken")
-                else "failed",
+                "status": s_status,
                 "error": sd_s.get("message"),
             }
         )
@@ -538,17 +575,80 @@ def allure_result_to_external_payload(
         )
     return {
         "status": wire_status,
-        "case_id": doc.get("testCaseId"),
+        # Allure's testCaseId (@allure.id) is the author-pinned identity, NOT
+        # Mockarty's internal case UUID — map it to test_case_id so the server
+        # resolves by it (tried before fullName/name). Mapping it to case_id
+        # made every upload look up a non-existent UUID.
+        "test_case_id": _resolve_test_case_id(doc, labels),
         "case_name": name,
         "plan_id": plan_id,
-        "auto_create": auto_create if not doc.get("testCaseId") else False,
+        # Honour the caller's auto_create regardless of testCaseId: the server
+        # only creates when resolution (testCaseId → fullName → name) misses,
+        # so this never produces duplicates.
+        "auto_create": auto_create,
         "framework": framework,
         "external_id": doc.get("uuid"),
         "test_display_name": name,
         "duration_ms": duration_ms,
         "error": err,
         "labels": labels or None,
+        # fullName is a first-class resolution key (migration 321), not just
+        # display metadata — send it as full_name AND keep the metadata mirror.
+        "full_name": full_name,
         "metadata": {"allureFullName": full_name} if full_name else None,
         "steps": steps or None,
         "attachments": attachments or None,
     }
+
+
+def _resolve_test_case_id(
+    doc: dict[str, Any], labels: dict[str, str]
+) -> Optional[str]:
+    """Resolve the author-pinned identity of an Allure result.
+
+    Allure's own field is ``testCaseId``. Allure TestOps adapters express
+    ``@AllureId(123)`` as the ``AS_ID`` label instead, so a suite migrated from
+    TestOps carried its identity somewhere this translator never looked — every
+    upload looked new and the autotest-to-case link was lost. Mirrors the
+    server-side ``allure.ResolveTestCaseID`` and the CLI, which must stay in
+    lockstep with this function.
+    """
+    pinned = (doc.get("testCaseId") or "").strip()
+    if pinned:
+        return pinned
+    for name, value in (labels or {}).items():
+        if str(name).strip().lower() in ("as_id", "allure_id", "allureid"):
+            value = (value or "").strip()
+            if value:
+                return value
+    return None
+
+
+class AllureUploadEmptyError(RuntimeError):
+    """Raised when an allure-results directory contains no results at all.
+
+    A CI step that finds nothing to upload means the test run produced nothing;
+    returning an empty list turned that into a silently green pipeline.
+    """
+
+
+class AllureUploadPartialError(RuntimeError):
+    """Raised when some results of a directory upload never reached Mockarty.
+
+    ``results`` carries the responses that DID land, so a caller that wants
+    best-effort semantics can still use them after catching this.
+    """
+
+    def __init__(
+        self,
+        uploaded: int,
+        skipped: list[str],
+        results: list[dict[str, Any]],
+    ) -> None:
+        super().__init__(
+            f"mockarty: {uploaded} result(s) uploaded, "
+            f"{len(skipped)} not reported: {'; '.join(skipped)}"
+        )
+        self.uploaded = uploaded
+        self.skipped = skipped
+        self.results = results
