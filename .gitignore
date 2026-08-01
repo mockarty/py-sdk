@@ -27,3 +27,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Lock file of the build tool: this is a LIBRARY, not an application.
+# Committing it would pin transitive dependency versions for every consumer
+# that installs the SDK, which is exactly what a library must not do.
+uv.lock
