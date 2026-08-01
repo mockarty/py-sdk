@@ -31,7 +31,7 @@ class CollectionAPI(SyncAPIBase):
     def execute(self, collection_id: str) -> TestRunResult:
         """Execute all tests in a collection."""
         resp = self._request(
-            "POST", f"/api/v1/api-tester/collections/{collection_id}/run"
+            "POST", f"/api/v1/api-tester/collections/{collection_id}/execute"
         )
         return TestRunResult.model_validate(resp.json())
 
@@ -39,7 +39,7 @@ class CollectionAPI(SyncAPIBase):
         """Execute tests from multiple collections."""
         resp = self._request(
             "POST",
-            "/api/v1/api-tester/collections/run-multiple",
+            "/api/v1/api-tester/collections/execute-multiple",
             json={"collectionIds": ids},
         )
         return TestRunResult.model_validate(resp.json())
@@ -50,6 +50,33 @@ class CollectionAPI(SyncAPIBase):
             "GET", f"/api/v1/api-tester/collections/{collection_id}/export"
         )
         return resp.content
+
+    def create(self, collection: Collection | dict) -> Collection:
+        """Create a new test collection. Parity: Go Create / Java create."""
+        resp = self._request("POST", "/api/v1/api-tester/collections", json=collection)
+        return Collection.model_validate(resp.json())
+
+    def update(self, collection_id: str, collection: Collection | dict) -> Collection:
+        """Update a collection by ID. Parity: Go Update / Java update."""
+        resp = self._request(
+            "PUT", f"/api/v1/api-tester/collections/{collection_id}", json=collection
+        )
+        return Collection.model_validate(resp.json())
+
+    def delete(self, collection_id: str) -> None:
+        """Delete a collection by ID. Parity: Go Delete / Java delete."""
+        self._request("DELETE", f"/api/v1/api-tester/collections/{collection_id}")
+
+    def duplicate(self, collection_id: str) -> Collection:
+        """Duplicate a collection by ID. Parity: Go Duplicate / Java duplicate."""
+        resp = self._request(
+            "POST", f"/api/v1/api-tester/collections/{collection_id}/duplicate"
+        )
+        return Collection.model_validate(resp.json())
+
+    def batch_delete(self, ids: list[str]) -> None:
+        """Delete multiple collections by ID. Parity: Go BatchDelete / Java batchDelete."""
+        self._request("DELETE", "/api/v1/api-tester/collections/batch", json={"ids": ids})
 
 
 class AsyncCollectionAPI(AsyncAPIBase):
@@ -76,7 +103,7 @@ class AsyncCollectionAPI(AsyncAPIBase):
     async def execute(self, collection_id: str) -> TestRunResult:
         """Execute all tests in a collection."""
         resp = await self._request(
-            "POST", f"/api/v1/api-tester/collections/{collection_id}/run"
+            "POST", f"/api/v1/api-tester/collections/{collection_id}/execute"
         )
         return TestRunResult.model_validate(resp.json())
 
@@ -84,7 +111,7 @@ class AsyncCollectionAPI(AsyncAPIBase):
         """Execute tests from multiple collections."""
         resp = await self._request(
             "POST",
-            "/api/v1/api-tester/collections/run-multiple",
+            "/api/v1/api-tester/collections/execute-multiple",
             json={"collectionIds": ids},
         )
         return TestRunResult.model_validate(resp.json())
@@ -95,3 +122,30 @@ class AsyncCollectionAPI(AsyncAPIBase):
             "GET", f"/api/v1/api-tester/collections/{collection_id}/export"
         )
         return resp.content
+
+    async def create(self, collection: Collection | dict) -> Collection:
+        """Create a new test collection. Parity: Go/Java."""
+        resp = await self._request("POST", "/api/v1/api-tester/collections", json=collection)
+        return Collection.model_validate(resp.json())
+
+    async def update(self, collection_id: str, collection: Collection | dict) -> Collection:
+        """Update a collection by ID. Parity: Go/Java."""
+        resp = await self._request(
+            "PUT", f"/api/v1/api-tester/collections/{collection_id}", json=collection
+        )
+        return Collection.model_validate(resp.json())
+
+    async def delete(self, collection_id: str) -> None:
+        """Delete a collection by ID. Parity: Go/Java."""
+        await self._request("DELETE", f"/api/v1/api-tester/collections/{collection_id}")
+
+    async def duplicate(self, collection_id: str) -> Collection:
+        """Duplicate a collection by ID. Parity: Go/Java."""
+        resp = await self._request(
+            "POST", f"/api/v1/api-tester/collections/{collection_id}/duplicate"
+        )
+        return Collection.model_validate(resp.json())
+
+    async def batch_delete(self, ids: list[str]) -> None:
+        """Delete multiple collections by ID. Parity: Go/Java."""
+        await self._request("DELETE", "/api/v1/api-tester/collections/batch", json={"ids": ids})

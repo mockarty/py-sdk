@@ -457,7 +457,7 @@ class ContractAPI(SyncAPIBase):
         data = resp.json()
         return data if isinstance(data, list) else []
 
-    def get_participants(self) -> list[str]:
+    def list_participants(self) -> list[str]:
         """Get unique consumer/provider names from pacts for autocomplete."""
         resp = self._request("GET", "/api/v1/contract/pacts/participants")
         data = resp.json()
@@ -1112,7 +1112,7 @@ class AsyncContractAPI(AsyncAPIBase):
         data = resp.json()
         return data if isinstance(data, list) else []
 
-    async def get_participants(self) -> list[str]:
+    async def list_participants(self) -> list[str]:
         """Get unique consumer/provider names from pacts for autocomplete."""
         resp = await self._request("GET", "/api/v1/contract/pacts/participants")
         data = resp.json()

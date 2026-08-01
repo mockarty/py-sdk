@@ -14,7 +14,7 @@ from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 class PromptsAPI(SyncAPIBase):
     """Synchronous Prompts Storage API."""
 
-    def list_prompts(self) -> list[dict[str, Any]]:
+    def list(self) -> list[dict[str, Any]]:
         """Wire shape: server emits ``{templates:[...], count, namespace}`` —
         unwrap. Older builds returned [] silently because the response is a
         dict, not a bare list.
@@ -29,7 +29,7 @@ class PromptsAPI(SyncAPIBase):
             return data.get("templates") or data.get("prompts") or []
         return []
 
-    def create_prompt(
+    def create(
         self,
         name: str,
         body: str,
@@ -56,13 +56,13 @@ class PromptsAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/stores/prompts", json=payload)
         return resp.json()
 
-    def get_prompt(self, prompt_id: str) -> dict[str, Any]:
+    def get(self, prompt_id: str) -> dict[str, Any]:
         resp = self._request(
             "GET", f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}"
         )
         return resp.json()
 
-    def update_prompt(self, prompt_id: str, **fields: Any) -> dict[str, Any]:
+    def update(self, prompt_id: str, **fields: Any) -> dict[str, Any]:
         """Updating ``body`` creates a new version (history FIFO-capped at 20)."""
         resp = self._request(
             "PUT",
@@ -71,7 +71,7 @@ class PromptsAPI(SyncAPIBase):
         )
         return resp.json()
 
-    def delete_prompt(self, prompt_id: str) -> None:
+    def delete(self, prompt_id: str) -> None:
         self._request("DELETE", f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}")
 
     def list_versions(self, prompt_id: str) -> list[dict[str, Any]]:
@@ -101,7 +101,7 @@ class PromptsAPI(SyncAPIBase):
 class AsyncPromptsAPI(AsyncAPIBase):
     """Asynchronous Prompts Storage API."""
 
-    async def list_prompts(self) -> list[dict[str, Any]]:
+    async def list(self) -> list[dict[str, Any]]:
         """Async mirror of ``list_prompts`` — see sync version for envelope notes."""
         resp = await self._request(
             "GET", "/api/v1/stores/prompts", params={"namespace": self._namespace}
@@ -113,7 +113,7 @@ class AsyncPromptsAPI(AsyncAPIBase):
             return data.get("templates") or data.get("prompts") or []
         return []
 
-    async def create_prompt(
+    async def create(
         self,
         name: str,
         body: str,
@@ -140,13 +140,13 @@ class AsyncPromptsAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/stores/prompts", json=payload)
         return resp.json()
 
-    async def get_prompt(self, prompt_id: str) -> dict[str, Any]:
+    async def get(self, prompt_id: str) -> dict[str, Any]:
         resp = await self._request(
             "GET", f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}"
         )
         return resp.json()
 
-    async def update_prompt(self, prompt_id: str, **fields: Any) -> dict[str, Any]:
+    async def update(self, prompt_id: str, **fields: Any) -> dict[str, Any]:
         resp = await self._request(
             "PUT",
             f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}",
@@ -154,7 +154,7 @@ class AsyncPromptsAPI(AsyncAPIBase):
         )
         return resp.json()
 
-    async def delete_prompt(self, prompt_id: str) -> None:
+    async def delete(self, prompt_id: str) -> None:
         await self._request(
             "DELETE", f"/api/v1/stores/prompts/{quote(prompt_id, safe='')}"
         )

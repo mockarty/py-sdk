@@ -19,11 +19,21 @@ class PerfAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/perf/run", json=config)
         return PerfTask.model_validate(resp.json())
 
+    def run_with_options(self, options: dict[str, Any]) -> PerfTask:
+        """Start a perf run with runner-targeting options for CI/CD.
+
+        Options keys: configId, script, runnerId, requiredRunnerLabels,
+        runnerLabelExpr, ciTriggerId, isDebug. Parity with Go RunWithOptions /
+        Java runWithOptions.
+        """
+        resp = self._request("POST", "/api/v1/perf/run", json=options)
+        return PerfTask.model_validate(resp.json())
+
     def stop(self, task_id: str) -> None:
         """Stop a running performance test."""
         self._request("POST", f"/api/v1/perf/stop/{task_id}")
 
-    def results(self) -> list[PerfResult]:
+    def list_results(self) -> list[PerfResult]:
         """List all performance test results."""
         resp = self._request("GET", "/api/v1/perf-results")
         data = resp.json()
@@ -146,11 +156,16 @@ class AsyncPerfAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/perf/run", json=config)
         return PerfTask.model_validate(resp.json())
 
+    async def run_with_options(self, options: dict[str, Any]) -> PerfTask:
+        """Start a perf run with runner-targeting options. Parity: Go/Java."""
+        resp = await self._request("POST", "/api/v1/perf/run", json=options)
+        return PerfTask.model_validate(resp.json())
+
     async def stop(self, task_id: str) -> None:
         """Stop a running performance test."""
         await self._request("POST", f"/api/v1/perf/stop/{task_id}")
 
-    async def results(self) -> list[PerfResult]:
+    async def list_results(self) -> list[PerfResult]:
         """List all performance test results."""
         resp = await self._request("GET", "/api/v1/perf-results")
         data = resp.json()

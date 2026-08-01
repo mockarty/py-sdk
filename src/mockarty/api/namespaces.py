@@ -25,27 +25,9 @@ class NamespaceAPI(SyncAPIBase):
             return data.get("namespaces") or data.get("items") or []
         return []
 
-    def copy_mocks(
-        self,
-        source_namespace: str,
-        target_namespace: str,
-        mock_ids: list[str] | None = None,
-    ) -> None:
-        """Copy mocks from one namespace to another.
-
-        Args:
-            source_namespace: Source namespace name.
-            target_namespace: Target namespace name.
-            mock_ids: Optional list of specific mock IDs to copy.
-                      If omitted, all mocks are copied.
-        """
-        body = {
-            "sourceNamespace": source_namespace,
-            "targetNamespace": target_namespace,
-        }
-        if mock_ids is not None:
-            body["mockIds"] = mock_ids  # type: ignore[assignment]
-        self._request("POST", "/api/v1/namespaces/copy-mocks", json=body)
+    # NOTE: namespace-level copy_mocks was removed — it POSTed to a
+    # non-existent /api/v1/namespaces/copy-mocks route (404). The real,
+    # server-backed operation is mocks.copy_to_namespace(mock_ids, target).
 
 
 class AsyncNamespaceAPI(AsyncAPIBase):
@@ -65,17 +47,5 @@ class AsyncNamespaceAPI(AsyncAPIBase):
             return data.get("namespaces") or data.get("items") or []
         return []
 
-    async def copy_mocks(
-        self,
-        source_namespace: str,
-        target_namespace: str,
-        mock_ids: list[str] | None = None,
-    ) -> None:
-        """Copy mocks from one namespace to another."""
-        body = {
-            "sourceNamespace": source_namespace,
-            "targetNamespace": target_namespace,
-        }
-        if mock_ids is not None:
-            body["mockIds"] = mock_ids  # type: ignore[assignment]
-        await self._request("POST", "/api/v1/namespaces/copy-mocks", json=body)
+    # copy_mocks removed (phantom /namespaces/copy-mocks 404) — use
+    # mocks.copy_to_namespace(mock_ids, target).
