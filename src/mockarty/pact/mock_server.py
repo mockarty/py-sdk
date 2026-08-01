@@ -86,7 +86,7 @@ def _match_request(
 ) -> bool:
     """Return True if the live request matches the expected interaction.
 
-    Phase 1: method + path must match exactly, query keys must be a
+    Currently: method + path must match exactly, query keys must be a
     subset (the user may send extras at their own risk — this is
     consistent with pact-python's permissive default). Body matching is
     NOT done at request-time because the verifier handles it; the

@@ -9,7 +9,7 @@ no crash detected? response time under N?). The transpiler emits each
 assertion as a structured object under ``_sdkMeta.assertions`` — the
 server's existing detector chain consumes it.
 
-Phase 1 ships four canonical assertions plus a generic
+The current release ships four canonical assertions plus a generic
 :func:`assertion` factory for users who need to attach a one-off
 descriptor without subclassing.
 """

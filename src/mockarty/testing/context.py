@@ -32,7 +32,7 @@ from typing import Any, Optional
 class CaseFrame:
     """One frame on the case stack — one ``@test_case``-decorated test.
 
-    Phase 2.6 fields (description / expected_result / custom_fields /
+    Mockarty extension fields (description / expected_result / custom_fields /
     claim_ownership) are Mockarty-only extensions; the pytest plugin
     forwards them to the server's ExternalRunRequest at the same names
     so the case row carries the SDK-author's intent instead of the

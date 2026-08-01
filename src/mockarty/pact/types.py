@@ -13,9 +13,9 @@ Reference specs:
 * V3 — https://github.com/pact-foundation/pact-specification/tree/version-3
 * V4 — https://github.com/pact-foundation/pact-specification/tree/version-4
 
-Phase 1 only models the **HTTP / synchronous** interaction type. The
+The current release only models the **HTTP / synchronous** interaction type. The
 V4 ``Synchronous/HTTP`` shape is emitted; ``Synchronous/Messages`` and
-``Asynchronous/Messages`` are deferred to Phase 2 per
+``Asynchronous/Messages`` are deferred to a follow-up per
 ``SDK_FRAMEWORK_PLAN.md`` §3.
 """
 
@@ -82,7 +82,7 @@ class PactSpecification(BaseModel):
 class PluginEntry(BaseModel):
     """V4 ``plugins[]`` entry — recorded for round-trip fidelity only.
 
-    Phase 1 does not execute plugin runtimes; the entry is stored in
+    The current release does not execute plugin runtimes; the entry is stored in
     metadata so a future verifier can match what the consumer declared.
     """
 
@@ -170,7 +170,7 @@ class Interaction(BaseModel):
 
     Identical in V3 and V4 except that V4 has:
 
-    * ``type`` discriminator (``Synchronous/HTTP`` in Phase 1);
+    * ``type`` discriminator (``Synchronous/HTTP`` in the current release);
     * ``providerStates`` (plural, list) instead of ``providerState``;
     * ``key`` — a stable per-interaction identifier;
     * ``pending`` flag, defaulting to ``False``.

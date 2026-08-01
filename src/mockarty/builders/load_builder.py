@@ -242,7 +242,16 @@ class LoadTest:
             "",
             "export const options = " + self._options_js() + ";",
             "",
+        ]
+        # Bake the target() base URL as a runnable default so the exported
+        # script works out of the box (matching the perf engine's own builder
+        # pattern), while staying overridable via `-e BASE_URL=...` / __ENV.
+        if self._base_url is not None:
+            lines.append(f"const BASE_URL = __ENV.BASE_URL || {_js_str(self._base_url)};")
+            lines.append("")
+        lines += [
             "export default function () {",
+            "  let r;",
         ]
         for req in self._resolved_requests():
             lines.extend(self._request_js(req))
@@ -269,15 +278,15 @@ class LoadTest:
             opts["thresholds"] = self._thresholds
         if not opts:
             opts = {"vus": 1, "duration": "30s"}
-        return json.dumps(opts)
+        return json.dumps(opts, separators=(",", ":"))
 
     def _request_js(self, req: LoadRequest) -> list[str]:
-        # URL: ${__ENV.BASE_URL}/path when a base URL is set, else literal.
+        # URL: ${BASE_URL}/path when a base URL is set, else literal.
         path = req.path
         if self._base_url is not None and not path.startswith("http"):
             if path and not path.startswith("/"):
                 path = "/" + path
-            url = "`${__ENV.BASE_URL}" + path + "`"
+            url = "`${BASE_URL}" + path + "`"
         else:
             url = _js_str(path)
 
@@ -294,18 +303,20 @@ class LoadTest:
         out: list[str] = []
         if req.body is None:
             if params:
-                out.append(f"  let r = http.{method}({url}, null, {params});")
+                out.append(f"  r = http.{method}({url}, null, {params});")
             else:
-                out.append(f"  let r = http.{method}({url});")
+                out.append(f"  r = http.{method}({url});")
         else:
             if isinstance(req.body, (dict, list)):
-                body_lit = _js_str(json.dumps(req.body))
+                # Compact separators keep the emitted body byte-identical to the
+                # Go/Java SDKs ({"amount":100}, not {"amount": 100}).
+                body_lit = _js_str(json.dumps(req.body, separators=(",", ":")))
             else:
                 body_lit = _js_str(str(req.body))
             if params:
-                out.append(f"  let r = http.{method}({url}, {body_lit}, {params});")
+                out.append(f"  r = http.{method}({url}, {body_lit}, {params});")
             else:
-                out.append(f"  let r = http.{method}({url}, {body_lit});")
+                out.append(f"  r = http.{method}({url}, {body_lit});")
         out.append("  check(r, { 'status < 400': (res) => res.status < 400 });")
         return out
 

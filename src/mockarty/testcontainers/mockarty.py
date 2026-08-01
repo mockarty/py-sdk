@@ -237,14 +237,20 @@ class MockartyContainer:
         return self._container
 
     def _wait_for_health(self, container: Any) -> None:
-        """Block until ``/health`` on the metrics port returns 200."""
+        """Block until the mock server's readiness probe returns 200.
+
+        ``mock serve`` exposes its health probe at ``/__admin/health`` on the
+        MOCK port — the metrics port is not bound in serve mode, so polling
+        ``/health`` on METRICS_PORT timed out forever (RemoteDisconnected) and
+        ``start()`` never succeeded.
+        """
         import time
         import urllib.error
         import urllib.request
 
         host = container.get_container_host_ip()
-        port = container.get_exposed_port(METRICS_PORT)
-        url = f"http://{host}:{port}/health"
+        port = container.get_exposed_port(MOCK_PORT)
+        url = f"http://{host}:{port}/__admin/health"
         deadline = time.monotonic() + 60.0
         last_err: Optional[BaseException] = None
         while time.monotonic() < deadline:
@@ -256,7 +262,7 @@ class MockartyContainer:
                 last_err = exc
             time.sleep(0.5)
         raise TimeoutError(
-            f"MockartyContainer: /health never returned 200 within 60s "
+            f"MockartyContainer: {url} never returned 200 within 60s "
             f"(last error: {last_err!r})"
         )
 

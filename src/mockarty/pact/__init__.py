@@ -9,7 +9,7 @@ artefacts that any Pact-compatible verifier (Mockarty's own
 ``internal/contract/pact_matcher.go``, the pact-go verifier, the
 official ``pact-broker`` CLI, etc.) can consume.
 
-See :doc:`./README` for the design rationale and Phase 2 roadmap.
+See :doc:`./README` for the design rationale and the follow-up roadmap.
 
 Quick start::
 
@@ -56,14 +56,20 @@ from mockarty.pact.verifier import (
 from mockarty.pact.interaction import InteractionBuilder
 from mockarty.pact.matchers import (
     ArrayContains,
+    AtLeastOne,
     Boolean,
+    ContentType,
+    Date,
+    DateTime,
     Decimal,
     EachKey,
     EachKeyLike,
     EachLike,
     EachValue,
     Equality,
+    Include,
     Integer,
+    IPv4,
     JSONPath,
     Like,
     MatchType,
@@ -72,8 +78,14 @@ from mockarty.pact.matchers import (
     MinMaxType,
     MinType,
     Mismatch,
+    NotNull,
+    Null,
     Regex,
+    Semver,
     Term,
+    Time,
+    Timestamp,
+    UUID,
     XMLPath,
 )
 from mockarty.pact.mock_server import MockServer, PactMismatchError
@@ -119,13 +131,19 @@ __all__ = [
     "PactMismatchError",
     # Matchers
     "ArrayContains",
+    "AtLeastOne",
     "Boolean",
+    "ContentType",
+    "Date",
+    "DateTime",
     "Decimal",
     "EachKey",
     "EachKeyLike",
     "EachLike",
     "EachValue",
     "Equality",
+    "IPv4",
+    "Include",
     "Integer",
     "JSONPath",
     "Like",
@@ -135,8 +153,14 @@ __all__ = [
     "MinMaxType",
     "MinType",
     "Mismatch",
+    "NotNull",
+    "Null",
     "Regex",
+    "Semver",
     "Term",
+    "Time",
+    "Timestamp",
+    "UUID",
     "XMLPath",
     # Plugins
     "GRPCPlugin",

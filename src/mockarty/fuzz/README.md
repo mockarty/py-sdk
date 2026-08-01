@@ -1,6 +1,6 @@
 # `mockarty.fuzz` — Language-Side Fuzz DSL
 
-> Status: **Phase 1** — fluent DSL, transpile-to-JSON, submit/wait/stream,
+> fluent DSL, transpile-to-JSON, submit/wait/stream,
 > local-spawn via `mockarty-cli`. No embedded fuzz runtime, no FFI, no
 > compiled deps.
 
@@ -118,7 +118,7 @@ introduces (assertions, reporters, custom-mutator configs) lives under
 the `_sdkMeta` sentinel so the server can pick it up without breaking
 the canonical fields.
 
-## Phase 2 backlog
+## Backlog
 
 * Real-time SSE stream instead of polling (`/api/v1/fuzzing/run/{id}/events`).
 * Finding-triage helpers — `runner.triage(finding_id, status="confirmed")`.

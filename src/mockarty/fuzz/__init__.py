@@ -37,7 +37,7 @@ Quick start::
 
     payload = target.to_json()  # canonical fuzz config dict
 
-See :doc:`./README` for the surface table, hybrid pattern and Phase 2
+See :doc:`./README` for the surface table, hybrid pattern and the follow-up
 roadmap.
 """
 
