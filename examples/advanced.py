@@ -279,12 +279,8 @@ def namespace_isolation(client: MockartyClient) -> None:
     client.mocks.create(mock)
     print("Created mock in 'sandbox' namespace")
 
-    # Copy mocks to staging
-    client.namespaces.copy_mocks(
-        source_namespace="sandbox",
-        target_namespace="staging",
-        mock_ids=["ns-demo-mock"],
-    )
+    # Copy mocks to staging (by ID — the server-backed operation)
+    client.mocks.copy_to_namespace(["ns-demo-mock"], "staging")
     print("Copied mock to 'staging' namespace")
 
     # Switch namespace and verify
@@ -377,15 +373,19 @@ def mock_versioning(client: MockartyClient) -> None:
     # List all versions
     versions = client.mocks.list_versions(mock_id)
     print(f"\nVersion history ({len(versions)} versions):")
-    for i, ver in enumerate(versions):
-        payload = ver.response.payload if ver.response else {}
+    for ver in versions:
+        # A version row carries revision metadata; the mock body of that
+        # revision hangs off ver.mock.
+        body = ver.mock
+        payload = body.response.payload if body and body.response else {}
         v_label = payload.get("version", "?") if isinstance(payload, dict) else "?"
-        print(f"  Version {i + 1}: {v_label}")
+        print(f"  Version {ver.version}: {v_label}")
 
     # Get a specific version (version 1)
     if len(versions) >= 2:
         old_version = client.mocks.get_version(mock_id, 1)
-        old_payload = old_version.response.payload if old_version.response else {}
+        old_body = old_version.mock
+        old_payload = old_body.response.payload if old_body and old_body.response else {}
         print(f"\nVersion 1 payload: {old_payload}")
 
     # Restore to version 1

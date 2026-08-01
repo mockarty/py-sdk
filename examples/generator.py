@@ -21,7 +21,7 @@ def generate_from_openapi_url(client: MockartyClient) -> None:
         namespace="sandbox",
         path_prefix="/petstore",
     )
-    result = client.generator.generate_openapi(request)
+    result = client.generator.from_openapi(request)
     print(f"OpenAPI generation: created {result.created} mocks")
     if result.message:
         print(f"  Message: {result.message}")
@@ -91,7 +91,7 @@ def generate_from_openapi_spec(client: MockartyClient) -> None:
         spec=spec,
         namespace="sandbox",
     )
-    result = client.generator.generate_openapi(request)
+    result = client.generator.from_openapi(request)
     print(f"Inline OpenAPI: created {result.created} mocks")
     for mock in result.mocks:
         if mock.http:
@@ -120,7 +120,7 @@ def generate_from_graphql(client: MockartyClient) -> None:
         graphql_url="https://countries.trevorblades.com/graphql",
         namespace="sandbox",
     )
-    result = client.generator.generate_graphql(request)
+    result = client.generator.from_graphql(request)
     print(f"GraphQL generation: created {result.created} mocks")
     for mock in result.mocks[:5]:
         if mock.graphql:
@@ -159,7 +159,7 @@ message GoodbyeReply {
         spec=proto_spec,
         namespace="sandbox",
     )
-    result = client.generator.generate_grpc(request)
+    result = client.generator.from_proto(request)
     print(f"gRPC generation: created {result.created} mocks")
     for mock in result.mocks:
         if mock.grpc:
@@ -172,7 +172,7 @@ def generate_from_soap(client: MockartyClient) -> None:
         url="http://www.dneonline.com/calculator.asmx?WSDL",
         namespace="sandbox",
     )
-    result = client.generator.generate_soap(request)
+    result = client.generator.from_wsdl(request)
     print(f"SOAP generation: created {result.created} mocks")
     for mock in result.mocks:
         if mock.soap:
@@ -190,7 +190,7 @@ def generate_with_server_name(client: MockartyClient) -> None:
         server_name="petstore-staging",
         path_prefix="/staging",
     )
-    result = client.generator.generate_openapi(request)
+    result = client.generator.from_openapi(request)
     print(f"Generated {result.created} mocks under server 'petstore-staging'")
 
 

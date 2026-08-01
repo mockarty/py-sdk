@@ -8,7 +8,7 @@ from mockarty import MockartyClient
 
 def main() -> None:
     with MockartyClient(api_key="your-api-key", namespace="sandbox") as client:
-        p = client.prompts.create_prompt(
+        p = client.prompts.create(
             name="tcm-step-summarizer",
             body="Summarize the following test step in one sentence: {{.step}}",
             model="claude-opus-4-7",
@@ -17,10 +17,10 @@ def main() -> None:
         print(f"[1] created {p['name']} v{p['version']}")
 
         try:
-            client.prompts.update_prompt(
+            client.prompts.update(
                 p["id"], body="Summarize in ≤15 words: {{.step}}"
             )
-            p = client.prompts.update_prompt(
+            p = client.prompts.update(
                 p["id"], body="One sentence summary, verb-first: {{.step}}"
             )
             print(f"[2] current v{p['version']}")
@@ -31,7 +31,7 @@ def main() -> None:
             rolled = client.prompts.rollback(p["id"], to_version=1)
             print(f"[4] rolled back; new v{rolled['version']}")
         finally:
-            client.prompts.delete_prompt(p["id"])
+            client.prompts.delete(p["id"])
 
 
 if __name__ == "__main__":

@@ -115,7 +115,7 @@ def stage_import_and_generate(client: MockartyClient, result: PipelineResult) ->
         print(f"  Preview: {preview.count} mocks would be generated")
 
         # Generate and create mocks
-        gen_result = client.generator.generate_openapi({
+        gen_result = client.generator.from_openapi({
             "specUrl": OPENAPI_SPEC_URL,
             "namespace": NAMESPACE,
             "tags": ["ci-generated", "openapi"],
@@ -359,7 +359,7 @@ def stage_performance_test(client: MockartyClient, result: PipelineResult) -> bo
         time.sleep(5)
 
         # Check results
-        perf_results = client.perf.results()
+        perf_results = client.perf.list_results()
         if perf_results:
             latest = perf_results[0]
             p95 = latest.p95_latency or 0
@@ -409,7 +409,7 @@ def stage_export_results(client: MockartyClient, result: PipelineResult) -> bool
         print(f"  Fuzzing results:   {len(fuzzing_results)}")
 
         # Performance results
-        perf_results = client.perf.results()
+        perf_results = client.perf.list_results()
         print(f"  Performance results: {len(perf_results)}")
 
         # System stats
