@@ -21,14 +21,18 @@ from mockarty.api.ci_triggers import AsyncCITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.discovery import AsyncDiscoveryAPI
+from mockarty.api.economics import AsyncEconomicsAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
-from mockarty.api.external_runs import AsyncExternalRunsAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
+from mockarty.api.external_runs import AsyncExternalRunsAPI
 from mockarty.api.folders import AsyncFolderAPI
 from mockarty.api.fuzzing import AsyncFuzzingAPI
 from mockarty.api.generator import AsyncGeneratorAPI
+from mockarty.api.gitsync import AsyncGitSyncAPI
 from mockarty.api.health import AsyncHealthAPI
 from mockarty.api.imports import AsyncImportAPI
+from mockarty.api.issuetracker import AsyncIssueTrackerAPI
+from mockarty.api.mcp import AsyncMCPClient
 from mockarty.api.me import AsyncMeAPI
 from mockarty.api.mocks import AsyncMockAPI
 from mockarty.api.namespace_settings import AsyncNamespaceSettingsAPI
@@ -36,16 +40,16 @@ from mockarty.api.namespaces import AsyncNamespaceAPI
 from mockarty.api.perf import AsyncPerfAPI
 from mockarty.api.prompts import AsyncPromptsAPI
 from mockarty.api.proxy import AsyncProxyAPI
-from mockarty.api.secrets import AsyncSecretsAPI
 from mockarty.api.recorder import AsyncRecorderAPI
+from mockarty.api.secrets import AsyncSecretsAPI
 from mockarty.api.stats import AsyncStatsAPI
 from mockarty.api.stores import AsyncStoreAPI
 from mockarty.api.tags import AsyncTagAPI
-from mockarty.api.uitests import AsyncUITestAPI
-from mockarty.api.gitsync import AsyncGitSyncAPI
+from mockarty.api.tcm import AsyncTCMAPI
 from mockarty.api.templates import AsyncTemplateAPI
 from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
+from mockarty.api.uitests import AsyncUITestAPI
 from mockarty.api.undefined import AsyncUndefinedAPI
 
 
@@ -118,6 +122,7 @@ class AsyncMockartyClient:
         self._proxy: AsyncProxyAPI | None = None
         self._environments: AsyncEnvironmentAPI | None = None
         self._entity_search: AsyncEntitySearchAPI | None = None
+        self._economics: AsyncEconomicsAPI | None = None
         self._external_runs: AsyncExternalRunsAPI | None = None
         self._discovery: AsyncDiscoveryAPI | None = None
         self._secrets: AsyncSecretsAPI | None = None
@@ -181,6 +186,7 @@ class AsyncMockartyClient:
         self._proxy = None
         self._environments = None
         self._entity_search = None
+        self._economics = None
         self._external_runs = None
         self._discovery = None
         self._secrets = None
@@ -400,6 +406,13 @@ class AsyncMockartyClient:
         if self._entity_search is None:
             self._entity_search = AsyncEntitySearchAPI(self._http, self._namespace)
         return self._entity_search
+
+    @property
+    def economics(self) -> AsyncEconomicsAPI:
+        """Administrator LLM usage and immutable price-book API."""
+        if self._economics is None:
+            self._economics = AsyncEconomicsAPI(self._http, self._namespace)
+        return self._economics
 
     @property
     def external_runs(self) -> AsyncExternalRunsAPI:

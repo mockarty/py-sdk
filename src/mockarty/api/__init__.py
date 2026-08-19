@@ -8,6 +8,7 @@ from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI, CITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
+from mockarty.api.economics import AsyncEconomicsAPI, EconomicsAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
@@ -24,8 +25,8 @@ from mockarty.api.namespaces import AsyncNamespaceAPI, NamespaceAPI
 from mockarty.api.perf import AsyncPerfAPI, PerfAPI
 from mockarty.api.prompts import AsyncPromptsAPI, PromptsAPI
 from mockarty.api.proxy import AsyncProxyAPI, ProxyAPI
-from mockarty.api.secrets import AsyncSecretsAPI, SecretsAPI
 from mockarty.api.recorder import AsyncRecorderAPI, RecorderAPI
+from mockarty.api.secrets import AsyncSecretsAPI, SecretsAPI
 from mockarty.api.stats import AsyncStatsAPI, StatsAPI
 from mockarty.api.stores import AsyncStoreAPI, StoreAPI
 from mockarty.api.tags import AsyncTagAPI, TagAPI
@@ -41,6 +42,7 @@ __all__ = [
     "AsyncCollectionAPI",
     "AsyncContractAPI",
     "AsyncEntitySearchAPI",
+    "AsyncEconomicsAPI",
     "AsyncEnvironmentAPI",
     "AsyncFolderAPI",
     "AsyncFuzzingAPI",
@@ -66,6 +68,7 @@ __all__ = [
     "CollectionAPI",
     "ContractAPI",
     "EntitySearchAPI",
+    "EconomicsAPI",
     "EnvironmentAPI",
     "FolderAPI",
     "FuzzingAPI",
