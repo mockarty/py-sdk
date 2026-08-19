@@ -53,7 +53,7 @@ StageInput = Union[tuple[str, int], dict[str, Any]]
 class LoadRequest:
     """One HTTP request in the load scenario's iteration body."""
 
-    __slots__ = ("method", "path", "body", "headers")
+    __slots__ = ("method", "path", "body", "headers", "checks")
 
     def __init__(
         self,
@@ -66,6 +66,9 @@ class LoadRequest:
         self.path = path
         self.body = body
         self.headers = headers or {}
+        # List of (name, expr) per-request k6 checks. When non-empty they
+        # replace the default `status < 400` assertion.
+        self.checks: list[tuple[str, str]] = []
 
 
 def _js_str(s: str) -> str:
@@ -146,6 +149,20 @@ class LoadTest:
 
     def delete(self, path: str, headers: Optional[dict[str, str]] = None) -> "LoadTest":
         return self.request("DELETE", path, headers=headers)
+
+    def check(self, name: str, expr: str) -> "LoadTest":
+        """Attach a named assertion to the MOST RECENTLY added request. ``name``
+        is the check label; ``expr`` is a JavaScript boolean expression that may
+        reference the response as ``res`` (e.g. ``res.json().id !== undefined``).
+        When a request has one or more checks they REPLACE the default
+        ``status < 400`` check. No-op if no request has been added yet."""
+        if self._requests:
+            self._requests[-1].checks.append((name, expr))
+        return self
+
+    def expect_status(self, code: int) -> "LoadTest":
+        """Shorthand for :meth:`check` asserting the response status code."""
+        return self.check(f"status is {code}", f"res.status === {code}")
 
     # -- load profile --------------------------------------------------------
 
@@ -242,7 +259,16 @@ class LoadTest:
             "",
             "export const options = " + self._options_js() + ";",
             "",
+        ]
+        # Bake the target() base URL as a runnable default so the exported
+        # script works out of the box (matching the perf engine's own builder
+        # pattern), while staying overridable via `-e BASE_URL=...` / __ENV.
+        if self._base_url is not None:
+            lines.append(f"const BASE_URL = __ENV.BASE_URL || {_js_str(self._base_url)};")
+            lines.append("")
+        lines += [
             "export default function () {",
+            "  let r;",
         ]
         for req in self._resolved_requests():
             lines.extend(self._request_js(req))
@@ -269,15 +295,15 @@ class LoadTest:
             opts["thresholds"] = self._thresholds
         if not opts:
             opts = {"vus": 1, "duration": "30s"}
-        return json.dumps(opts)
+        return json.dumps(opts, separators=(",", ":"))
 
     def _request_js(self, req: LoadRequest) -> list[str]:
-        # URL: ${__ENV.BASE_URL}/path when a base URL is set, else literal.
+        # URL: ${BASE_URL}/path when a base URL is set, else literal.
         path = req.path
         if self._base_url is not None and not path.startswith("http"):
             if path and not path.startswith("/"):
                 path = "/" + path
-            url = "`${__ENV.BASE_URL}" + path + "`"
+            url = "`${BASE_URL}" + path + "`"
         else:
             url = _js_str(path)
 
@@ -294,20 +320,33 @@ class LoadTest:
         out: list[str] = []
         if req.body is None:
             if params:
-                out.append(f"  let r = http.{method}({url}, null, {params});")
+                out.append(f"  r = http.{method}({url}, null, {params});")
             else:
-                out.append(f"  let r = http.{method}({url});")
+                out.append(f"  r = http.{method}({url});")
         else:
             if isinstance(req.body, (dict, list)):
-                body_lit = _js_str(json.dumps(req.body))
+                # Compact separators keep the emitted body byte-identical to the
+                # Go/Java SDKs ({"amount":100}, not {"amount": 100}).
+                body_lit = _js_str(json.dumps(req.body, separators=(",", ":")))
             else:
                 body_lit = _js_str(str(req.body))
             if params:
-                out.append(f"  let r = http.{method}({url}, {body_lit}, {params});")
+                out.append(f"  r = http.{method}({url}, {body_lit}, {params});")
             else:
-                out.append(f"  let r = http.{method}({url}, {body_lit});")
-        out.append("  check(r, { 'status < 400': (res) => res.status < 400 });")
+                out.append(f"  r = http.{method}({url}, {body_lit});")
+        out.append(self._check_js(req.checks))
         return out
+
+    @staticmethod
+    def _check_js(checks: list[tuple[str, str]]) -> str:
+        """Emit the k6 ``check(r, { ... })`` line for a request. With no custom
+        checks it emits the default ``status < 400`` assertion (backward
+        compatible); otherwise every custom check in insertion order. Kept
+        byte-identical across the Go/Python/Java SDKs."""
+        if not checks:
+            return "  check(r, { 'status < 400': (res) => res.status < 400 });"
+        parts = [f"{_js_str(name)}: (res) => {expr}" for name, expr in checks]
+        return "  check(r, { " + ", ".join(parts) + " });"
 
     def to_perf_config(self) -> dict[str, Any]:
         """Emit the perf-config dict consumed by the CLI ``--from-config`` flag

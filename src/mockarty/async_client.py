@@ -16,12 +16,16 @@ from mockarty._base_client import (
     resolve_base_url,
 )
 from mockarty.api.agent_tasks import AsyncAgentTaskAPI
+from mockarty.api.mcp import AsyncMCPClient
+from mockarty.api.issuetracker import AsyncIssueTrackerAPI
+from mockarty.api.tcm import AsyncTCMAPI
 from mockarty.api.chaos import AsyncChaosAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.discovery import AsyncDiscoveryAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
+from mockarty.api.experience import AsyncExperienceAPI
 from mockarty.api.external_runs import AsyncExternalRunsAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI
@@ -41,6 +45,8 @@ from mockarty.api.recorder import AsyncRecorderAPI
 from mockarty.api.stats import AsyncStatsAPI
 from mockarty.api.stores import AsyncStoreAPI
 from mockarty.api.tags import AsyncTagAPI
+from mockarty.api.uitests import AsyncUITestAPI
+from mockarty.api.gitsync import AsyncGitSyncAPI
 from mockarty.api.templates import AsyncTemplateAPI
 from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
@@ -106,14 +112,20 @@ class AsyncMockartyClient:
         self._test_runs: AsyncTestRunAPI | None = None
         self._test_plans: AsyncTestPlansAPI | None = None
         self._tags: AsyncTagAPI | None = None
+        self._ui_tests: AsyncUITestAPI | None = None
+        self._git_sync: AsyncGitSyncAPI | None = None
         self._folders: AsyncFolderAPI | None = None
         self._undefined: AsyncUndefinedAPI | None = None
         self._stats: AsyncStatsAPI | None = None
         self._agent_tasks: AsyncAgentTaskAPI | None = None
+        self._mcp: AsyncMCPClient | None = None
+        self._issue_tracker: AsyncIssueTrackerAPI | None = None
+        self._tcm: AsyncTCMAPI | None = None
         self._namespace_settings: AsyncNamespaceSettingsAPI | None = None
         self._proxy: AsyncProxyAPI | None = None
         self._environments: AsyncEnvironmentAPI | None = None
         self._entity_search: AsyncEntitySearchAPI | None = None
+        self._experience: AsyncExperienceAPI | None = None
         self._external_runs: AsyncExternalRunsAPI | None = None
         self._discovery: AsyncDiscoveryAPI | None = None
         self._secrets: AsyncSecretsAPI | None = None
@@ -167,14 +179,20 @@ class AsyncMockartyClient:
         self._test_runs = None
         self._test_plans = None
         self._tags = None
+        self._ui_tests = None
+        self._git_sync = None
         self._folders = None
         self._undefined = None
         self._stats = None
         self._agent_tasks = None
+        self._mcp = None
+        self._issue_tracker = None
+        self._tcm = None
         self._namespace_settings = None
         self._proxy = None
         self._environments = None
         self._entity_search = None
+        self._experience = None
         self._external_runs = None
         self._discovery = None
         self._secrets = None
@@ -185,7 +203,7 @@ class AsyncMockartyClient:
 
     @property
     def ci_triggers(self) -> AsyncCITriggerAPI:
-        """CI Triggers API (Phase 4 generic webhooks)."""
+        """CI Triggers API (generic webhooks)."""
         if self._ci_triggers is None:
             self._ci_triggers = AsyncCITriggerAPI(self._http, self._namespace)
         return self._ci_triggers
@@ -324,6 +342,20 @@ class AsyncMockartyClient:
         return self._tags
 
     @property
+    def ui_tests(self) -> AsyncUITestAPI:
+        """Recorded-UI-test API (save / run / poll / export)."""
+        if self._ui_tests is None:
+            self._ui_tests = AsyncUITestAPI(self._http, self._namespace)
+        return self._ui_tests
+
+    @property
+    def git_sync(self) -> AsyncGitSyncAPI:
+        """Git-sync API — bind a repo, pull/push autotest collections."""
+        if self._git_sync is None:
+            self._git_sync = AsyncGitSyncAPI(self._http, self._namespace)
+        return self._git_sync
+
+    @property
     def folders(self) -> AsyncFolderAPI:
         """Mock folder management API."""
         if self._folders is None:
@@ -350,6 +382,27 @@ class AsyncMockartyClient:
         if self._agent_tasks is None:
             self._agent_tasks = AsyncAgentTaskAPI(self._http, self._namespace)
         return self._agent_tasks
+
+    @property
+    def mcp(self) -> AsyncMCPClient:
+        """Model Context Protocol client — list_tools/call_tool against /mcp."""
+        if self._mcp is None:
+            self._mcp = AsyncMCPClient(self._http, self._namespace)
+        return self._mcp
+
+    @property
+    def issue_tracker(self) -> AsyncIssueTrackerAPI:
+        """Issue-tracker task automation (issues/comments/projects/sprints)."""
+        if self._issue_tracker is None:
+            self._issue_tracker = AsyncIssueTrackerAPI(self._http, self._namespace)
+        return self._issue_tracker
+
+    @property
+    def tcm(self) -> AsyncTCMAPI:
+        """Test Case Management automation (cases/case-runs/defects)."""
+        if self._tcm is None:
+            self._tcm = AsyncTCMAPI(self._http, self._namespace)
+        return self._tcm
 
     @property
     def namespace_settings(self) -> AsyncNamespaceSettingsAPI:
@@ -380,6 +433,13 @@ class AsyncMockartyClient:
         if self._entity_search is None:
             self._entity_search = AsyncEntitySearchAPI(self._http, self._namespace)
         return self._entity_search
+
+    @property
+    def experience(self) -> AsyncExperienceAPI:
+        """Reusable AutoTester run experience API."""
+        if self._experience is None:
+            self._experience = AsyncExperienceAPI(self._http, self._namespace)
+        return self._experience
 
     @property
     def external_runs(self) -> AsyncExternalRunsAPI:

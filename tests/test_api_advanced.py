@@ -41,7 +41,7 @@ class TestGeneratorAPI:
             )
         )
 
-        result = client.generator.generate_openapi(
+        result = client.generator.from_openapi(
             GeneratorRequest(url="https://petstore.swagger.io/v2/swagger.json")
         )
         assert isinstance(result, GeneratorResponse)
@@ -59,7 +59,7 @@ class TestGeneratorAPI:
             )
         )
 
-        result = client.generator.generate_openapi({"url": "https://example.com/spec"})
+        result = client.generator.from_openapi({"url": "https://example.com/spec"})
         assert result.created == 1
 
     @respx.mock
@@ -93,7 +93,7 @@ class TestGeneratorAPI:
             )
         )
 
-        result = client.generator.generate_graphql(
+        result = client.generator.from_graphql(
             {"graphqlUrl": "http://localhost:4000/graphql"}
         )
         assert result.created == 2
@@ -108,7 +108,7 @@ class TestGeneratorAPI:
             )
         )
 
-        result = client.generator.generate_grpc({"spec": "syntax = \"proto3\";"})
+        result = client.generator.from_proto({"spec": "syntax = \"proto3\";"})
         assert result.created == 1
 
     @respx.mock
@@ -120,7 +120,7 @@ class TestGeneratorAPI:
             )
         )
 
-        result = client.generator.generate_soap({"url": "http://example.com/service?wsdl"})
+        result = client.generator.from_wsdl({"url": "http://example.com/service?wsdl"})
         assert result.created == 1
 
 
@@ -609,7 +609,7 @@ class TestRecorderAPI:
             )
         )
 
-        session = client.recorder.create(
+        session = client.recorder.start_recording(
             RecorderSession(name="User API Recording", target_url="http://localhost:8080")
         )
         assert isinstance(session, RecorderSession)
@@ -628,7 +628,7 @@ class TestRecorderAPI:
             )
         )
 
-        sessions = client.recorder.list()
+        sessions = client.recorder.list_sessions()
         assert len(sessions) == 2
         assert sessions[0].status == "recording"
 
@@ -641,7 +641,7 @@ class TestRecorderAPI:
             )
         )
 
-        session = client.recorder.get("sess-1")
+        session = client.recorder.get_session("sess-1")
         assert session.entry_count == 42
 
     @respx.mock
@@ -652,7 +652,7 @@ class TestRecorderAPI:
             )
         )
 
-        session = client.recorder.stop("sess-1")
+        session = client.recorder.stop_recording("sess-1")
         assert session.status == "stopped"
 
     @respx.mock
@@ -660,7 +660,7 @@ class TestRecorderAPI:
         route = respx.delete(
             "http://localhost:5770/api/v1/recorder/sess-1"
         ).mock(return_value=httpx.Response(200))
-        client.recorder.delete("sess-1")
+        client.recorder.delete_session("sess-1")
         assert route.called
 
     @respx.mock
@@ -689,7 +689,7 @@ class TestRecorderAPI:
             )
         )
 
-        entries = client.recorder.entries("sess-1")
+        entries = client.recorder.get_entries("sess-1")
         assert len(entries) == 2
         assert isinstance(entries[0], RecorderEntry)
         assert entries[0].method == "GET"
@@ -710,7 +710,7 @@ class TestRecorderAPI:
             )
         )
 
-        mocks = client.recorder.generate_mocks("sess-1")
+        mocks = client.recorder.create_mocks_from_session("sess-1")
         assert len(mocks) == 2
         assert isinstance(mocks[0], Mock)
         assert mocks[0].id == "rec-mock-1"

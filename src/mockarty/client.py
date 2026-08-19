@@ -16,12 +16,16 @@ from mockarty._base_client import (
     resolve_base_url,
 )
 from mockarty.api.agent_tasks import AgentTaskAPI
+from mockarty.api.mcp import MCPClient
+from mockarty.api.issuetracker import IssueTrackerAPI
+from mockarty.api.tcm import TCMAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.discovery import DiscoveryAPI
 from mockarty.api.entity_search import EntitySearchAPI
+from mockarty.api.experience import ExperienceAPI
 from mockarty.api.external_runs import ExternalRunsAPI
 from mockarty.api.flow_runs import FlowRunsAPI
 from mockarty.api.environments import EnvironmentAPI
@@ -43,6 +47,8 @@ from mockarty.api.recorder import RecorderAPI
 from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
 from mockarty.api.tags import TagAPI
+from mockarty.api.uitests import UITestAPI
+from mockarty.api.gitsync import GitSyncAPI
 from mockarty.api.templates import TemplateAPI
 from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
@@ -100,14 +106,20 @@ class MockartyClient:
         "_test_runs",
         "_test_plans",
         "_tags",
+        "_ui_tests",
+        "_git_sync",
         "_folders",
         "_undefined",
         "_stats",
         "_agent_tasks",
+        "_mcp",
+        "_issue_tracker",
+        "_tcm",
         "_namespace_settings",
         "_proxy",
         "_environments",
         "_entity_search",
+        "_experience",
         "_external_runs",
         "_discovery",
         "_flow_runs",
@@ -191,7 +203,7 @@ class MockartyClient:
 
     @property
     def ci_triggers(self) -> CITriggerAPI:
-        """CI Triggers API (Phase 4 generic webhooks). Use to find a
+        """CI Triggers API (generic webhooks). Use to find a
         saved trigger ID for ``ci_trigger_id`` on perf/fuzz launches
         and to poll the linked CI run state."""
         if self._ci_triggers is None:
@@ -342,6 +354,20 @@ class MockartyClient:
         return self._tags
 
     @property
+    def ui_tests(self) -> UITestAPI:
+        """Recorded-UI-test API (save / run / poll / export)."""
+        if self._ui_tests is None:
+            self._ui_tests = UITestAPI(self._http, self._namespace)
+        return self._ui_tests
+
+    @property
+    def git_sync(self) -> GitSyncAPI:
+        """Git-sync API — bind a repo, pull/push autotest collections."""
+        if self._git_sync is None:
+            self._git_sync = GitSyncAPI(self._http, self._namespace)
+        return self._git_sync
+
+    @property
     def folders(self) -> FolderAPI:
         """Mock folder management API."""
         if self._folders is None:
@@ -370,6 +396,27 @@ class MockartyClient:
         return self._agent_tasks
 
     @property
+    def mcp(self) -> MCPClient:
+        """Model Context Protocol client — list_tools/call_tool against /mcp."""
+        if self._mcp is None:
+            self._mcp = MCPClient(self._http, self._namespace)
+        return self._mcp
+
+    @property
+    def issue_tracker(self) -> IssueTrackerAPI:
+        """Issue-tracker task automation (issues/comments/projects/sprints)."""
+        if self._issue_tracker is None:
+            self._issue_tracker = IssueTrackerAPI(self._http, self._namespace)
+        return self._issue_tracker
+
+    @property
+    def tcm(self) -> TCMAPI:
+        """Test Case Management automation (cases/case-runs/defects)."""
+        if self._tcm is None:
+            self._tcm = TCMAPI(self._http, self._namespace)
+        return self._tcm
+
+    @property
     def namespace_settings(self) -> NamespaceSettingsAPI:
         """Per-namespace settings API (users, cleanup, webhooks)."""
         if self._namespace_settings is None:
@@ -396,6 +443,13 @@ class MockartyClient:
         if self._entity_search is None:
             self._entity_search = EntitySearchAPI(self._http, self._namespace)
         return self._entity_search
+
+    @property
+    def experience(self) -> ExperienceAPI:
+        """Reusable AutoTester run experience API."""
+        if self._experience is None:
+            self._experience = ExperienceAPI(self._http, self._namespace)
+        return self._experience
 
     @property
     def external_runs(self) -> ExternalRunsAPI:

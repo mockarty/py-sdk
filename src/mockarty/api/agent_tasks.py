@@ -5,9 +5,29 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
+from mockarty.errors import MockartyTaskError
+
+# Terminal task statuses. Kept in sync with the Go/Java SDKs and the server's
+# agent executor (internal/agent/executor.go).
+_TASK_SUCCESS = frozenset({"completed", "done", "succeeded"})
+_TASK_FAILED = frozenset({"failed", "error"})
+_TASK_CANCELLED = frozenset({"cancelled", "canceled"})
+
+
+def _terminal_task_error(task: dict[str, Any]) -> MockartyTaskError | None:
+    """Return a MockartyTaskError if the task reached a non-success terminal
+    state, or None if it is still running or completed successfully."""
+    status = str(task.get("status", "")).lower()
+    if status in _TASK_FAILED:
+        return MockartyTaskError(f"agent task {task.get('id', '')} failed", task, status)
+    if status in _TASK_CANCELLED:
+        return MockartyTaskError(f"agent task {task.get('id', '')} cancelled", task, status)
+    return None
 
 
 class AgentTaskAPI(SyncAPIBase):
@@ -71,6 +91,32 @@ class AgentTaskAPI(SyncAPIBase):
         resp = self._request("GET", f"/api/v1/agent/tasks/{task_id}/export")
         return resp.content
 
+    def wait_for_result(self, task_id: str, poll_interval: float = 2.0) -> dict[str, Any]:
+        """Poll a task until it reaches a terminal state, returning the finished
+        task dict (with ``result``). Raises :class:`MockartyTaskError` on a
+        ``failed`` / ``cancelled`` terminal state. Automation counterpart to
+        :meth:`submit` — dispatch into the agent network and block for a result.
+        """
+        interval = poll_interval if poll_interval > 0 else 2.0
+        while True:
+            task = self.get(task_id)
+            if str(task.get("status", "")).lower() in _TASK_SUCCESS:
+                return task
+            err = _terminal_task_error(task)
+            if err is not None:
+                raise err
+            time.sleep(interval)
+
+    def submit_and_wait(self, task: dict[str, Any], poll_interval: float = 2.0) -> dict[str, Any]:
+        """Submit a task and block until it reaches a terminal state — the
+        one-call entry point for 'run this in the agent network, give me the
+        result'."""
+        submitted = self.submit(task)
+        task_id = submitted.get("id")
+        if not task_id:
+            raise MockartyTaskError("agent task submitted without an id", submitted)
+        return self.wait_for_result(task_id, poll_interval)
+
 
 class AsyncAgentTaskAPI(AsyncAPIBase):
     """Asynchronous Agent Task API resource."""
@@ -125,3 +171,23 @@ class AsyncAgentTaskAPI(AsyncAPIBase):
         """Export an agent task result as raw bytes."""
         resp = await self._request("GET", f"/api/v1/agent/tasks/{task_id}/export")
         return resp.content
+
+    async def wait_for_result(self, task_id: str, poll_interval: float = 2.0) -> dict[str, Any]:
+        """Async mirror of the sync ``wait_for_result``."""
+        interval = poll_interval if poll_interval > 0 else 2.0
+        while True:
+            task = await self.get(task_id)
+            if str(task.get("status", "")).lower() in _TASK_SUCCESS:
+                return task
+            err = _terminal_task_error(task)
+            if err is not None:
+                raise err
+            await asyncio.sleep(interval)
+
+    async def submit_and_wait(self, task: dict[str, Any], poll_interval: float = 2.0) -> dict[str, Any]:
+        """Async mirror of the sync ``submit_and_wait``."""
+        submitted = await self.submit(task)
+        task_id = submitted.get("id")
+        if not task_id:
+            raise MockartyTaskError("agent task submitted without an id", submitted)
+        return await self.wait_for_result(task_id, poll_interval)

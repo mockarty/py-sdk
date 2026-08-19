@@ -85,6 +85,18 @@ class ErrorDetails(BaseModel):
     details: Optional[dict[str, Any]] = None
 
 
+class ResponseScript(BaseModel):
+    """A JavaScript scripted response: the code receives ``request`` and fills
+    ``response`` when the mock is hit. See the Scripted Responses guide."""
+
+    code: str
+    language: Optional[str] = None
+    timeout_ms: Optional[int] = Field(None, alias="timeoutMs")
+    allow_net: Optional[bool] = Field(None, alias="allowNet")
+
+    model_config = {"populate_by_name": True}
+
+
 class ContentResponse(BaseModel):
     """The response body and metadata a mock returns.
 
@@ -102,6 +114,7 @@ class ContentResponse(BaseModel):
     sse_event_chain: Optional[SSEEventChain] = Field(None, alias="sseEventChain")
     graphql_errors: Optional[list[GraphQLError]] = Field(None, alias="graphqlErrors")
     soap_fault: Optional[SOAPFault] = Field(None, alias="soapFault")
+    script: Optional[ResponseScript] = None
     mcp_is_error: Optional[bool] = Field(None, alias="mcpIsError")
 
     model_config = {"populate_by_name": True}

@@ -33,7 +33,7 @@ def create_recording_session(client: MockartyClient) -> str:
         name="API Traffic Recording",
         target_url="https://api.example.com",
     )
-    created = client.recorder.create(session)
+    created = client.recorder.start_recording(session)
     print(f"Created recording session: {created.id}")
     print(f"  Name:       {created.name}")
     print(f"  Target:     {created.target_url}")
@@ -43,7 +43,7 @@ def create_recording_session(client: MockartyClient) -> str:
 
 def list_sessions(client: MockartyClient) -> None:
     """List all recording sessions."""
-    sessions = client.recorder.list()
+    sessions = client.recorder.list_sessions()
     print(f"Recording sessions ({len(sessions)}):")
     for s in sessions:
         print(f"  - {s.id}: {s.name} (status={s.status}, entries={s.entry_count})")
@@ -51,7 +51,7 @@ def list_sessions(client: MockartyClient) -> None:
 
 def get_session_details(client: MockartyClient, session_id: str) -> None:
     """Get details about a specific recording session."""
-    session = client.recorder.get(session_id)
+    session = client.recorder.get_session(session_id)
     print(f"Session: {session.name}")
     print(f"  ID:          {session.id}")
     print(f"  Target URL:  {session.target_url}")
@@ -62,13 +62,13 @@ def get_session_details(client: MockartyClient, session_id: str) -> None:
 
 def stop_recording(client: MockartyClient, session_id: str) -> None:
     """Stop a recording session."""
-    session = client.recorder.stop(session_id)
+    session = client.recorder.stop_recording(session_id)
     print(f"Stopped session: {session.id} (status={session.status})")
 
 
 def view_recorded_entries(client: MockartyClient, session_id: str) -> None:
     """View the requests captured during a recording session."""
-    entries = client.recorder.entries(session_id)
+    entries = client.recorder.get_entries(session_id)
     print(f"Recorded entries ({len(entries)}):")
     for entry in entries[:10]:
         print(f"  {entry.method} {entry.path} -> {entry.status_code} ({entry.duration}ms)")
@@ -80,7 +80,7 @@ def generate_mocks_from_traffic(client: MockartyClient, session_id: str) -> None
     This analyzes the recorded request/response pairs and creates
     corresponding mocks automatically.
     """
-    mocks = client.recorder.generate_mocks(session_id)
+    mocks = client.recorder.create_mocks_from_session(session_id)
     print(f"Generated {len(mocks)} mocks from recorded traffic:")
     for mock in mocks[:5]:
         if mock.http:
@@ -93,7 +93,7 @@ def generate_mocks_from_traffic(client: MockartyClient, session_id: str) -> None
 
 def delete_session(client: MockartyClient, session_id: str) -> None:
     """Delete a recording session and its entries."""
-    client.recorder.delete(session_id)
+    client.recorder.delete_session(session_id)
     print(f"Deleted session: {session_id}")
 
 
@@ -190,7 +190,7 @@ def annotate_and_replay_entries(client: MockartyClient, session_id: str) -> None
     Replay sends the recorded request again to verify the target
     still behaves the same way.
     """
-    entries = client.recorder.entries(session_id)
+    entries = client.recorder.get_entries(session_id)
     if not entries:
         print("No entries to annotate or replay.")
         return
@@ -358,7 +358,7 @@ def full_recording_workflow(client: MockartyClient) -> None:
         name="Full Workflow Demo",
         target_url="https://jsonplaceholder.typicode.com",
     )
-    created = client.recorder.create(session)
+    created = client.recorder.start_recording(session)
     session_id = created.id
     print(f"1. Started recording: {session_id}")
 
@@ -366,11 +366,11 @@ def full_recording_workflow(client: MockartyClient) -> None:
     print("2. Send traffic through Mockarty to record it...")
 
     # 3. Stop recording
-    client.recorder.stop(session_id)
+    client.recorder.stop_recording(session_id)
     print("3. Recording stopped")
 
     # 4. View entries
-    entries = client.recorder.entries(session_id)
+    entries = client.recorder.get_entries(session_id)
     print(f"4. Captured {len(entries)} entries")
 
     # 5. Annotate entries
@@ -389,7 +389,7 @@ def full_recording_workflow(client: MockartyClient) -> None:
         print("5-6. Skipped (no entries)")
 
     # 7. Generate mocks
-    mocks = client.recorder.generate_mocks(session_id)
+    mocks = client.recorder.create_mocks_from_session(session_id)
     print(f"7. Generated {len(mocks)} mocks")
 
     # 8. Replay the whole session against a different target
@@ -405,7 +405,7 @@ def full_recording_workflow(client: MockartyClient) -> None:
         print(f"9. Correlation skipped: {exc}")
 
     # 10. Cleanup
-    client.recorder.delete(session_id)
+    client.recorder.delete_session(session_id)
     print("10. Session deleted")
 
 

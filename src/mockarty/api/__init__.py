@@ -9,6 +9,7 @@ from mockarty.api.ci_triggers import AsyncCITriggerAPI, CITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
+from mockarty.api.experience import AsyncExperienceAPI, ExperienceAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
 from mockarty.api.fuzzing import AsyncFuzzingAPI, FuzzingAPI
@@ -41,6 +42,7 @@ __all__ = [
     "AsyncCollectionAPI",
     "AsyncContractAPI",
     "AsyncEntitySearchAPI",
+    "AsyncExperienceAPI",
     "AsyncEnvironmentAPI",
     "AsyncFolderAPI",
     "AsyncFuzzingAPI",
@@ -66,6 +68,7 @@ __all__ = [
     "CollectionAPI",
     "ContractAPI",
     "EntitySearchAPI",
+    "ExperienceAPI",
     "EnvironmentAPI",
     "FolderAPI",
     "FuzzingAPI",

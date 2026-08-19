@@ -19,7 +19,7 @@ from mockarty.models.mock import Mock
 class GeneratorAPI(SyncAPIBase):
     """Synchronous Generator API resource."""
 
-    def generate_openapi(
+    def from_openapi(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from an OpenAPI/Swagger specification."""
@@ -38,42 +38,42 @@ class GeneratorAPI(SyncAPIBase):
             return GeneratorPreview(mocks=mocks, count=data.get("count", len(mocks)))
         return GeneratorPreview()
 
-    def generate_graphql(
+    def from_graphql(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from a GraphQL schema or introspection URL."""
         resp = self._request("POST", "/api/v1/generators/graphql", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    def generate_grpc(
+    def from_proto(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from a proto file specification."""
         resp = self._request("POST", "/api/v1/generators/grpc", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    def generate_soap(
+    def from_wsdl(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from a WSDL specification."""
         resp = self._request("POST", "/api/v1/generators/soap", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    def generate_har(
+    def from_har(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from an HTTP Archive (HAR) file."""
         resp = self._request("POST", "/api/v1/generators/har", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    def generate_mcp(
+    def from_mcp(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from an MCP (Model Context Protocol) specification."""
         resp = self._request("POST", "/api/v1/generators/mcp", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    def generate_socket(
+    def from_socket(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks for WebSocket/TCP/UDP from a specification."""
@@ -94,14 +94,14 @@ class GeneratorAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/generators/graphql/preview", json=request)
         return self._parse_preview(resp.json())
 
-    def preview_grpc(
+    def preview_proto(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorPreview:
         """Preview mocks from a proto specification."""
         resp = self._request("POST", "/api/v1/generators/grpc/preview", json=request)
         return self._parse_preview(resp.json())
 
-    def preview_soap(
+    def preview_wsdl(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorPreview:
         """Preview mocks from a WSDL specification."""
@@ -122,11 +122,21 @@ class GeneratorAPI(SyncAPIBase):
         resp = self._request("POST", "/api/v1/generators/mcp/preview", json=request)
         return self._parse_preview(resp.json())
 
+    def load_graphql_schema_from_url(self, graphql_url: str) -> dict[str, Any]:
+        """Introspect a live GraphQL endpoint's schema via its URL.
+
+        Parity with Go LoadGraphQLSchemaFromURL / Java loadGraphQLSchemaFromURL.
+        """
+        resp = self._request(
+            "POST", "/api/v1/generators/graphql/schema", json={"graphqlUrl": graphql_url}
+        )
+        return resp.json()
+
 
 class AsyncGeneratorAPI(AsyncAPIBase):
     """Asynchronous Generator API resource."""
 
-    async def generate_openapi(
+    async def from_openapi(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from an OpenAPI/Swagger specification."""
@@ -147,42 +157,42 @@ class AsyncGeneratorAPI(AsyncAPIBase):
             return GeneratorPreview(mocks=mocks, count=data.get("count", len(mocks)))
         return GeneratorPreview()
 
-    async def generate_graphql(
+    async def from_graphql(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from a GraphQL schema or introspection URL."""
         resp = await self._request("POST", "/api/v1/generators/graphql", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    async def generate_grpc(
+    async def from_proto(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from a proto file specification."""
         resp = await self._request("POST", "/api/v1/generators/grpc", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    async def generate_soap(
+    async def from_wsdl(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from a WSDL specification."""
         resp = await self._request("POST", "/api/v1/generators/soap", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    async def generate_har(
+    async def from_har(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from an HTTP Archive (HAR) file."""
         resp = await self._request("POST", "/api/v1/generators/har", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    async def generate_mcp(
+    async def from_mcp(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks from an MCP specification."""
         resp = await self._request("POST", "/api/v1/generators/mcp", json=request)
         return GeneratorResponse.model_validate(resp.json())
 
-    async def generate_socket(
+    async def from_socket(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorResponse:
         """Generate mocks for WebSocket/TCP/UDP."""
@@ -205,7 +215,7 @@ class AsyncGeneratorAPI(AsyncAPIBase):
         )
         return self._parse_preview(resp.json())
 
-    async def preview_grpc(
+    async def preview_proto(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorPreview:
         """Preview mocks from a proto specification."""
@@ -214,7 +224,7 @@ class AsyncGeneratorAPI(AsyncAPIBase):
         )
         return self._parse_preview(resp.json())
 
-    async def preview_soap(
+    async def preview_wsdl(
         self, request: GeneratorRequest | dict[str, Any]
     ) -> GeneratorPreview:
         """Preview mocks from a WSDL specification."""
@@ -240,3 +250,10 @@ class AsyncGeneratorAPI(AsyncAPIBase):
             "POST", "/api/v1/generators/mcp/preview", json=request
         )
         return self._parse_preview(resp.json())
+
+    async def load_graphql_schema_from_url(self, graphql_url: str) -> dict[str, Any]:
+        """Introspect a live GraphQL endpoint's schema via its URL. Parity: Go/Java."""
+        resp = await self._request(
+            "POST", "/api/v1/generators/graphql/schema", json={"graphqlUrl": graphql_url}
+        )
+        return resp.json()

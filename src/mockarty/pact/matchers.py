@@ -16,7 +16,7 @@ The same matchers serialise differently in V3 vs V4:
 * **V4** — nested category dict (``body`` / ``header`` / ``query`` /
   ``path``), with each path mapping to a ``{"matchers": [...]}`` list
   of matcher entries. V4 matcher entries use ``"type"`` field, not
-  ``"match"``, and support ``combine`` semantics (Phase 1 always emits
+  ``"match"``, and support ``combine`` semantics (the current release always emits
   ``"AND"``).
 
 This module intentionally does NOT execute the matchers — that is the

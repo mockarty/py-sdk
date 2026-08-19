@@ -5,7 +5,7 @@ artefacts that any Pact-compatible verifier consumes (Mockarty admin
 server, pact-go, the `pact-broker` CLI, etc.). **No Rust FFI**, no
 `libpact_ffi`, no compiled dependencies — only stdlib + pydantic v2.
 
-This module is the Python side of Wave 2 of the SDK pivot
+This module is the Python side of the contract-testing SDK surface
 (`docs/research/SDK_FRAMEWORK_PLAN.md` rev 3, §3 Pact compat, Owner
 Q12). The Go SDK has a sibling package (`sdk/go-sdk/pact`).
 
@@ -55,10 +55,10 @@ version with `.with_spec_version("V3" | "V4")`. Default is **V4**.
 |-------------------------|-------------------------------------|---------------------------------------------|
 | `metadata.pactSpecification.version` | `3.0.0`                  | `4.0`                                       |
 | Provider states         | Singular `providerState` (string)   | Plural `providerStates` (list of objects)   |
-| Interaction type        | (no field)                          | `Synchronous/HTTP` (Phase 1)                |
+| Interaction type        | (no field)                          | `Synchronous/HTTP`                |
 | `matchingRules` shape   | Flat `{ "$.body.x": rule }`         | Nested `body / header / query / path`       |
 | Per-rule shape          | `{"match": "type"}`                 | `{"matchers": [{"match": "type"}], "combine": "AND"}` |
-| Plugins                 | (not supported)                     | `metadata.plugins[]` recorded, runtime is Phase 2 |
+| Plugins                 | (not supported)                     | `metadata.plugins[]` recorded, runtime is a follow-up |
 | Interaction `key`       | (not present)                       | Auto-derived stable identifier              |
 | `pending` flag          | (not present)                       | `false` unless `.pending(True)`             |
 
@@ -119,14 +119,14 @@ a fresh `Consumer` pointed at a `tmp_path`-backed directory.
   CLI, or any other Pact verifier on the generated pact.json.
 * **Plugins (runtime)**: `.with_plugin(...)` records the plugin entry
   for V4 round-trip fidelity but emits a `UserWarning` — actual plugin
-  execution lives in Mockarty admin server (Phase 2, per Owner Q12).
+  execution lives in Mockarty admin server (a follow-up).
 * **Async / messaging interactions**: only `Synchronous/HTTP` is
   emitted today. `Asynchronous/Messages` and `Synchronous/Messages`
-  ship in Phase 2.
+  ship in a follow-up.
 * **Broker publish**: use the platform `Contracts()` REST API on the
   Mockarty client to publish/verify; this DSL only produces the file.
 
-## Phase 2 roadmap
+## Roadmap
 
 1. V4 plugin runtime (mirror of the Go SDK plugin-client work).
 2. `Asynchronous/Messages` + `Synchronous/Messages` interaction types.

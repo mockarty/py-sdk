@@ -48,6 +48,15 @@ from mockarty.models.entity_search import (
     EntitySearchResponse,
     EntitySearchResult,
 )
+from mockarty.models.experience import (
+    EXPERIENCE_KIND_DEFECT_ROOT_CAUSE,
+    EXPERIENCE_KIND_MISSION_LESSON,
+    EXPERIENCE_KIND_PITFALL,
+    EXPERIENCE_KIND_PRODUCT_FACT,
+    ExperienceItem,
+    ExperienceRecordResponse,
+    ExperienceSearchResponse,
+)
 from mockarty.models.contexts import (
     GraphQLRequestContext,
     GrpcRequestContext,
@@ -91,6 +100,7 @@ from mockarty.models.imports import ImportResult
 from mockarty.models.mock import (
     Callback,
     ContentResponse,
+    ResponseScript,
     Extract,
     Mock,
     OneOf,
@@ -145,6 +155,13 @@ __all__ = [
     "ENTITY_TYPE_TEST_PLAN",
     "EntitySearchResponse",
     "EntitySearchResult",
+    "EXPERIENCE_KIND_DEFECT_ROOT_CAUSE",
+    "EXPERIENCE_KIND_MISSION_LESSON",
+    "EXPERIENCE_KIND_PITFALL",
+    "EXPERIENCE_KIND_PRODUCT_FACT",
+    "ExperienceItem",
+    "ExperienceRecordResponse",
+    "ExperienceSearchResponse",
     # Common models
     "ErrorResponse",
     "HealthResponse",
@@ -192,6 +209,7 @@ __all__ = [
     # Mock models
     "Callback",
     "ContentResponse",
+    "ResponseScript",
     "Extract",
     "Mock",
     "OneOf",

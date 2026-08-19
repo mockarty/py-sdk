@@ -70,7 +70,7 @@ def main() -> int:
             time.sleep(1)
 
         # 4. Download the standalone HTML report.
-        out = client.test_plans.get_report(run.id, format="html")
+        out = client.test_plans.get_test_run_report(run.id, format="html")
         Path("report.html").write_bytes(out)
         print("Saved report.html")
 

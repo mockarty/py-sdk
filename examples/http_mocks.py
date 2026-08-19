@@ -51,6 +51,28 @@ def post_with_body_conditions(client: MockartyClient) -> None:
     print("Created: POST /api/orders (premium condition)")
 
 
+def scripted_response(client: MockartyClient) -> None:
+    """POST /api/calc/:op -- compute the body with a JavaScript scripted response.
+
+    The script receives ``request`` and fills ``response``. See the Scripted
+    Responses guide. Pass ``allow_net=True`` to permit outbound mk.http calls.
+    """
+    mock = (
+        MockBuilder.http("/api/calc/:op", "POST")
+        .id("calc")
+        .respond_with_script(
+            "const d = request.json();"
+            " const out = request.params.op === 'double' ? d.v * 2 : d.v / 2;"
+            " response.status = 201;"
+            " response.json({ op: request.params.op, in: d.v, out: out });",
+            timeout_ms=50,
+        )
+        .build()
+    )
+    client.mocks.create(mock)
+    print("Created: POST /api/calc/:op (scripted response)")
+
+
 def header_conditions(client: MockartyClient) -> None:
     """GET /api/protected -- match only with a specific header."""
     mock = (

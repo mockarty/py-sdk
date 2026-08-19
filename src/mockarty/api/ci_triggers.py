@@ -2,7 +2,7 @@
 # Licensed under the Mockarty Software License Agreement.
 # See LICENSE file in the project root for full license text.
 
-"""CI Triggers API resource (Phase 4 of the Ephemeral Runners plan).
+"""CI Triggers API resource (the Ephemeral Runners plan).
 
 Exposes ONLY the surface useful from a CI/CD script's perspective
 (per CLAUDE.md ``feedback_sdk_cli_scope.md``):
@@ -78,6 +78,29 @@ class CITriggerAPI(SyncAPIBase):
         """
         self._request("POST", f"/api/v1/ci/runs/{run_id}/cancel")
 
+    def create(self, trigger: dict[str, Any], namespace: str | None = None) -> dict[str, Any]:
+        """Create a CI trigger. Parity: Go Create / Java create."""
+        params = {"namespace": namespace} if namespace else None
+        resp = self._request("POST", "/api/v1/ci/triggers", json=trigger, params=params)
+        return resp.json()
+
+    def update(self, trigger_id: str, trigger: dict[str, Any], namespace: str | None = None) -> dict[str, Any]:
+        """Update a CI trigger. Parity: Go Update / Java update."""
+        params = {"namespace": namespace} if namespace else None
+        resp = self._request("PATCH", f"/api/v1/ci/triggers/{trigger_id}", json=trigger, params=params)
+        return resp.json()
+
+    def delete(self, trigger_id: str, namespace: str | None = None) -> None:
+        """Delete a CI trigger. Parity: Go Delete / Java delete."""
+        params = {"namespace": namespace} if namespace else None
+        self._request("DELETE", f"/api/v1/ci/triggers/{trigger_id}", params=params)
+
+    def test_dispatch(self, trigger_id: str, namespace: str | None = None) -> dict[str, Any]:
+        """Test-fire a CI trigger's dispatch. Parity: Go TestDispatch / Java testDispatch."""
+        params = {"namespace": namespace} if namespace else None
+        resp = self._request("POST", f"/api/v1/ci/triggers/{trigger_id}/test", params=params)
+        return resp.json()
+
 
 class AsyncCITriggerAPI(AsyncAPIBase):
     """Asynchronous CI Triggers API — mirrors :class:`CITriggerAPI`."""
@@ -111,3 +134,22 @@ class AsyncCITriggerAPI(AsyncAPIBase):
 
     async def cancel_run(self, run_id: str) -> None:
         await self._request("POST", f"/api/v1/ci/runs/{run_id}/cancel")
+
+    async def create(self, trigger: dict[str, Any], namespace: str | None = None) -> dict[str, Any]:
+        params = {"namespace": namespace} if namespace else None
+        resp = await self._request("POST", "/api/v1/ci/triggers", json=trigger, params=params)
+        return resp.json()
+
+    async def update(self, trigger_id: str, trigger: dict[str, Any], namespace: str | None = None) -> dict[str, Any]:
+        params = {"namespace": namespace} if namespace else None
+        resp = await self._request("PATCH", f"/api/v1/ci/triggers/{trigger_id}", json=trigger, params=params)
+        return resp.json()
+
+    async def delete(self, trigger_id: str, namespace: str | None = None) -> None:
+        params = {"namespace": namespace} if namespace else None
+        await self._request("DELETE", f"/api/v1/ci/triggers/{trigger_id}", params=params)
+
+    async def test_dispatch(self, trigger_id: str, namespace: str | None = None) -> dict[str, Any]:
+        params = {"namespace": namespace} if namespace else None
+        resp = await self._request("POST", f"/api/v1/ci/triggers/{trigger_id}/test", params=params)
+        return resp.json()

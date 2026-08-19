@@ -15,12 +15,12 @@ from mockarty.models.recorder import RecorderEntry, RecorderSession
 class RecorderAPI(SyncAPIBase):
     """Synchronous Recorder API resource."""
 
-    def create(self, session: RecorderSession | dict[str, Any]) -> RecorderSession:
+    def start_recording(self, session: RecorderSession | dict[str, Any]) -> RecorderSession:
         """Create and start a new recording session."""
         resp = self._request("POST", "/api/v1/recorder/start", json=session)
         return RecorderSession.model_validate(resp.json())
 
-    def list(self) -> list[RecorderSession]:
+    def list_sessions(self) -> list[RecorderSession]:
         """List all recording sessions."""
         resp = self._request("GET", "/api/v1/recorder/sessions")
         data = resp.json()
@@ -31,22 +31,22 @@ class RecorderAPI(SyncAPIBase):
             return [RecorderSession.model_validate(s) for s in items]
         return []
 
-    def get(self, session_id: str) -> RecorderSession:
+    def get_session(self, session_id: str) -> RecorderSession:
         """Get a recording session by ID."""
         resp = self._request("GET", f"/api/v1/recorder/{session_id}")
         return RecorderSession.model_validate(resp.json())
 
-    def stop(self, session_id: str) -> RecorderSession:
+    def stop_recording(self, session_id: str) -> RecorderSession:
         """Stop recording traffic for a session."""
         resp = self._request("POST", f"/api/v1/recorder/{session_id}/stop")
         return RecorderSession.model_validate(resp.json())
 
-    def restart(self, session_id: str) -> RecorderSession:
+    def restart_recording(self, session_id: str) -> RecorderSession:
         """Restart a recording session (stops and starts it again)."""
         resp = self._request("POST", f"/api/v1/recorder/{session_id}/restart")
         return RecorderSession.model_validate(resp.json())
 
-    def delete(self, session_id: str) -> None:
+    def delete_session(self, session_id: str) -> None:
         """Delete a recording session."""
         self._request("DELETE", f"/api/v1/recorder/{session_id}")
 
@@ -55,7 +55,32 @@ class RecorderAPI(SyncAPIBase):
         resp = self._request("POST", f"/api/v1/recorder/{session_id}/export")
         return resp.content
 
-    def entries(self, session_id: str) -> list[RecorderEntry]:
+    def export(self, session_id: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Export a session with options (creates mocks + returns the result).
+
+        Parity with Java export(id, options) / Go Export. Unlike
+        :meth:`export_session` (raw bytes), this drives the options-aware
+        export and returns the structured import result.
+        """
+        resp = self._request(
+            "POST", f"/api/v1/recorder/{session_id}/export", json=options or {}
+        )
+        return resp.json()
+
+    def export_session_as_postman(
+        self, session_id: str, entry_ids: list[str] | None = None
+    ) -> bytes:
+        """Export a recording session as a Postman Collection v2.1 document.
+
+        Parity with Go ExportSessionAsPostman / Java exportSessionAsPostman.
+        """
+        body = {"entryIds": entry_ids} if entry_ids else None
+        resp = self._request(
+            "POST", f"/api/v1/recorder/{session_id}/export-postman", json=body
+        )
+        return resp.content
+
+    def get_entries(self, session_id: str) -> list[RecorderEntry]:
         """List recorded entries for a session."""
         resp = self._request("GET", f"/api/v1/recorder/{session_id}/entries")
         data = resp.json()
@@ -66,7 +91,7 @@ class RecorderAPI(SyncAPIBase):
             return [RecorderEntry.model_validate(e) for e in items]
         return []
 
-    def generate_mocks(self, session_id: str) -> list[Mock]:
+    def create_mocks_from_session(self, session_id: str) -> list[Mock]:
         """Generate mocks from recorded traffic."""
         resp = self._request("POST", f"/api/v1/recorder/{session_id}/mocks")
         data = resp.json()
@@ -237,7 +262,7 @@ class AsyncRecorderAPI(AsyncAPIBase):
         resp = await self._request("POST", "/api/v1/recorder/start", json=session)
         return RecorderSession.model_validate(resp.json())
 
-    async def list(self) -> list[RecorderSession]:
+    async def list_sessions(self) -> list[RecorderSession]:
         """List all recording sessions."""
         resp = await self._request("GET", "/api/v1/recorder/sessions")
         data = resp.json()
@@ -248,22 +273,22 @@ class AsyncRecorderAPI(AsyncAPIBase):
             return [RecorderSession.model_validate(s) for s in items]
         return []
 
-    async def get(self, session_id: str) -> RecorderSession:
+    async def get_session(self, session_id: str) -> RecorderSession:
         """Get a recording session by ID."""
         resp = await self._request("GET", f"/api/v1/recorder/{session_id}")
         return RecorderSession.model_validate(resp.json())
 
-    async def stop(self, session_id: str) -> RecorderSession:
+    async def stop_recording(self, session_id: str) -> RecorderSession:
         """Stop recording traffic for a session."""
         resp = await self._request("POST", f"/api/v1/recorder/{session_id}/stop")
         return RecorderSession.model_validate(resp.json())
 
-    async def restart(self, session_id: str) -> RecorderSession:
+    async def restart_recording(self, session_id: str) -> RecorderSession:
         """Restart a recording session (stops and starts it again)."""
         resp = await self._request("POST", f"/api/v1/recorder/{session_id}/restart")
         return RecorderSession.model_validate(resp.json())
 
-    async def delete(self, session_id: str) -> None:
+    async def delete_session(self, session_id: str) -> None:
         """Delete a recording session."""
         await self._request("DELETE", f"/api/v1/recorder/{session_id}")
 
@@ -272,7 +297,24 @@ class AsyncRecorderAPI(AsyncAPIBase):
         resp = await self._request("POST", f"/api/v1/recorder/{session_id}/export")
         return resp.content
 
-    async def entries(self, session_id: str) -> list[RecorderEntry]:
+    async def export(self, session_id: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Export a session with options. Parity: Java export / Go Export."""
+        resp = await self._request(
+            "POST", f"/api/v1/recorder/{session_id}/export", json=options or {}
+        )
+        return resp.json()
+
+    async def export_session_as_postman(
+        self, session_id: str, entry_ids: list[str] | None = None
+    ) -> bytes:
+        """Export a session as a Postman Collection v2.1. Parity: Go/Java."""
+        body = {"entryIds": entry_ids} if entry_ids else None
+        resp = await self._request(
+            "POST", f"/api/v1/recorder/{session_id}/export-postman", json=body
+        )
+        return resp.content
+
+    async def get_entries(self, session_id: str) -> list[RecorderEntry]:
         """List recorded entries for a session."""
         resp = await self._request("GET", f"/api/v1/recorder/{session_id}/entries")
         data = resp.json()
@@ -283,7 +325,7 @@ class AsyncRecorderAPI(AsyncAPIBase):
             return [RecorderEntry.model_validate(e) for e in items]
         return []
 
-    async def generate_mocks(self, session_id: str) -> list[Mock]:
+    async def create_mocks_from_session(self, session_id: str) -> list[Mock]:
         """Generate mocks from recorded traffic."""
         resp = await self._request("POST", f"/api/v1/recorder/{session_id}/mocks")
         data = resp.json()

@@ -27,6 +27,7 @@ from mockarty.models.mock import (
     Mock,
     OneOf,
     Proxy,
+    ResponseScript,
 )
 
 
@@ -293,6 +294,21 @@ class MockBuilder:
         resp = ContentResponse(
             status_code=status_code,
             payload_template_path=template_path,
+        )
+        self._mock_data["response"] = resp
+        return self
+
+    def respond_with_script(
+        self, code: str, timeout_ms: int | None = None, allow_net: bool = False
+    ) -> MockBuilder:
+        """Set a JavaScript scripted response: ``code`` receives ``request`` and
+        fills ``response`` when the mock is hit. See the Scripted Responses guide.
+        Set ``allow_net=True`` only if it must make outbound calls (mk.http.send).
+        """
+        resp = ContentResponse(
+            script=ResponseScript(
+                code=code, timeout_ms=timeout_ms, allow_net=allow_net or None
+            )
         )
         self._mock_data["response"] = resp
         return self

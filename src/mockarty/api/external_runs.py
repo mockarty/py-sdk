@@ -49,6 +49,11 @@ def _ns_path(namespace: str) -> str:
     return f"/api/v1/namespaces/{quote(namespace, safe='')}/tcm/external-runs"
 
 
+def _lifecycle_path(namespace: str) -> str:
+    """Return the namespace-scoped streaming-lifecycle base path."""
+    return _ns_path(namespace) + "/lifecycle"
+
+
 def _build_attachments(
     attachments: Optional[Iterable[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
@@ -104,6 +109,7 @@ def _build_payload(
     started_at: Optional[str],
     finished_at: Optional[str],
     labels: Optional[dict[str, str]],
+    parameters: Optional[dict[str, str]] = None,
     metadata: Optional[dict[str, Any]],
     steps: Optional[list[dict[str, Any]]],
     attachments: Optional[Iterable[dict[str, Any]]],
@@ -155,6 +161,8 @@ def _build_payload(
         payload["finishedAt"] = finished_at
     if labels:
         payload["labels"] = dict(labels)
+    if parameters:
+        payload["parameters"] = dict(parameters)
     if metadata:
         payload["metadata"] = dict(metadata)
     if steps:
@@ -198,6 +206,7 @@ class ExternalRunsAPI(SyncAPIBase):
         started_at: Optional[str] = None,
         finished_at: Optional[str] = None,
         labels: Optional[dict[str, str]] = None,
+        parameters: Optional[dict[str, str]] = None,
         metadata: Optional[dict[str, Any]] = None,
         steps: Optional[list[dict[str, Any]]] = None,
         attachments: Optional[Iterable[dict[str, Any]]] = None,
@@ -216,7 +225,7 @@ class ExternalRunsAPI(SyncAPIBase):
         Defaults are tuned for the 80% case: pass ``case_id`` (UUID) or
         ``case_name`` plus ``status`` and the rest is optional.
 
-        Phase 2.6 fields (Mockarty extensions beyond the Allure base):
+        Mockarty extension fields (Mockarty extensions beyond the Allure base):
 
         - ``full_name``           — deterministic test identifier
           ("package.Class::test[param=value]") for duplicate-prevention
@@ -253,6 +262,7 @@ class ExternalRunsAPI(SyncAPIBase):
             started_at=started_at,
             finished_at=finished_at,
             labels=labels,
+            parameters=parameters,
             metadata=metadata,
             steps=steps,
             attachments=attachments,
@@ -333,6 +343,52 @@ class ExternalRunsAPI(SyncAPIBase):
             on_error=on_error,
         )
 
+    # -- streaming lifecycle -------------------------------------------------
+
+    def start_run(self, run: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Open a streaming external run and return its server view (with the
+        run ``id`` to feed :meth:`append_steps` / :meth:`finish_run`).
+
+        Unlike :meth:`report` (one-shot upload of a finished run), the lifecycle
+        API reports incrementally: ``start_run`` → ``append_steps`` (repeatedly)
+        → ``finish_run``. ``run`` accepts ``name``, ``full_name``, ``framework``,
+        ``suite_id``, ``external_id``, ``test_case_id``, ``tags``, ``environment``.
+        """
+        ns = namespace or self._namespace
+        resp = self._request("POST", _lifecycle_path(ns), json=run)
+        return resp.json()
+
+    def append_steps(self, run_id: str, steps: list[dict[str, Any]], *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Stream one or more steps into an open run. Each step accepts
+        ``step_key``, ``name``, ``status``, ``message``, ``stack_trace``,
+        ``parent_key``, ``duration_ms``, ``parameters``."""
+        ns = namespace or self._namespace
+        resp = self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps", json={"steps": steps})
+        return resp.json()
+
+    def finish_run(self, run_id: str, status: str, *, summary: str = "", namespace: Optional[str] = None) -> dict[str, Any]:
+        """Close an open run; the returned view carries the resolved TCM
+        case/run ids the ingest matched or created."""
+        ns = namespace or self._namespace
+        body: dict[str, Any] = {"status": status}
+        if summary:
+            body["summary"] = summary
+        resp = self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish", json=body)
+        return resp.json()
+
+    def get_run(self, run_id: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Fetch the current view of a streaming run."""
+        ns = namespace or self._namespace
+        resp = self._request("GET", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}")
+        return resp.json()
+
+    def list_runs(self, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
+        """List streaming runs in the namespace."""
+        ns = namespace or self._namespace
+        resp = self._request("GET", _lifecycle_path(ns))
+        data = resp.json()
+        return data.get("runs", []) if isinstance(data, dict) else []
+
 
 class AsyncExternalRunsAPI(AsyncAPIBase):
     """Async counterpart of :class:`ExternalRunsAPI`."""
@@ -357,6 +413,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         started_at: Optional[str] = None,
         finished_at: Optional[str] = None,
         labels: Optional[dict[str, str]] = None,
+        parameters: Optional[dict[str, str]] = None,
         metadata: Optional[dict[str, Any]] = None,
         steps: Optional[list[dict[str, Any]]] = None,
         attachments: Optional[Iterable[dict[str, Any]]] = None,
@@ -386,6 +443,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
             started_at=started_at,
             finished_at=finished_at,
             labels=labels,
+            parameters=parameters,
             metadata=metadata,
             steps=steps,
             attachments=attachments,
@@ -412,6 +470,42 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         path = _ns_path(ns) + "/batch"
         resp = await self._request("POST", path, json=body)
         return resp.json() if resp.content else {}
+
+    # -- streaming lifecycle -------------------------------------------------
+
+    async def start_run(self, run: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Async counterpart of :meth:`ExternalRunsAPI.start_run`."""
+        ns = namespace or self._namespace
+        resp = await self._request("POST", _lifecycle_path(ns), json=run)
+        return resp.json()
+
+    async def append_steps(self, run_id: str, steps: list[dict[str, Any]], *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Async counterpart of :meth:`ExternalRunsAPI.append_steps`."""
+        ns = namespace or self._namespace
+        resp = await self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps", json={"steps": steps})
+        return resp.json()
+
+    async def finish_run(self, run_id: str, status: str, *, summary: str = "", namespace: Optional[str] = None) -> dict[str, Any]:
+        """Async counterpart of :meth:`ExternalRunsAPI.finish_run`."""
+        ns = namespace or self._namespace
+        body: dict[str, Any] = {"status": status}
+        if summary:
+            body["summary"] = summary
+        resp = await self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish", json=body)
+        return resp.json()
+
+    async def get_run(self, run_id: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Async counterpart of :meth:`ExternalRunsAPI.get_run`."""
+        ns = namespace or self._namespace
+        resp = await self._request("GET", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}")
+        return resp.json()
+
+    async def list_runs(self, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
+        """Async counterpart of :meth:`ExternalRunsAPI.list_runs`."""
+        ns = namespace or self._namespace
+        resp = await self._request("GET", _lifecycle_path(ns))
+        data = resp.json()
+        return data.get("runs", []) if isinstance(data, dict) else []
 
 
 # ── Allure → external-run translator ────────────────────────────────────

@@ -47,7 +47,7 @@ def main() -> int:
         (TEST_RUN_REPORT_FORMAT_HTML, "run.html"),
     ]
     for fmt, out in targets:
-        data = api.get_report(run_id, format=fmt)
+        data = api.get_test_run_report(run_id, format=fmt)
         with open(out, "wb") as fh:
             fh.write(data)
         print(f"wrote {out} ({len(data)} bytes, format={fmt})")

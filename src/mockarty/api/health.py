@@ -39,6 +39,16 @@ class HealthAPI(SyncAPIBase):
         except Exception:
             return False
 
+    def version(self) -> str:
+        """Server version (releaseId from the health endpoint), or 'unknown'.
+
+        Parity with Java health().version() / Go Health().Version().
+        """
+        try:
+            return self.check().release_id or "unknown"
+        except Exception:
+            return "unknown"
+
 
 class AsyncHealthAPI(AsyncAPIBase):
     """Asynchronous Health API resource."""
@@ -63,3 +73,10 @@ class AsyncHealthAPI(AsyncAPIBase):
             return resp.is_success
         except Exception:
             return False
+
+    async def version(self) -> str:
+        """Server version (releaseId), or 'unknown'. Parity: Java/Go version()."""
+        try:
+            return (await self.check()).release_id or "unknown"
+        except Exception:
+            return "unknown"

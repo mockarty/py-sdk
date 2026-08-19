@@ -86,7 +86,7 @@ def test_case(
         metadata: free-form dict attached to the case frame; surfaces in
             attachments / reports.
         description: Markdown description for the TCM case row itself
-            (Phase 2.6 — Mockarty extension beyond Allure). When ``auto_
+            (Mockarty extension beyond Allure). When ``auto_
             create=True`` or ``claim_ownership=True`` this overwrites the
             stored description; otherwise it's sent for context only.
         expected_result: Markdown "what should happen" clause for the

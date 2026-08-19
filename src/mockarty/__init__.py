@@ -20,6 +20,7 @@ Quick start::
 from __future__ import annotations
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
+from mockarty.api.mcp import AsyncMCPClient, MCPClient, MCPTool, MCPToolResult, MockartyMCPError
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.discovery import (
     AsyncDiscoveryAPI,
@@ -28,6 +29,7 @@ from mockarty.api.discovery import (
     SyncResult,
 )
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
+from mockarty.api.experience import AsyncExperienceAPI, ExperienceAPI
 from mockarty.api.external_runs import (
     EXTERNAL_RUN_SCHEMA_VERSION,
     EXTERNAL_STATUS_BROKEN,
@@ -59,6 +61,8 @@ from mockarty.api.testplans import (
 )
 from mockarty.api.undefined import AsyncUndefinedAPI, UndefinedAPI
 from mockarty.async_client import AsyncMockartyClient
+from mockarty.builders.load_builder import LoadRequest, LoadTest
+from mockarty.builders.uitest_builder import UITest
 from mockarty.builders.mock_builder import MockBuilder, OneOfBuilder
 from mockarty.client import MockartyClient
 from mockarty.errors import (
@@ -72,6 +76,7 @@ from mockarty.errors import (
     MockartyRateLimitError,
     MockartyServerError,
     MockartyTimeoutError,
+    MockartyTaskError,
     MockartyUnauthorizedError,
     MockartyUnavailableError,
     MockartyValidationError,
@@ -127,6 +132,15 @@ from mockarty.models.entity_search import (
     EntitySearchResponse,
     EntitySearchResult,
 )
+from mockarty.models.experience import (
+    EXPERIENCE_KIND_DEFECT_ROOT_CAUSE,
+    EXPERIENCE_KIND_MISSION_LESSON,
+    EXPERIENCE_KIND_PITFALL,
+    EXPERIENCE_KIND_PRODUCT_FACT,
+    ExperienceItem,
+    ExperienceRecordResponse,
+    ExperienceSearchResponse,
+)
 from mockarty.models.contexts import (
     GraphQLRequestContext,
     GrpcRequestContext,
@@ -158,6 +172,7 @@ from mockarty.models.imports import ImportResult
 from mockarty.models.mock import (
     Callback,
     ContentResponse,
+    ResponseScript,
     Extract,
     Mock,
     OneOf,
@@ -194,12 +209,25 @@ __all__ = [
     # Clients
     "MockartyClient",
     "AsyncMockartyClient",
+    "ExperienceAPI",
+    "AsyncExperienceAPI",
+    "ExperienceItem",
+    "ExperienceSearchResponse",
+    "ExperienceRecordResponse",
+    "EXPERIENCE_KIND_MISSION_LESSON",
+    "EXPERIENCE_KIND_PITFALL",
+    "EXPERIENCE_KIND_PRODUCT_FACT",
+    "EXPERIENCE_KIND_DEFECT_ROOT_CAUSE",
     # Builders
     "MockBuilder",
     "OneOfBuilder",
+    "LoadTest",
+    "UITest",
+    "LoadRequest",
     # Core models
     "Mock",
     "ContentResponse",
+    "ResponseScript",
     "OneOf",
     "Proxy",
     "Callback",
@@ -372,4 +400,10 @@ __all__ = [
     "MockartyExternalError",
     "MockartyConnectionError",
     "MockartyTimeoutError",
+    "MockartyTaskError",
+    "MCPClient",
+    "AsyncMCPClient",
+    "MCPTool",
+    "MCPToolResult",
+    "MockartyMCPError",
 ]

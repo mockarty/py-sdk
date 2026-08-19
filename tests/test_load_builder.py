@@ -26,10 +26,10 @@ def test_basic_script_has_options_and_request():
     assert "import http from 'k6/http'" in script
     assert "export const options" in script
     assert "export default function" in script
-    assert "http.get(`${__ENV.BASE_URL}/health`)" in script
+    assert "http.get(`${BASE_URL}/health`)" in script
     # options encode the constant profile
-    assert '"vus": 5' in script
-    assert '"duration": "30s"' in script
+    assert '"vus":5' in script
+    assert '"duration":"30s"' in script
 
 
 def test_stages_take_priority_over_constant_vus():
@@ -42,8 +42,8 @@ def test_stages_take_priority_over_constant_vus():
         .to_perf_config()
     )
     assert cfg["stages"] == [
-        {"duration": "10s", "target": 20},
-        {"duration": "30s", "target": 20},
+        {"duration":"10s", "target": 20},
+        {"duration":"30s", "target": 20},
         {"duration": "5s", "target": 0},
     ]
     assert "vus" not in cfg  # stages win
@@ -72,7 +72,7 @@ def test_post_body_json_content_type_and_serialization():
         .post("/cart", body={"sku": "abc", "qty": 2})
         .to_k6_script()
     )
-    assert "http.post(`${__ENV.BASE_URL}/cart`" in script
+    assert "http.post(`${BASE_URL}/cart`" in script
     assert "application/json" in script
     # body is JSON-serialized into the script literal
     assert "sku" in script and "abc" in script
@@ -92,7 +92,7 @@ def test_env_exposed_and_base_url_defaulted():
 
 def test_target_without_explicit_request_defaults_to_get_root():
     script = LoadTest().target("http://x").to_k6_script()
-    assert "http.get(`${__ENV.BASE_URL}/`)" in script
+    assert "http.get(`${BASE_URL}/`)" in script
 
 
 def test_to_perf_config_is_valid_json_and_full_profile():
@@ -125,7 +125,7 @@ def test_rps_and_max_vus_flow_into_config_and_script():
     )
     assert cfg["rps"] == 100
     assert cfg["maxVus"] == 50
-    assert '"rps": 100' in cfg["script"]
+    assert '"rps":100' in cfg["script"]
 
 
 def test_save_writes_file(tmp_path):
@@ -135,3 +135,50 @@ def test_save_writes_file(tmp_path):
     data = json.loads(p.read_text())
     assert data["name"] == "x"
     assert "script" in data
+
+
+def test_bakes_base_url_default_and_unescaped_threshold():
+    """Exported script is self-contained: target() baked as a runnable
+    ``const BASE_URL = __ENV.BASE_URL || '<target>'`` and thresholds stay
+    literal (p(95)<500, never the HTML-escaped \\u003c form)."""
+    from mockarty import LoadTest
+
+    script = (
+        LoadTest("t")
+        .target("http://127.0.0.1:5870")
+        .get("/health")
+        .threshold("http_req_duration", "p(95)<500")
+        .to_k6_script()
+    )
+    assert "const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:5870';" in script
+    assert "${__ENV.BASE_URL}" not in script
+    assert "\\u003c" not in script
+    assert "p(95)<500" in script
+
+
+def test_no_target_no_base_url_const():
+    from mockarty import LoadTest
+
+    script = LoadTest("t").get("/health").to_k6_script()
+    assert "const BASE_URL" not in script
+
+
+def test_per_endpoint_checks_replace_default():
+    script = (
+        LoadTest("checks")
+        .target("http://x")
+        .post("/order", {"sku": "a"})
+        .expect_status(201)
+        .check("has id", "res.json().id !== undefined")
+        .get("/health")
+        .to_k6_script()
+    )
+    want = "  check(r, { 'status is 201': (res) => res.status === 201, 'has id': (res) => res.json().id !== undefined });"
+    assert want in script
+    # request without checks keeps the default assertion
+    assert "check(r, { 'status < 400': (res) => res.status < 400 });" in script
+
+
+def test_check_before_any_request_is_noop():
+    script = LoadTest("t").target("http://x").check("x", "true").expect_status(200).to_k6_script()
+    assert "check(r, { 'status < 400'" in script

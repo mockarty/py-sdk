@@ -279,12 +279,8 @@ def namespace_isolation(client: MockartyClient) -> None:
     client.mocks.create(mock)
     print("Created mock in 'sandbox' namespace")
 
-    # Copy mocks to staging
-    client.namespaces.copy_mocks(
-        source_namespace="sandbox",
-        target_namespace="staging",
-        mock_ids=["ns-demo-mock"],
-    )
+    # Copy mocks to staging (by ID — the server-backed operation)
+    client.mocks.copy_to_namespace(["ns-demo-mock"], "staging")
     print("Copied mock to 'staging' namespace")
 
     # Switch namespace and verify

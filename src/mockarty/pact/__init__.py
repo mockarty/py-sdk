@@ -9,7 +9,7 @@ artefacts that any Pact-compatible verifier (Mockarty's own
 ``internal/contract/pact_matcher.go``, the pact-go verifier, the
 official ``pact-broker`` CLI, etc.) can consume.
 
-See :doc:`./README` for the design rationale and Phase 2 roadmap.
+See :doc:`./README` for the design rationale and the follow-up roadmap.
 
 Quick start::
 

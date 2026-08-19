@@ -841,6 +841,39 @@ class TestPlansAPI(SyncAPIBase):
         resp = self._request("GET", path, headers={"Accept": "text/html"})
         return resp.content
 
+    # ── Plan notification subscriptions ───────────────────────────────
+    # Parity with Go CreateNotification/ListNotifications/GetNotification/
+    # UpdateNotification/DeleteNotification (the Java SDK gains them too).
+
+    def create_notification(self, plan_id: str, notification: dict) -> dict:
+        """Create a notification subscription on a test plan."""
+        resp = self._request("POST", f"{_BASE}/{plan_id}/notifications", json=notification)
+        return resp.json()
+
+    def list_notifications(self, plan_id: str) -> list:
+        """List notification subscriptions for a test plan."""
+        resp = self._request("GET", f"{_BASE}/{plan_id}/notifications")
+        data = resp.json()
+        if isinstance(data, dict):
+            return data.get("notifications") or data.get("items") or []
+        return data if isinstance(data, list) else []
+
+    def get_notification(self, plan_id: str, notification_id: str) -> dict:
+        """Get a single notification subscription by ID."""
+        resp = self._request("GET", f"{_BASE}/{plan_id}/notifications/{notification_id}")
+        return resp.json()
+
+    def update_notification(self, plan_id: str, notification_id: str, notification: dict) -> dict:
+        """Update a notification subscription."""
+        resp = self._request(
+            "PUT", f"{_BASE}/{plan_id}/notifications/{notification_id}", json=notification
+        )
+        return resp.json()
+
+    def delete_notification(self, plan_id: str, notification_id: str) -> None:
+        """Delete a notification subscription."""
+        self._request("DELETE", f"{_BASE}/{plan_id}/notifications/{notification_id}")
+
 
 # ---------------------------------------------------------------------------
 # Async API
@@ -1353,3 +1386,34 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         )
         resp = await self._request("GET", path, headers={"Accept": "text/html"})
         return resp.content
+
+    # ── Plan notification subscriptions ───────────────────────────────
+
+    async def create_notification(self, plan_id: str, notification: dict) -> dict:
+        """Create a notification subscription on a test plan."""
+        resp = await self._request("POST", f"{_BASE}/{plan_id}/notifications", json=notification)
+        return resp.json()
+
+    async def list_notifications(self, plan_id: str) -> list:
+        """List notification subscriptions for a test plan."""
+        resp = await self._request("GET", f"{_BASE}/{plan_id}/notifications")
+        data = resp.json()
+        if isinstance(data, dict):
+            return data.get("notifications") or data.get("items") or []
+        return data if isinstance(data, list) else []
+
+    async def get_notification(self, plan_id: str, notification_id: str) -> dict:
+        """Get a single notification subscription by ID."""
+        resp = await self._request("GET", f"{_BASE}/{plan_id}/notifications/{notification_id}")
+        return resp.json()
+
+    async def update_notification(self, plan_id: str, notification_id: str, notification: dict) -> dict:
+        """Update a notification subscription."""
+        resp = await self._request(
+            "PUT", f"{_BASE}/{plan_id}/notifications/{notification_id}", json=notification
+        )
+        return resp.json()
+
+    async def delete_notification(self, plan_id: str, notification_id: str) -> None:
+        """Delete a notification subscription."""
+        await self._request("DELETE", f"{_BASE}/{plan_id}/notifications/{notification_id}")

@@ -96,7 +96,7 @@ class TestRunAPI(SyncAPIBase):
         """Delete a test run record."""
         self._request("DELETE", f"/api/v1/api-tester/test-runs/{run_id}")
 
-    def get_report(
+    def get_test_run_report(
         self,
         run_id: str,
         format: str = TEST_RUN_REPORT_FORMAT_UNIFIED_JSON,
@@ -164,6 +164,22 @@ class TestRunAPI(SyncAPIBase):
         )
         return resp.content
 
+    def cancel(self, run_id: str) -> None:
+        """Cancel a running test run. Parity: Go/Java cancel."""
+        self._request("POST", f"/api/v1/api-tester/test-runs/{run_id}/cancel")
+
+    def export(self, run_id: str, format: str) -> bytes:
+        """Export a test run's report as bytes. Parity: Go/Java export."""
+        resp = self._request(
+            "GET", f"/api/v1/api-tester/test-runs/{run_id}/export", params={"format": format}
+        )
+        return resp.content
+
+    def import_report(self, report: dict[str, Any]) -> TestRun:
+        """Import a test-run report. Parity: Go/Java importReport."""
+        resp = self._request("POST", "/api/v1/api-tester/reports/import", json=report)
+        return TestRun.model_validate(resp.json())
+
 
 class AsyncTestRunAPI(AsyncAPIBase):
     """Asynchronous Test Run API resource."""
@@ -203,7 +219,7 @@ class AsyncTestRunAPI(AsyncAPIBase):
         """Delete a test run record."""
         await self._request("DELETE", f"/api/v1/api-tester/test-runs/{run_id}")
 
-    async def get_report(
+    async def get_test_run_report(
         self,
         run_id: str,
         format: str = TEST_RUN_REPORT_FORMAT_UNIFIED_JSON,
@@ -251,3 +267,19 @@ class AsyncTestRunAPI(AsyncAPIBase):
             json=body,
         )
         return resp.content
+
+    async def cancel(self, run_id: str) -> None:
+        """Cancel a running test run. Parity: Go/Java cancel."""
+        await self._request("POST", f"/api/v1/api-tester/test-runs/{run_id}/cancel")
+
+    async def export(self, run_id: str, format: str) -> bytes:
+        """Export a test run's report as bytes. Parity: Go/Java export."""
+        resp = await self._request(
+            "GET", f"/api/v1/api-tester/test-runs/{run_id}/export", params={"format": format}
+        )
+        return resp.content
+
+    async def import_report(self, report: dict[str, Any]) -> TestRun:
+        """Import a test-run report. Parity: Go/Java importReport."""
+        resp = await self._request("POST", "/api/v1/api-tester/reports/import", json=report)
+        return TestRun.model_validate(resp.json())

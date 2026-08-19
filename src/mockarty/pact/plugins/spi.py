@@ -41,7 +41,7 @@ class Plugin(Protocol):
     #: Stable lowercase identifier, used by ``Consumer.with_plugin``.
     name: str
 
-    #: Plugin semver (free-form string). Phase 1 simply records this in
+    #: Plugin semver (free-form string). the current release simply records this in
     #: the pact metadata for round-trip fidelity; future verifiers may
     #: refuse to load a plugin whose version is missing.
     version: str

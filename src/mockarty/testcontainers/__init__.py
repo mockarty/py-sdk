@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
 # Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 
-"""Mockarty testcontainers wrapper -- Wave 4 SDK addition.
+"""Mockarty testcontainers wrapper -- protocol-client SDK addition.
 
 A thin :mod:`testcontainers`-backed wrapper around the canonical
 ``mockarty/cli:latest-mock`` image. Drop-in replacement for

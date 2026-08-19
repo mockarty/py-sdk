@@ -46,7 +46,7 @@ def main() -> int:
         # 2) Poll until terminal state.
         for _ in range(180):  # 30 minutes max @ 10s intervals
             time.sleep(10)
-            got = client.security.get_report(report_id)
+            got = client.security.get_test_run_report(report_id)
             status = got.get("status")
             print(
                 f"  status={status} tokens={got.get('costTokens')} "

@@ -353,7 +353,7 @@ class TestMockAPIChain:
             )
         )
 
-        mocks = client.mocks.chain("chain-1")
+        mocks = client.mocks.get_chain("chain-1")
         assert len(mocks) == 2
         assert mocks[0].chain_id == "chain-1"
 

@@ -8,7 +8,7 @@ serialises. They mirror Go's ``internal/fuzzing/config.go`` field names
 and casing (camelCase on the wire) so the admin server / CLI can
 consume the JSON without an intermediate adapter.
 
-Phase 1 covers the FuzzConfig + FuzzOptions + FuzzSeedRequest triple
+The current release covers the FuzzConfig + FuzzOptions + FuzzSeedRequest triple
 that drives a single run. Schedules and quarantine entries are out of
 scope here — those live on the existing ``mockarty.api.fuzzing``
 HTTP surface.

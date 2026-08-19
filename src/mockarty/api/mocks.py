@@ -255,14 +255,8 @@ class MockAPI(SyncAPIBase):
             json={"mockIds": ids, "tagsToAdd": tags},
         )
 
-    def versions(self, mock_id: str) -> list[Mock]:
-        """Retrieve version history for a mock.
 
-        .. deprecated:: Use :meth:`list_versions` instead.
-        """
-        return self.list_versions(mock_id)
-
-    def chain(self, chain_id: str) -> list[Mock]:
+    def get_chain(self, chain_id: str) -> list[Mock]:
         """Get all mocks in a chain by chain ID."""
         resp = self._request("GET", f"/api/v1/mocks/chains/{chain_id}")
         data = resp.json()
@@ -449,14 +443,7 @@ class AsyncMockAPI(AsyncAPIBase):
             json={"mockIds": ids, "tagsToAdd": tags},
         )
 
-    async def versions(self, mock_id: str) -> list[Mock]:
-        """Retrieve version history for a mock.
-
-        .. deprecated:: Use :meth:`list_versions` instead.
-        """
-        return await self.list_versions(mock_id)
-
-    async def chain(self, chain_id: str) -> list[Mock]:
+    async def get_chain(self, chain_id: str) -> list[Mock]:
         """Get all mocks in a chain by chain ID."""
         resp = await self._request("GET", f"/api/v1/mocks/chains/{chain_id}")
         data = resp.json()
