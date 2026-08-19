@@ -16,24 +16,25 @@ from mockarty._base_client import (
     resolve_base_url,
 )
 from mockarty.api.agent_tasks import AgentTaskAPI
-from mockarty.api.mcp import MCPClient
-from mockarty.api.issuetracker import IssueTrackerAPI
-from mockarty.api.tcm import TCMAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.discovery import DiscoveryAPI
+from mockarty.api.economics import EconomicsAPI
 from mockarty.api.entity_search import EntitySearchAPI
+from mockarty.api.environments import EnvironmentAPI
 from mockarty.api.experience import ExperienceAPI
 from mockarty.api.external_runs import ExternalRunsAPI
 from mockarty.api.flow_runs import FlowRunsAPI
-from mockarty.api.environments import EnvironmentAPI
 from mockarty.api.folders import FolderAPI
 from mockarty.api.fuzzing import FuzzingAPI
 from mockarty.api.generator import GeneratorAPI
+from mockarty.api.gitsync import GitSyncAPI
 from mockarty.api.health import HealthAPI
 from mockarty.api.imports import ImportAPI
+from mockarty.api.issuetracker import IssueTrackerAPI
+from mockarty.api.mcp import MCPClient
 from mockarty.api.me import MeAPI
 from mockarty.api.mocks import MockAPI
 from mockarty.api.namespace_settings import NamespaceSettingsAPI
@@ -41,17 +42,17 @@ from mockarty.api.namespaces import NamespaceAPI
 from mockarty.api.perf import PerfAPI
 from mockarty.api.prompts import PromptsAPI
 from mockarty.api.proxy import ProxyAPI
+from mockarty.api.recorder import RecorderAPI
 from mockarty.api.secrets import SecretsAPI
 from mockarty.api.security import SecurityAPI
-from mockarty.api.recorder import RecorderAPI
 from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
 from mockarty.api.tags import TagAPI
-from mockarty.api.uitests import UITestAPI
-from mockarty.api.gitsync import GitSyncAPI
+from mockarty.api.tcm import TCMAPI
 from mockarty.api.templates import TemplateAPI
 from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
+from mockarty.api.uitests import UITestAPI
 from mockarty.api.undefined import UndefinedAPI
 
 
@@ -120,6 +121,7 @@ class MockartyClient:
         "_environments",
         "_entity_search",
         "_experience",
+        "_economics",
         "_external_runs",
         "_discovery",
         "_flow_runs",
@@ -450,6 +452,13 @@ class MockartyClient:
         if self._experience is None:
             self._experience = ExperienceAPI(self._http, self._namespace)
         return self._experience
+
+    @property
+    def economics(self) -> EconomicsAPI:
+        """Administrator LLM usage and immutable price-book API."""
+        if self._economics is None:
+            self._economics = EconomicsAPI(self._http, self._namespace)
+        return self._economics
 
     @property
     def external_runs(self) -> ExternalRunsAPI:
