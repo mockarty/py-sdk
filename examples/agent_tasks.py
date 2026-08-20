@@ -143,6 +143,12 @@ def cleanup_tasks(client: MockartyClient) -> None:
     print("Cleared all agent tasks")
 
 
+def list_recoverable_sessions(client: MockartyClient) -> None:
+    """List metadata before an operator explicitly exports or claims history."""
+    page = client.agent_tasks.list_legacy_sessions(limit=20)
+    print(f"Recoverable pre-namespace sessions: {len(page.get('sessions', []))}")
+
+
 def main() -> None:
     with MockartyClient(base_url=MOCKARTY_URL, api_key=API_KEY) as client:
         print("=== Submit Tasks ===")
@@ -169,6 +175,10 @@ def main() -> None:
 
         print("=== Cleanup ===")
         cleanup_tasks(client)
+        print()
+
+        print("=== Recoverable Sessions ===")
+        list_recoverable_sessions(client)
         print()
 
         print("Agent tasks example complete.")
