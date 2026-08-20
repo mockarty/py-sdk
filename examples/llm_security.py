@@ -17,3 +17,5 @@ with MockartyClient(
     )
     journal = client.llm_security.list_namespace_events(limit=20)
     print(policy.revision, result.decision, len(result.findings), len(journal.events))
+    if journal.events:
+        print("latest_request_id", journal.events[0].correlation_id)

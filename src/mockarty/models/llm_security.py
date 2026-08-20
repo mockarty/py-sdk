@@ -138,6 +138,7 @@ class LLMSecurityEvent(BaseModel):
     surface: str
     trust_class: str = Field(alias="trustClass")
     fingerprint: str = ""
+    correlation_id: str = Field(default="", alias="correlationId")
     id: int
     latency_us: int = Field(alias="latencyUs")
     policy_revision: int = Field(alias="policyRevision")

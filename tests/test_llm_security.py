@@ -86,10 +86,35 @@ def test_llm_security_events_are_scoped_and_bounded(client: MockartyClient) -> N
     route = respx.get(
         "http://localhost:5770/api/v1/namespaces/test-ns/llm-security/events",
         params={"limit": "25"},
-    ).mock(return_value=httpx.Response(200, json={"events": []}))
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "events": [
+                    {
+                        "createdAt": "2026-08-20T00:00:00Z",
+                        "mode": "enforce",
+                        "source": "agent",
+                        "ruleId": "pi.rule",
+                        "category": "prompt_injection",
+                        "decision": "block",
+                        "surface": "input",
+                        "trustClass": "user",
+                        "correlationId": "req-python-123",
+                        "id": 1,
+                        "latencyUs": 2,
+                        "policyRevision": 3,
+                        "matches": 1,
+                        "score": 900,
+                    }
+                ]
+            },
+        )
+    )
     result = client.llm_security.list_namespace_events(limit=25)
     assert route.called
-    assert result.events == []
+    assert len(result.events) == 1
+    assert result.events[0].correlation_id == "req-python-123"
     with pytest.raises(ValueError):
         client.llm_security.list_namespace_events(limit=501)
 
