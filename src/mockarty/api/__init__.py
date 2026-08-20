@@ -16,6 +16,7 @@ from mockarty.api.fuzzing import AsyncFuzzingAPI, FuzzingAPI
 from mockarty.api.generator import AsyncGeneratorAPI, GeneratorAPI
 from mockarty.api.health import AsyncHealthAPI, HealthAPI
 from mockarty.api.imports import AsyncImportAPI, ImportAPI
+from mockarty.api.llm_security import AsyncLLMSecurityAPI, LLMSecurityAPI
 from mockarty.api.mocks import AsyncMockAPI, MockAPI
 from mockarty.api.namespace_settings import (
     AsyncNamespaceSettingsAPI,
@@ -49,6 +50,7 @@ __all__ = [
     "AsyncGeneratorAPI",
     "AsyncHealthAPI",
     "AsyncImportAPI",
+    "AsyncLLMSecurityAPI",
     "AsyncMockAPI",
     "AsyncNamespaceAPI",
     "AsyncNamespaceSettingsAPI",
@@ -75,6 +77,7 @@ __all__ = [
     "GeneratorAPI",
     "HealthAPI",
     "ImportAPI",
+    "LLMSecurityAPI",
     "MockAPI",
     "NamespaceAPI",
     "NamespaceSettingsAPI",

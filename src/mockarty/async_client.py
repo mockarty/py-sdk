@@ -23,6 +23,7 @@ from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.discovery import AsyncDiscoveryAPI
 from mockarty.api.economics import AsyncEconomicsAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
+from mockarty.api.llm_security import AsyncLLMSecurityAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
 from mockarty.api.external_runs import AsyncExternalRunsAPI
 from mockarty.api.folders import AsyncFolderAPI
@@ -31,8 +32,6 @@ from mockarty.api.generator import AsyncGeneratorAPI
 from mockarty.api.gitsync import AsyncGitSyncAPI
 from mockarty.api.health import AsyncHealthAPI
 from mockarty.api.imports import AsyncImportAPI
-from mockarty.api.issuetracker import AsyncIssueTrackerAPI
-from mockarty.api.mcp import AsyncMCPClient
 from mockarty.api.me import AsyncMeAPI
 from mockarty.api.mocks import AsyncMockAPI
 from mockarty.api.namespace_settings import AsyncNamespaceSettingsAPI
@@ -45,7 +44,6 @@ from mockarty.api.secrets import AsyncSecretsAPI
 from mockarty.api.stats import AsyncStatsAPI
 from mockarty.api.stores import AsyncStoreAPI
 from mockarty.api.tags import AsyncTagAPI
-from mockarty.api.tcm import AsyncTCMAPI
 from mockarty.api.templates import AsyncTemplateAPI
 from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
@@ -123,6 +121,7 @@ class AsyncMockartyClient:
         self._environments: AsyncEnvironmentAPI | None = None
         self._entity_search: AsyncEntitySearchAPI | None = None
         self._economics: AsyncEconomicsAPI | None = None
+        self._llm_security: AsyncLLMSecurityAPI | None = None
         self._external_runs: AsyncExternalRunsAPI | None = None
         self._discovery: AsyncDiscoveryAPI | None = None
         self._secrets: AsyncSecretsAPI | None = None
@@ -187,6 +186,7 @@ class AsyncMockartyClient:
         self._environments = None
         self._entity_search = None
         self._economics = None
+        self._llm_security = None
         self._external_runs = None
         self._discovery = None
         self._secrets = None
@@ -413,6 +413,13 @@ class AsyncMockartyClient:
         if self._economics is None:
             self._economics = AsyncEconomicsAPI(self._http, self._namespace)
         return self._economics
+
+    @property
+    def llm_security(self) -> AsyncLLMSecurityAPI:
+        """Layered prompt-security management API."""
+        if self._llm_security is None:
+            self._llm_security = AsyncLLMSecurityAPI(self._http, self._namespace)
+        return self._llm_security
 
     @property
     def external_runs(self) -> AsyncExternalRunsAPI:
