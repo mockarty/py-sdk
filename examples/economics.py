@@ -1,4 +1,4 @@
-"""Print 30-day LLM economics grouped by profile."""
+"""Print 30-day AI/workflow economics and configured resource prices."""
 
 from mockarty import MockartyClient
 
@@ -10,3 +10,7 @@ with MockartyClient() as client:
     )
     statement = client.economics.download_usage_statement(limit=100)
     print(f"statement_bytes={len(statement)}")
+    tool_prices = client.economics.list_resource_prices(
+        event_kind="tool_call", unit="calls"
+    )
+    print(f"tool_price_entries={len(tool_prices.resource_prices)}")

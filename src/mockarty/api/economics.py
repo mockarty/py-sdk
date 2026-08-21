@@ -8,10 +8,12 @@ from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 from mockarty.models.economics import (
     LLMBudget,
     LLMBudgetList,
-    LLMPrice,
-    LLMPriceList,
-    LLMUsageReport,
-    LLMUsageRefund,
+	LLMPrice,
+	LLMPriceList,
+	LLMUsageRefund,
+	LLMUsageReport,
+	ResourcePrice,
+    ResourcePriceList,
 )
 
 _PRICES_PATH = "/api/v1/admin/llm-prices"
@@ -25,6 +27,26 @@ def _price_params(provider: str, model: str, limit: int | None) -> dict[str, obj
         params["provider"] = provider.strip()
     if model.strip():
         params["model"] = model.strip()
+    if limit is not None and limit > 0:
+        params["limit"] = limit
+    return params
+
+
+def _resource_price_params(
+    event_kind: str,
+    provider: str,
+    resource: str,
+    unit: str,
+    limit: int | None,
+) -> dict[str, object]:
+    event_kind = event_kind.strip()
+    unit = unit.strip()
+    if not _valid_resource_kind_unit(event_kind, unit, require_unit=False):
+        raise ValueError("event kind must be tool_call or runner_seconds and unit must match")
+    params: dict[str, object] = {"eventKind": event_kind}
+    for key, value in (("provider", provider), ("resource", resource), ("unit", unit)):
+        if value.strip():
+            params[key] = value.strip()
     if limit is not None and limit > 0:
         params["limit"] = limit
     return params
@@ -69,6 +91,30 @@ def _validate_price(price: LLMPrice) -> None:
         raise ValueError("provider, model and currency are required")
 
 
+def _valid_resource_kind_unit(event_kind: str, unit: str, *, require_unit: bool) -> bool:
+    if require_unit and not unit:
+        return False
+    return (event_kind == "tool_call" and unit in ("", "calls")) or (
+        event_kind == "runner_seconds" and unit in ("", "seconds")
+    )
+
+
+def _validate_resource_price(price: ResourcePrice) -> None:
+    if (
+        not price.provider.strip()
+        or not price.resource.strip()
+        or not price.currency.strip()
+        or price.provider_micros_per_unit < 0
+        or price.customer_micros_per_unit < 0
+        or not _valid_resource_kind_unit(
+            price.event_kind.strip(), price.unit.strip(), require_unit=True
+        )
+    ):
+        raise ValueError(
+            "provider, resource, currency and a matching event kind/unit are required"
+        )
+
+
 def _validate_budget(budget: LLMBudget) -> None:
     if (
         not budget.namespace.strip()
@@ -97,6 +143,31 @@ class EconomicsAPI(SyncAPIBase):
             json=price.model_dump(mode="json", by_alias=True, exclude_none=True),
         )
         return LLMPrice.model_validate(response.json())
+
+    def list_resource_prices(
+        self,
+        *,
+        event_kind: str,
+        provider: str = "",
+        resource: str = "",
+        unit: str = "",
+        limit: int | None = None,
+    ) -> ResourcePriceList:
+        response = self._request(
+            "GET",
+            _PRICES_PATH,
+            params=_resource_price_params(event_kind, provider, resource, unit, limit),
+        )
+        return ResourcePriceList.model_validate(response.json())
+
+    def append_resource_price(self, price: ResourcePrice) -> ResourcePrice:
+        _validate_resource_price(price)
+        response = self._request(
+            "POST",
+            _PRICES_PATH,
+            json=price.model_dump(mode="json", by_alias=True, exclude_none=True),
+        )
+        return ResourcePrice.model_validate(response.json())
 
     def get_usage(
         self, *, group_by: str = "profile", days: int | None = 30
@@ -179,6 +250,31 @@ class AsyncEconomicsAPI(AsyncAPIBase):
             json=price.model_dump(mode="json", by_alias=True, exclude_none=True),
         )
         return LLMPrice.model_validate(response.json())
+
+    async def list_resource_prices(
+        self,
+        *,
+        event_kind: str,
+        provider: str = "",
+        resource: str = "",
+        unit: str = "",
+        limit: int | None = None,
+    ) -> ResourcePriceList:
+        response = await self._request(
+            "GET",
+            _PRICES_PATH,
+            params=_resource_price_params(event_kind, provider, resource, unit, limit),
+        )
+        return ResourcePriceList.model_validate(response.json())
+
+    async def append_resource_price(self, price: ResourcePrice) -> ResourcePrice:
+        _validate_resource_price(price)
+        response = await self._request(
+            "POST",
+            _PRICES_PATH,
+            json=price.model_dump(mode="json", by_alias=True, exclude_none=True),
+        )
+        return ResourcePrice.model_validate(response.json())
 
     async def get_usage(
         self, *, group_by: str = "profile", days: int | None = 30

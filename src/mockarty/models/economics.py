@@ -1,4 +1,4 @@
-"""LLM usage economics and immutable price-book models."""
+"""AI and workflow usage economics and immutable price-book models."""
 
 from __future__ import annotations
 
@@ -29,6 +29,30 @@ class LLMPrice(BaseModel):
 
 class LLMPriceList(BaseModel):
     prices: list[LLMPrice] = Field(default_factory=list)
+
+
+class ResourcePrice(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    effective_from: datetime = Field(alias="effectiveFrom")
+    provider_micros_per_unit: int = Field(default=0, alias="providerMicrosPerUnit")
+    customer_micros_per_unit: int = Field(default=0, alias="customerMicrosPerUnit")
+    event_kind: str = Field(alias="eventKind")
+    provider: str
+    resource: str
+    unit: str
+    currency: str
+    created_at: datetime | None = Field(default=None, alias="createdAt")
+    id: str = ""
+    source: str = ""
+
+
+class ResourcePriceList(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    resource_prices: list[ResourcePrice] = Field(
+        default_factory=list, alias="resourcePrices"
+    )
 
 
 class LLMUsageRefund(BaseModel):
@@ -66,6 +90,8 @@ class LLMUsageCost(BaseModel):
     prepaid_micros: int = Field(default=0, alias="prepaidMicros")
     overage_micros: int = Field(default=0, alias="overageMicros")
     byok_calls: int = Field(default=0, alias="byokCalls")
+    resource_events: int = Field(default=0, alias="resourceEvents")
+    resource_quantity: int = Field(default=0, alias="resourceQuantity")
     calls: int = 0
     currency: str = ""
 
@@ -100,6 +126,8 @@ class LLMUsageOutcomeCost(BaseModel):
     provider_cost_micros: int = Field(default=0, alias="providerCostMicros")
     customer_cost_micros: int = Field(default=0, alias="customerCostMicros")
     calls: int = 0
+    resource_events: int = Field(default=0, alias="resourceEvents")
+    resource_quantity: int = Field(default=0, alias="resourceQuantity")
     outcome: str = ""
     currency: str = ""
 
@@ -115,6 +143,15 @@ class LLMUsageReconciliation(BaseModel):
     orphan_usage_event: int = Field(default=0, alias="orphanUsageEvent")
 
 
+class ResourceUsageTotal(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    events: int = 0
+    quantity: int = 0
+    event_kind: str = Field(default="", alias="eventKind")
+    unit: str = ""
+
+
 class LLMUsageReport(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -128,7 +165,11 @@ class LLMUsageReport(BaseModel):
     reconciliation: LLMUsageReconciliation = Field(
         default_factory=LLMUsageReconciliation
     )
+    resource_totals: list[ResourceUsageTotal] = Field(
+        default_factory=list, alias="resourceTotals"
+    )
     unpriced_calls: int = Field(default=0, alias="unpricedCalls")
+    unpriced_events: int = Field(default=0, alias="unpricedEvents")
 
 
 class LLMBudget(BaseModel):

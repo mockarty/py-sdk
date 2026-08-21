@@ -152,6 +152,9 @@ from mockarty.models.economics import (
     LLMUsageRefund,
     LLMUsageReport,
     LLMUsageTotals,
+    ResourcePrice,
+    ResourcePriceList,
+    ResourceUsageTotal,
 )
 from mockarty.models.entity_search import (
     ENTITY_SEARCH_DEFAULT_LIMIT,
@@ -224,7 +227,7 @@ from mockarty.models.undefined import UndefinedRequest
 
 __version__ = "0.3.0"
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     # Clients
     "MockartyClient",
     "AsyncMockartyClient",
@@ -256,6 +259,9 @@ __all__ = [
     "LLMUsageReport",
     "LLMUsageRefund",
     "LLMUsageTotals",
+    "ResourcePrice",
+    "ResourcePriceList",
+    "ResourceUsageTotal",
     # Builders
     "MockBuilder",
     "OneOfBuilder",

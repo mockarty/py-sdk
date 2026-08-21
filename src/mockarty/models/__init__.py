@@ -76,6 +76,9 @@ from mockarty.models.economics import (
     LLMUsageRefund,
     LLMUsageReport,
     LLMUsageTotals,
+    ResourcePrice,
+    ResourcePriceList,
+    ResourceUsageTotal,
 )
 from mockarty.models.entity_search import (
     ENTITY_SEARCH_DEFAULT_LIMIT,
@@ -136,7 +139,7 @@ from mockarty.models.store import (
 from mockarty.models.testrun import TestRun
 from mockarty.models.undefined import UndefinedRequest
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - grouped by model domain for discoverability
     # Chaos models
     "AffectedResource",
     "ChaosConnectionResult",
@@ -187,6 +190,9 @@ __all__ = [
     "LLMUsageReport",
     "LLMUsageRefund",
     "LLMUsageTotals",
+    "ResourcePrice",
+    "ResourcePriceList",
+    "ResourceUsageTotal",
     # Common models
     "ErrorResponse",
     "HealthResponse",
