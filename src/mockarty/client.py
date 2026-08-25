@@ -16,11 +16,17 @@ from mockarty._base_client import (
     resolve_base_url,
 )
 from mockarty.api.agent_tasks import AgentTaskAPI
+from mockarty.api.autonomous_missions import AutonomousMissionsAPI
 from mockarty.api.chaos import ChaosAPI
+from mockarty.api.cloud_webhooks import CloudWebhooksAPI
+from mockarty.api.cloud_spaces import CloudSpacesAPI
+from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
+from mockarty.api.coder_delivery import CoderDeliveryAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.discovery import DiscoveryAPI
+from mockarty.api.delivery_policy import DeliveryPolicyAPI
 from mockarty.api.economics import EconomicsAPI
 from mockarty.api.entity_search import EntitySearchAPI
 from mockarty.api.environments import EnvironmentAPI
@@ -54,6 +60,7 @@ from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
 from mockarty.api.uitests import UITestAPI
 from mockarty.api.undefined import UndefinedAPI
+from mockarty.api.workflow_definitions import WorkflowDefinitionsAPI
 
 
 class MockartyClient:
@@ -91,6 +98,11 @@ class MockartyClient:
     # access, never a stale cached client.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
         "_chaos",
+        "_cloud_webhooks",
+        "_cloud_spaces",
+        "_cloud_entitlements",
+        "_coder_delivery",
+        "_delivery_policy",
         "_ci_triggers",
         "_mocks",
         "_namespaces",
@@ -113,6 +125,7 @@ class MockartyClient:
         "_undefined",
         "_stats",
         "_agent_tasks",
+        "_autonomous_missions",
         "_mcp",
         "_issue_tracker",
         "_tcm",
@@ -125,6 +138,7 @@ class MockartyClient:
         "_external_runs",
         "_discovery",
         "_flow_runs",
+        "_workflow_definitions",
         "_secrets",
         "_security",
         "_prompts",
@@ -202,6 +216,34 @@ class MockartyClient:
         if self._chaos is None:
             self._chaos = ChaosAPI(self._http, self._namespace)
         return self._chaos
+
+    @property
+    def cloud_webhooks(self) -> CloudWebhooksAPI:
+        """Cloud webhook lifecycle API."""
+        if self._cloud_webhooks is None:
+            self._cloud_webhooks = CloudWebhooksAPI(self._http, self._namespace)
+        return self._cloud_webhooks
+
+    @property
+    def cloud_spaces(self) -> CloudSpacesAPI:
+        """Canonical explicit-Space collaboration API."""
+        if self._cloud_spaces is None:
+            self._cloud_spaces = CloudSpacesAPI(self._http, self._namespace)
+        return self._cloud_spaces
+
+    @property
+    def cloud_entitlements(self) -> CloudEntitlementsAPI:
+        """Committed unsigned Cloud entitlement projection API."""
+        if self._cloud_entitlements is None:
+            self._cloud_entitlements = CloudEntitlementsAPI(self._http, self._namespace)
+        return self._cloud_entitlements
+
+    @property
+    def delivery_policy(self) -> DeliveryPolicyAPI:
+        """Administrator delivery-policy environment management."""
+        if self._delivery_policy is None:
+            self._delivery_policy = DeliveryPolicyAPI(self._http, self._namespace)
+        return self._delivery_policy
 
     @property
     def ci_triggers(self) -> CITriggerAPI:
@@ -454,6 +496,20 @@ class MockartyClient:
         return self._experience
 
     @property
+    def autonomous_missions(self) -> AutonomousMissionsAPI:
+        """Autonomous mission intake and supervision API."""
+        if self._autonomous_missions is None:
+            self._autonomous_missions = AutonomousMissionsAPI(self._http, self._namespace)
+        return self._autonomous_missions
+
+    @property
+    def coder_delivery(self) -> CoderDeliveryAPI:
+        """Admitted repositories, delivery configuration, and deploy missions."""
+        if self._coder_delivery is None:
+            self._coder_delivery = CoderDeliveryAPI(self._http, self._namespace)
+        return self._coder_delivery
+
+    @property
     def economics(self) -> EconomicsAPI:
         """Administrator LLM usage and immutable price-book API."""
         if self._economics is None:
@@ -491,3 +547,10 @@ class MockartyClient:
         if self._flow_runs is None:
             self._flow_runs = FlowRunsAPI(self._http, self._namespace)
         return self._flow_runs
+
+    @property
+    def workflow_definitions(self) -> WorkflowDefinitionsAPI:
+        """Versioned workflow draft, dry-run and publish API."""
+        if self._workflow_definitions is None:
+            self._workflow_definitions = WorkflowDefinitionsAPI(self._http, self._namespace)
+        return self._workflow_definitions

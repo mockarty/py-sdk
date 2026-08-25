@@ -124,8 +124,11 @@ def test_rps_and_max_vus_flow_into_config_and_script():
         .to_perf_config()
     )
     assert cfg["rps"] == 100
-    assert cfg["maxVus"] == 50
+    assert cfg["maxVUs"] == 50
+    assert "maxVus" not in cfg
     assert '"rps":100' in cfg["script"]
+    assert '"maxVUs":50' in cfg["script"]
+    assert '"maxVus"' not in cfg["script"]
 
 
 def test_save_writes_file(tmp_path):

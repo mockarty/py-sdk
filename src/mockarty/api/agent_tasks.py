@@ -51,8 +51,48 @@ class AgentTaskAPI(SyncAPIBase):
         resp = self._request("GET", f"/api/v1/agent/tasks/{task_id}")
         data = resp.json()
         if isinstance(data, dict) and "task" in data:
-            return data["task"] or {}
+            task = data["task"] or {}
+            if isinstance(task, dict):
+                task["toolReceipts"] = data.get("toolReceipts") or []
+                task["canReconcileToolReceipts"] = data.get("canReconcileToolReceipts") is True
+                task["toolReceiptRetryAllowed"] = data.get("toolReceiptRetryAllowed") is True
+                task["toolReceiptReconcileBlockedReason"] = data.get("toolReceiptReconcileBlockedReason") or ""
+            return task
         return data
+
+    def reconcile_tool_receipt(
+        self,
+        task_id: str,
+        receipt_key: str,
+        *,
+        expected_version: int,
+        idempotency_key: str,
+        decision: str,
+        reason: str,
+        result: str = "",
+    ) -> dict[str, Any]:
+        """Resolve one uncertain external action after inspecting the real target.
+
+        ``decision`` is ``already_applied``, ``retry_once`` or ``mark_failed``.
+        Keep ``idempotency_key`` stable when retrying the same HTTP request.
+        ``reason`` is limited to 2000 encoded UTF-8 bytes and ``result`` to
+        65536 encoded UTF-8 bytes.
+        ``retry_once`` requires an empty result and permits exactly one new
+        physical dispatch generation.
+        """
+        payload = {
+            "expectedVersion": expected_version,
+            "idempotencyKey": idempotency_key,
+            "decision": decision,
+            "reason": reason,
+            "result": result,
+        }
+        data = self._request(
+            "POST",
+            f"/api/v1/agent/tasks/{task_id}/tool-receipts/{receipt_key}/reconcile",
+            json=payload,
+        ).json()
+        return data.get("receipt", {}) if isinstance(data, dict) else data
 
     def submit(self, task: dict[str, Any]) -> dict[str, Any]:
         """Submit a new agent task.
@@ -90,6 +130,32 @@ class AgentTaskAPI(SyncAPIBase):
         """Export an agent task result as raw bytes."""
         resp = self._request("GET", f"/api/v1/agent/tasks/{task_id}/export")
         return resp.content
+
+    def list_legacy_sessions(self, limit: int = 50, cursor: str = "") -> dict[str, Any]:
+        """List owner-only metadata for recoverable pre-namespace sessions."""
+        params: dict[str, Any] = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        return self._request("GET", "/api/v1/agent/sessions/legacy", params=params).json()
+
+    def claim_legacy_session(
+        self,
+        legacy_id: str,
+        namespace: str,
+        session_key: str | None = None,
+        acknowledge_unknown_origin: bool = False,
+    ) -> dict[str, Any]:
+        """Move one recoverable session into a writable workspace."""
+        payload: dict[str, Any] = {
+            "namespace": namespace,
+            "acknowledgeUnknownOrigin": acknowledge_unknown_origin,
+        }
+        if session_key:
+            payload["sessionKey"] = session_key
+        data = self._request(
+            "POST", f"/api/v1/agent/sessions/legacy/{legacy_id}/claim", json=payload
+        ).json()
+        return data.get("session", {}) if isinstance(data, dict) else data
 
     def wait_for_result(self, task_id: str, poll_interval: float = 2.0) -> dict[str, Any]:
         """Poll a task until it reaches a terminal state, returning the finished
@@ -136,8 +202,40 @@ class AsyncAgentTaskAPI(AsyncAPIBase):
         resp = await self._request("GET", f"/api/v1/agent/tasks/{task_id}")
         data = resp.json()
         if isinstance(data, dict) and "task" in data:
-            return data["task"] or {}
+            task = data["task"] or {}
+            if isinstance(task, dict):
+                task["toolReceipts"] = data.get("toolReceipts") or []
+                task["canReconcileToolReceipts"] = data.get("canReconcileToolReceipts") is True
+                task["toolReceiptRetryAllowed"] = data.get("toolReceiptRetryAllowed") is True
+                task["toolReceiptReconcileBlockedReason"] = data.get("toolReceiptReconcileBlockedReason") or ""
+            return task
         return data
+
+    async def reconcile_tool_receipt(
+        self,
+        task_id: str,
+        receipt_key: str,
+        *,
+        expected_version: int,
+        idempotency_key: str,
+        decision: str,
+        reason: str,
+        result: str = "",
+    ) -> dict[str, Any]:
+        """Async mirror of :meth:`AgentTaskAPI.reconcile_tool_receipt`."""
+        payload = {
+            "expectedVersion": expected_version,
+            "idempotencyKey": idempotency_key,
+            "decision": decision,
+            "reason": reason,
+            "result": result,
+        }
+        data = (await self._request(
+            "POST",
+            f"/api/v1/agent/tasks/{task_id}/tool-receipts/{receipt_key}/reconcile",
+            json=payload,
+        )).json()
+        return data.get("receipt", {}) if isinstance(data, dict) else data
 
     async def submit(self, task: dict[str, Any]) -> dict[str, Any]:
         """Async mirror — see sync ``submit`` for required fields."""
@@ -171,6 +269,32 @@ class AsyncAgentTaskAPI(AsyncAPIBase):
         """Export an agent task result as raw bytes."""
         resp = await self._request("GET", f"/api/v1/agent/tasks/{task_id}/export")
         return resp.content
+
+    async def list_legacy_sessions(self, limit: int = 50, cursor: str = "") -> dict[str, Any]:
+        """Async mirror of :meth:`AgentTaskAPI.list_legacy_sessions`."""
+        params: dict[str, Any] = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        return (await self._request("GET", "/api/v1/agent/sessions/legacy", params=params)).json()
+
+    async def claim_legacy_session(
+        self,
+        legacy_id: str,
+        namespace: str,
+        session_key: str | None = None,
+        acknowledge_unknown_origin: bool = False,
+    ) -> dict[str, Any]:
+        """Async mirror of :meth:`AgentTaskAPI.claim_legacy_session`."""
+        payload: dict[str, Any] = {
+            "namespace": namespace,
+            "acknowledgeUnknownOrigin": acknowledge_unknown_origin,
+        }
+        if session_key:
+            payload["sessionKey"] = session_key
+        data = (await self._request(
+            "POST", f"/api/v1/agent/sessions/legacy/{legacy_id}/claim", json=payload
+        )).json()
+        return data.get("session", {}) if isinstance(data, dict) else data
 
     async def wait_for_result(self, task_id: str, poll_interval: float = 2.0) -> dict[str, Any]:
         """Async mirror of the sync ``wait_for_result``."""

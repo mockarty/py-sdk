@@ -290,7 +290,7 @@ class LoadTest:
         if self._rps is not None:
             opts["rps"] = self._rps
         if self._max_vus is not None:
-            opts["maxVus"] = self._max_vus
+            opts["maxVUs"] = self._max_vus
         if self._thresholds:
             opts["thresholds"] = self._thresholds
         if not opts:
@@ -370,7 +370,7 @@ class LoadTest:
         if self._rps is not None:
             cfg["rps"] = self._rps
         if self._max_vus is not None:
-            cfg["maxVus"] = self._max_vus
+            cfg["maxVUs"] = self._max_vus
         if self._thresholds:
             cfg["thresholds"] = {k: list(v) for k, v in self._thresholds.items()}
         if self._env:

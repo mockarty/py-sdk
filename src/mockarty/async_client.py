@@ -16,11 +16,17 @@ from mockarty._base_client import (
     resolve_base_url,
 )
 from mockarty.api.agent_tasks import AsyncAgentTaskAPI
+from mockarty.api.autonomous_missions import AsyncAutonomousMissionsAPI
 from mockarty.api.chaos import AsyncChaosAPI
+from mockarty.api.cloud_webhooks import AsyncCloudWebhooksAPI
+from mockarty.api.cloud_spaces import AsyncCloudSpacesAPI
+from mockarty.api.cloud_entitlements import AsyncCloudEntitlementsAPI
+from mockarty.api.coder_delivery import AsyncCoderDeliveryAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.discovery import AsyncDiscoveryAPI
+from mockarty.api.delivery_policy import AsyncDeliveryPolicyAPI
 from mockarty.api.economics import AsyncEconomicsAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
@@ -52,6 +58,7 @@ from mockarty.api.testplans import AsyncTestPlansAPI
 from mockarty.api.testruns import AsyncTestRunAPI
 from mockarty.api.uitests import AsyncUITestAPI
 from mockarty.api.undefined import AsyncUndefinedAPI
+from mockarty.api.workflow_definitions import AsyncWorkflowDefinitionsAPI
 
 
 class AsyncMockartyClient:
@@ -75,6 +82,20 @@ class AsyncMockartyClient:
         max_retries: Maximum number of automatic retries on transient failures.
     """
 
+    # Single source of truth for cached namespace-bound API resources. Both
+    # construction and namespace changes reset this exact set, so a newly
+    # added API cannot retain the previous tenant by omission.
+    _API_RESOURCE_ATTRS: tuple[str, ...] = (
+        "_chaos", "_cloud_webhooks", "_cloud_spaces", "_cloud_entitlements", "_delivery_policy", "_ci_triggers", "_mocks", "_namespaces",
+        "_stores", "_collections", "_perf", "_health", "_generator", "_fuzzing",
+        "_contracts", "_recorder", "_templates", "_imports", "_test_runs",
+        "_test_plans", "_tags", "_ui_tests", "_git_sync", "_folders", "_undefined",
+        "_stats", "_agent_tasks", "_autonomous_missions", "_coder_delivery", "_mcp", "_issue_tracker", "_tcm",
+        "_namespace_settings", "_proxy", "_environments", "_entity_search",
+        "_experience", "_economics", "_external_runs", "_discovery",
+        "_workflow_definitions", "_secrets", "_prompts", "_me",
+    )
+
     def __init__(
         self,
         base_url: str | None = None,
@@ -95,44 +116,8 @@ class AsyncMockartyClient:
             transport=build_async_transport(max_retries),
         )
 
-        # Lazily-initialised API resources
-        self._chaos: AsyncChaosAPI | None = None
-        self._ci_triggers: AsyncCITriggerAPI | None = None
-        self._mocks: AsyncMockAPI | None = None
-        self._namespaces: AsyncNamespaceAPI | None = None
-        self._stores: AsyncStoreAPI | None = None
-        self._collections: AsyncCollectionAPI | None = None
-        self._perf: AsyncPerfAPI | None = None
-        self._health: AsyncHealthAPI | None = None
-        self._generator: AsyncGeneratorAPI | None = None
-        self._fuzzing: AsyncFuzzingAPI | None = None
-        self._contracts: AsyncContractAPI | None = None
-        self._recorder: AsyncRecorderAPI | None = None
-        self._templates: AsyncTemplateAPI | None = None
-        self._imports: AsyncImportAPI | None = None
-        self._test_runs: AsyncTestRunAPI | None = None
-        self._test_plans: AsyncTestPlansAPI | None = None
-        self._tags: AsyncTagAPI | None = None
-        self._ui_tests: AsyncUITestAPI | None = None
-        self._git_sync: AsyncGitSyncAPI | None = None
-        self._folders: AsyncFolderAPI | None = None
-        self._undefined: AsyncUndefinedAPI | None = None
-        self._stats: AsyncStatsAPI | None = None
-        self._agent_tasks: AsyncAgentTaskAPI | None = None
-        self._mcp: AsyncMCPClient | None = None
-        self._issue_tracker: AsyncIssueTrackerAPI | None = None
-        self._tcm: AsyncTCMAPI | None = None
-        self._namespace_settings: AsyncNamespaceSettingsAPI | None = None
-        self._proxy: AsyncProxyAPI | None = None
-        self._environments: AsyncEnvironmentAPI | None = None
-        self._entity_search: AsyncEntitySearchAPI | None = None
-        self._experience: AsyncExperienceAPI | None = None
-        self._economics: AsyncEconomicsAPI | None = None
-        self._external_runs: AsyncExternalRunsAPI | None = None
-        self._discovery: AsyncDiscoveryAPI | None = None
-        self._secrets: AsyncSecretsAPI | None = None
-        self._prompts: AsyncPromptsAPI | None = None
-        self._me: AsyncMeAPI | None = None
+        for attr in self._API_RESOURCE_ATTRS:
+            setattr(self, attr, None)
 
     # ── Context manager ───────────────────────────────────────────────
 
@@ -163,43 +148,8 @@ class AsyncMockartyClient:
         """Update the default namespace and refresh the header."""
         self._namespace = value
         self._http.headers["X-Namespace"] = value
-        # Reset cached API instances so they pick up the new namespace
-        self._chaos = None
-        self._ci_triggers = None
-        self._mocks = None
-        self._namespaces = None
-        self._stores = None
-        self._collections = None
-        self._perf = None
-        self._health = None
-        self._generator = None
-        self._fuzzing = None
-        self._contracts = None
-        self._recorder = None
-        self._templates = None
-        self._imports = None
-        self._test_runs = None
-        self._test_plans = None
-        self._tags = None
-        self._ui_tests = None
-        self._git_sync = None
-        self._folders = None
-        self._undefined = None
-        self._stats = None
-        self._agent_tasks = None
-        self._mcp = None
-        self._issue_tracker = None
-        self._tcm = None
-        self._namespace_settings = None
-        self._proxy = None
-        self._environments = None
-        self._entity_search = None
-        self._experience = None
-        self._external_runs = None
-        self._discovery = None
-        self._secrets = None
-        self._prompts = None
-        self._me = None
+        for attr in self._API_RESOURCE_ATTRS:
+            setattr(self, attr, None)
 
     # ── API resources ─────────────────────────────────────────────────
 
@@ -216,6 +166,34 @@ class AsyncMockartyClient:
         if self._chaos is None:
             self._chaos = AsyncChaosAPI(self._http, self._namespace)
         return self._chaos
+
+    @property
+    def cloud_webhooks(self) -> AsyncCloudWebhooksAPI:
+        """Cloud webhook lifecycle API."""
+        if self._cloud_webhooks is None:
+            self._cloud_webhooks = AsyncCloudWebhooksAPI(self._http, self._namespace)
+        return self._cloud_webhooks
+
+    @property
+    def cloud_spaces(self) -> AsyncCloudSpacesAPI:
+        """Canonical explicit-Space collaboration API."""
+        if self._cloud_spaces is None:
+            self._cloud_spaces = AsyncCloudSpacesAPI(self._http, self._namespace)
+        return self._cloud_spaces
+
+    @property
+    def cloud_entitlements(self) -> AsyncCloudEntitlementsAPI:
+        """Committed unsigned Cloud entitlement projection API."""
+        if self._cloud_entitlements is None:
+            self._cloud_entitlements = AsyncCloudEntitlementsAPI(self._http, self._namespace)
+        return self._cloud_entitlements
+
+    @property
+    def delivery_policy(self) -> AsyncDeliveryPolicyAPI:
+        """Administrator delivery-policy environment management."""
+        if self._delivery_policy is None:
+            self._delivery_policy = AsyncDeliveryPolicyAPI(self._http, self._namespace)
+        return self._delivery_policy
 
     @property
     def mocks(self) -> AsyncMockAPI:
@@ -444,6 +422,20 @@ class AsyncMockartyClient:
         return self._experience
 
     @property
+    def autonomous_missions(self) -> AsyncAutonomousMissionsAPI:
+        """Autonomous mission intake and supervision API."""
+        if self._autonomous_missions is None:
+            self._autonomous_missions = AsyncAutonomousMissionsAPI(self._http, self._namespace)
+        return self._autonomous_missions
+
+    @property
+    def coder_delivery(self) -> AsyncCoderDeliveryAPI:
+        """Admitted repositories, delivery configuration, and deploy missions."""
+        if self._coder_delivery is None:
+            self._coder_delivery = AsyncCoderDeliveryAPI(self._http, self._namespace)
+        return self._coder_delivery
+
+    @property
     def economics(self) -> AsyncEconomicsAPI:
         """Administrator LLM usage and immutable price-book API."""
         if self._economics is None:
@@ -463,3 +455,12 @@ class AsyncMockartyClient:
         if self._discovery is None:
             self._discovery = AsyncDiscoveryAPI(self._http, self._namespace)
         return self._discovery
+
+    @property
+    def workflow_definitions(self) -> AsyncWorkflowDefinitionsAPI:
+        """Versioned workflow draft, dry-run and publish API."""
+        if self._workflow_definitions is None:
+            self._workflow_definitions = AsyncWorkflowDefinitionsAPI(
+                self._http, self._namespace
+            )
+        return self._workflow_definitions

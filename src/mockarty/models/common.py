@@ -5,11 +5,118 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Generic, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 T = TypeVar("T")
+
+
+class _ForwardCompatibleModel(BaseModel):
+    """Preserve future fields without letting extras shadow typed fields.
+
+    Pydantic's ``extra='allow'`` map is intentionally mutable. Its default
+    serializer lets an entry such as ``parentId`` replace an omitted typed
+    field and drops unknown ``null`` values when ``exclude_none=True``. Saved
+    perf configs need the inverse contract: typed names and aliases are always
+    reserved, while genuinely unknown values round-trip losslessly.
+    """
+
+    model_config = {"populate_by_name": True, "extra": "allow"}
+
+    @classmethod
+    def _protected_json_names(cls) -> set[str]:
+        names: set[str] = set()
+        for field_name, field in cls.model_fields.items():
+            names.add(field_name)
+            for alias in (field.alias, field.serialization_alias):
+                if isinstance(alias, str):
+                    names.add(alias)
+            validation_alias = field.validation_alias
+            if isinstance(validation_alias, str):
+                names.add(validation_alias)
+            elif isinstance(validation_alias, AliasChoices):
+                names.update(choice for choice in validation_alias.choices if isinstance(choice, str))
+        return names
+
+    @staticmethod
+    def _safe_copy_value(value: Any) -> Any:
+        if isinstance(value, _ForwardCompatibleModel):
+            return value._safe_copy_for_dump()
+        if isinstance(value, list):
+            return [_ForwardCompatibleModel._safe_copy_value(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(_ForwardCompatibleModel._safe_copy_value(item) for item in value)
+        if isinstance(value, dict):
+            return {
+                key: _ForwardCompatibleModel._safe_copy_value(item)
+                for key, item in value.items()
+            }
+        return value
+
+    def _safe_copy_for_dump(self) -> _ForwardCompatibleModel:
+        copied = self.model_copy(deep=False)
+        for field_name in type(self).model_fields:
+            if field_name in copied.__dict__:
+                copied.__dict__[field_name] = self._safe_copy_value(
+                    copied.__dict__[field_name]
+                )
+        protected = type(self)._protected_json_names()
+        protected_casefold = {name.casefold() for name in protected}
+        extras = {
+            key: self._safe_copy_value(value)
+            for key, value in (self.__pydantic_extra__ or {}).items()
+            if isinstance(key, str) and key.casefold() not in protected_casefold
+        }
+        object.__setattr__(copied, "__pydantic_extra__", extras)
+        return copied
+
+    @classmethod
+    def _remove_typed_none(
+        cls,
+        model: _ForwardCompatibleModel,
+        payload: dict[str, Any],
+        by_alias: bool,
+    ) -> None:
+        for field_name, field in type(model).model_fields.items():
+            key = field_name
+            if by_alias:
+                key = field.serialization_alias or field.alias or field_name
+            value = getattr(model, field_name)
+            if value is None:
+                payload.pop(key, None)
+                continue
+            encoded = payload.get(key)
+            if isinstance(value, _ForwardCompatibleModel) and isinstance(encoded, dict):
+                cls._remove_typed_none(value, encoded, by_alias)
+            elif isinstance(value, (list, tuple)) and isinstance(encoded, list):
+                for item, encoded_item in zip(value, encoded):
+                    if isinstance(item, _ForwardCompatibleModel) and isinstance(
+                        encoded_item, dict
+                    ):
+                        cls._remove_typed_none(item, encoded_item, by_alias)
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        exclude_none = bool(kwargs.pop("exclude_none", False))
+        by_alias = bool(kwargs.get("by_alias", False))
+        safe = self._safe_copy_for_dump()
+        payload = BaseModel.model_dump(safe, exclude_none=False, **kwargs)
+        if exclude_none:
+            self._remove_typed_none(safe, payload, by_alias)
+        return payload
+
+    def model_dump_json(self, **kwargs: Any) -> str:
+        indent = kwargs.pop("indent", None)
+        ensure_ascii = bool(kwargs.pop("ensure_ascii", False))
+        payload = self.model_dump(mode="json", **kwargs)
+        separators = None if indent is not None else (",", ":")
+        return json.dumps(
+            payload,
+            ensure_ascii=ensure_ascii,
+            indent=indent,
+            separators=separators,
+        )
 
 
 class Page(BaseModel, Generic[T]):
@@ -56,7 +163,51 @@ class MockLogs(BaseModel):
     total: int = 0
 
 
-class PerfConfig(BaseModel):
+class PerfStage(_ForwardCompatibleModel):
+    """One virtual-user or arrival-rate ramp stage in a saved perf profile."""
+
+    duration: str = ""
+    target: int = 0
+    target_rps: Optional[int] = Field(default=None, alias="targetRPS")
+
+
+class AbortCriterion(_ForwardCompatibleModel):
+    """An automatic stop condition for a performance run."""
+
+    metric: str = ""
+    stat: str = ""
+    condition: str = ""
+    value: float = 0.0
+    enabled: bool = False
+    duration: Optional[str] = None
+    name: Optional[str] = None
+
+
+class PerfOptions(_ForwardCompatibleModel):
+    """Typed ``options`` envelope for a saved performance configuration."""
+
+    thresholds: Optional[dict[str, list[str]]] = None
+    duration: Optional[str] = None
+    stages: Optional[list[PerfStage]] = None
+    abort_criteria: Optional[list[AbortCriterion]] = Field(default=None, alias="abortCriteria")
+    start_at_unix_ms: Optional[int] = Field(default=None, alias="startAtUnixMs")
+    vus: Optional[int] = None
+    iterations: Optional[int] = None
+    rps: Optional[int] = None
+    max_vus: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("maxVUs", "maxVus"),
+        serialization_alias="maxVUs",
+    )
+    arrival_rate: Optional[bool] = Field(default=None, alias="arrivalRate")
+    graceful_stop: Optional[str] = Field(default=None, alias="gracefulStop")
+    graceful_ramp_down: Optional[str] = Field(default=None, alias="gracefulRampDown")
+    metrics_push: Optional[list[str]] = Field(default=None, alias="metricsPush")
+    metrics_push_interval: Optional[str] = Field(default=None, alias="metricsPushInterval")
+    emit_histograms: Optional[bool] = Field(default=None, alias="emitHistograms")
+
+
+class PerfConfig(_ForwardCompatibleModel):
     """Performance test configuration.
 
     ``id`` / ``namespace`` / timestamps are populated by the server on
@@ -70,15 +221,19 @@ class PerfConfig(BaseModel):
     namespace: Optional[str] = None
     name: Optional[str] = None
     script: Optional[str] = None
+    options: Optional[PerfOptions] = None
+    collection_id: Optional[str] = Field(default=None, alias="collectionId")
+    parent_id: Optional[str] = Field(default=None, alias="parentId")
+    user_id: Optional[str] = Field(default=None, alias="userId")
+    sort_order: int = Field(default=0, alias="sortOrder")
+    is_folder: bool = Field(default=False, alias="isFolder")
     vus: Optional[int] = None
     duration: Optional[str] = None
     stages: Optional[list[dict[str, Any]]] = None
     thresholds: Optional[dict[str, Any]] = None
-    environment: Optional[dict[str, str]] = None
+    environment: Optional[dict[str, Any]] = None
     created_at: Optional[str] = Field(default=None, alias="createdAt")
     updated_at: Optional[str] = Field(default=None, alias="updatedAt")
-
-    model_config = {"populate_by_name": True}
 
 
 class PerfTask(BaseModel):

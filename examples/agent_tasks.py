@@ -22,6 +22,7 @@ def submit_mock_generation_task(client: MockartyClient) -> str:
     definitions, and optionally creates them in the namespace.
     """
     task = client.agent_tasks.submit({
+        "title": "Generate bookstore mocks",
         "prompt": (
             "Create a REST API for a bookstore with the following endpoints: "
             "GET /api/books - list all books with pagination, "
@@ -48,6 +49,7 @@ def submit_complex_scenario_task(client: MockartyClient) -> str:
     conditions, and realistic response data.
     """
     task = client.agent_tasks.submit({
+        "title": "Generate checkout workflow",
         "prompt": (
             "Create an e-commerce checkout workflow: "
             "1. POST /api/cart/add - add item to cart (store cart ID in chain store) "
@@ -87,6 +89,18 @@ def track_task_progress(client: MockartyClient, task_id: str) -> None:
         print(f"  Error:      {task['error']}")
     if task.get("mocksGenerated"):
         print(f"  Mocks generated: {task['mocksGenerated']}")
+    for receipt in task.get("toolReceipts", []):
+        if receipt.get("status") == "awaiting_reconcile":
+            print(
+                "  External action needs review: "
+                f"{receipt.get('toolName')} (version {receipt.get('version')}). "
+                "Inspect the downstream system before reconciling it."
+            )
+            if not task.get("canReconcileToolReceipts", False):
+                print(
+                    "  The task owner's user needs Coder Deploy permission and "
+                    "the task must be stopped before recording a decision."
+                )
 
 
 def list_all_tasks(client: MockartyClient) -> None:
@@ -97,6 +111,12 @@ def list_all_tasks(client: MockartyClient) -> None:
         status = t.get("status", "unknown")
         prompt_preview = t.get("prompt", "")[:60]
         print(f"  - {t.get('id')}: [{status}] {prompt_preview}...")
+
+
+def list_recoverable_sessions(client: MockartyClient) -> None:
+    """List quarantined pre-namespace sessions without exposing messages."""
+    page = client.agent_tasks.list_legacy_sessions(limit=50)
+    print(f"Recoverable legacy sessions: {len(page.get('sessions', []))}")
 
 
 def rerun_task(client: MockartyClient, task_id: str) -> None:
@@ -157,6 +177,7 @@ def main() -> None:
 
         print("=== List Tasks ===")
         list_all_tasks(client)
+        list_recoverable_sessions(client)
         print()
 
         print("=== Re-run Task ===")

@@ -3,6 +3,22 @@
 
 """Pydantic models for Mockarty API objects."""
 
+from mockarty.models.autonomous_missions import (
+    AutonomousMission,
+    AutonomousMissionBudget,
+    AutonomousMissionBudgetHint,
+    AutonomousMissionContextRef,
+    AutonomousMissionFlow,
+    AutonomousMissionListResponse,
+    AutonomousMissionSubmitRequest,
+    AutonomousMissionSubmitResponse,
+    MissionEffectiveSetting,
+    MissionEffectiveSettings,
+    MissionStartRequest,
+    MissionStartResponse,
+    UnifiedMission,
+)
+
 from mockarty.models.chaos import (
     AffectedResource,
     ChaosConnectionResult,
@@ -29,10 +45,14 @@ from mockarty.models.chaos import (
     TimelineEvent,
 )
 from mockarty.models.common import (
+    AbortCriterion,
     ErrorResponse,
     HealthResponse,
     MockLogs,
     Page,
+    PerfConfig,
+    PerfOptions,
+    PerfStage,
     RequestLog,
 )
 from mockarty.models.condition import AssertAction, Condition
@@ -96,6 +116,12 @@ from mockarty.models.experience import (
     EXPERIENCE_KIND_PRODUCT_FACT,
     ExperienceItem,
     ExperienceRecordResponse,
+    ExperienceReviewDetail,
+    ExperienceReviewItem,
+    ExperienceReviewMutation,
+    ExperienceReviewPage,
+    ExperienceReviewRelation,
+    ExperienceReviewResponse,
     ExperienceSearchResponse,
 )
 from mockarty.models.folders import MockFolder
@@ -174,7 +200,26 @@ __all__ = [
     "EXPERIENCE_KIND_PITFALL",
     "EXPERIENCE_KIND_PRODUCT_FACT",
     "ExperienceItem",
+    "AutonomousMission",
+    "AutonomousMissionBudget",
+    "AutonomousMissionBudgetHint",
+    "AutonomousMissionContextRef",
+    "AutonomousMissionFlow",
+    "AutonomousMissionListResponse",
+    "AutonomousMissionSubmitRequest",
+    "AutonomousMissionSubmitResponse",
+    "MissionEffectiveSetting",
+    "MissionEffectiveSettings",
+    "MissionStartRequest",
+    "MissionStartResponse",
+    "UnifiedMission",
     "ExperienceRecordResponse",
+    "ExperienceReviewDetail",
+    "ExperienceReviewItem",
+    "ExperienceReviewMutation",
+    "ExperienceReviewPage",
+    "ExperienceReviewRelation",
+    "ExperienceReviewResponse",
     "ExperienceSearchResponse",
     "LLMPrice",
     "LLMPriceList",
@@ -189,10 +234,14 @@ __all__ = [
     "LLMUsageRefund",
     "LLMUsageTotals",
     # Common models
+    "AbortCriterion",
     "ErrorResponse",
     "HealthResponse",
     "MockLogs",
     "Page",
+    "PerfConfig",
+    "PerfOptions",
+    "PerfStage",
     "RequestLog",
     # Contract models
     "CheckCompatibilityRequest",

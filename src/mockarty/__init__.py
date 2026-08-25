@@ -20,6 +20,7 @@ Quick start::
 from __future__ import annotations
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
+from mockarty.api.autonomous_missions import AsyncAutonomousMissionsAPI, AutonomousMissionsAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.discovery import (
     AsyncDiscoveryAPI,
@@ -113,7 +114,23 @@ from mockarty.models.chaos import (
     TargetConfig,
     TimelineEvent,
 )
+from mockarty.models.autonomous_missions import (
+    AutonomousMission,
+    AutonomousMissionBudget,
+    AutonomousMissionBudgetHint,
+    AutonomousMissionContextRef,
+    AutonomousMissionFlow,
+    AutonomousMissionListResponse,
+    AutonomousMissionSubmitRequest,
+    AutonomousMissionSubmitResponse,
+    MissionEffectiveSetting,
+    MissionEffectiveSettings,
+    MissionStartRequest,
+    MissionStartResponse,
+    UnifiedMission,
+)
 from mockarty.models.common import (
+    AbortCriterion,
     Collection,
     ErrorResponse,
     HealthResponse,
@@ -121,7 +138,9 @@ from mockarty.models.common import (
     Page,
     PerfComparison,
     PerfConfig,
+    PerfOptions,
     PerfResult,
+    PerfStage,
     PerfTask,
     RequestLog,
     TestRunResult,
@@ -180,6 +199,12 @@ from mockarty.models.experience import (
     EXPERIENCE_KIND_PRODUCT_FACT,
     ExperienceItem,
     ExperienceRecordResponse,
+    ExperienceReviewDetail,
+    ExperienceReviewItem,
+    ExperienceReviewMutation,
+    ExperienceReviewPage,
+    ExperienceReviewRelation,
+    ExperienceReviewResponse,
     ExperienceSearchResponse,
 )
 from mockarty.models.folders import MockFolder
@@ -249,6 +274,12 @@ __all__ = [
     "ExperienceItem",
     "ExperienceSearchResponse",
     "ExperienceRecordResponse",
+    "ExperienceReviewDetail",
+    "ExperienceReviewItem",
+    "ExperienceReviewMutation",
+    "ExperienceReviewPage",
+    "ExperienceReviewRelation",
+    "ExperienceReviewResponse",
     "EXPERIENCE_KIND_MISSION_LESSON",
     "EXPERIENCE_KIND_PITFALL",
     "EXPERIENCE_KIND_PRODUCT_FACT",
@@ -344,6 +375,10 @@ __all__ = [
     "ImportResult",
     # Test run models
     "TestRun",
+    # Performance config models
+    "AbortCriterion",
+    "PerfOptions",
+    "PerfStage",
     # Test plan models
     "TestPlan",
     "TestPlanItem",
@@ -380,6 +415,21 @@ __all__ = [
     "AsyncStatsAPI",
     "AgentTaskAPI",
     "AsyncAgentTaskAPI",
+    "AsyncAutonomousMissionsAPI",
+    "AutonomousMissionsAPI",
+    "AutonomousMission",
+    "AutonomousMissionBudget",
+    "AutonomousMissionBudgetHint",
+    "AutonomousMissionContextRef",
+    "AutonomousMissionFlow",
+    "AutonomousMissionListResponse",
+    "AutonomousMissionSubmitRequest",
+    "AutonomousMissionSubmitResponse",
+    "MissionEffectiveSetting",
+    "MissionEffectiveSettings",
+    "MissionStartRequest",
+    "MissionStartResponse",
+    "UnifiedMission",
     "NamespaceSettingsAPI",
     "AsyncNamespaceSettingsAPI",
     "ProxyAPI",
