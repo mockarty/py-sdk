@@ -3,6 +3,22 @@
 
 """Pydantic models for Mockarty API objects."""
 
+from mockarty.models.autonomous_missions import (
+    AutonomousMission,
+    AutonomousMissionBudget,
+    AutonomousMissionBudgetHint,
+    AutonomousMissionContextRef,
+    AutonomousMissionFlow,
+    AutonomousMissionListResponse,
+    AutonomousMissionSubmitRequest,
+    AutonomousMissionSubmitResponse,
+    MissionEffectiveSetting,
+    MissionEffectiveSettings,
+    MissionStartRequest,
+    MissionStartResponse,
+    UnifiedMission,
+)
+
 from mockarty.models.chaos import (
     AffectedResource,
     ChaosConnectionResult,
@@ -29,10 +45,14 @@ from mockarty.models.chaos import (
     TimelineEvent,
 )
 from mockarty.models.common import (
+    AbortCriterion,
     ErrorResponse,
     HealthResponse,
     MockLogs,
     Page,
+    PerfConfig,
+    PerfOptions,
+    PerfStage,
     RequestLog,
 )
 from mockarty.models.condition import AssertAction, Condition
@@ -91,6 +111,21 @@ from mockarty.models.entity_search import (
     ENTITY_TYPE_TEST_PLAN,
     EntitySearchResponse,
     EntitySearchResult,
+)
+from mockarty.models.experience import (
+    EXPERIENCE_KIND_DEFECT_ROOT_CAUSE,
+    EXPERIENCE_KIND_MISSION_LESSON,
+    EXPERIENCE_KIND_PITFALL,
+    EXPERIENCE_KIND_PRODUCT_FACT,
+    ExperienceItem,
+    ExperienceRecordResponse,
+    ExperienceReviewDetail,
+    ExperienceReviewItem,
+    ExperienceReviewMutation,
+    ExperienceReviewPage,
+    ExperienceReviewRelation,
+    ExperienceReviewResponse,
+    ExperienceSearchResponse,
 )
 from mockarty.models.folders import MockFolder
 from mockarty.models.fuzzing import (
@@ -178,6 +213,32 @@ __all__ = [  # noqa: RUF022 - grouped by model domain for discoverability
     "ENTITY_TYPE_TEST_PLAN",
     "EntitySearchResponse",
     "EntitySearchResult",
+    "EXPERIENCE_KIND_DEFECT_ROOT_CAUSE",
+    "EXPERIENCE_KIND_MISSION_LESSON",
+    "EXPERIENCE_KIND_PITFALL",
+    "EXPERIENCE_KIND_PRODUCT_FACT",
+    "ExperienceItem",
+    "AutonomousMission",
+    "AutonomousMissionBudget",
+    "AutonomousMissionBudgetHint",
+    "AutonomousMissionContextRef",
+    "AutonomousMissionFlow",
+    "AutonomousMissionListResponse",
+    "AutonomousMissionSubmitRequest",
+    "AutonomousMissionSubmitResponse",
+    "MissionEffectiveSetting",
+    "MissionEffectiveSettings",
+    "MissionStartRequest",
+    "MissionStartResponse",
+    "UnifiedMission",
+    "ExperienceRecordResponse",
+    "ExperienceReviewDetail",
+    "ExperienceReviewItem",
+    "ExperienceReviewMutation",
+    "ExperienceReviewPage",
+    "ExperienceReviewRelation",
+    "ExperienceReviewResponse",
+    "ExperienceSearchResponse",
     "LLMPrice",
     "LLMPriceList",
     "LLMBudget",
@@ -194,10 +255,14 @@ __all__ = [  # noqa: RUF022 - grouped by model domain for discoverability
     "ResourcePriceList",
     "ResourceUsageTotal",
     # Common models
+    "AbortCriterion",
     "ErrorResponse",
     "HealthResponse",
     "MockLogs",
     "Page",
+    "PerfConfig",
+    "PerfOptions",
+    "PerfStage",
     "RequestLog",
     # Contract models
     "CheckCompatibilityRequest",

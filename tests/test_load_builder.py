@@ -124,8 +124,11 @@ def test_rps_and_max_vus_flow_into_config_and_script():
         .to_perf_config()
     )
     assert cfg["rps"] == 100
-    assert cfg["maxVus"] == 50
+    assert cfg["maxVUs"] == 50
+    assert "maxVus" not in cfg
     assert '"rps":100' in cfg["script"]
+    assert '"maxVUs":50' in cfg["script"]
+    assert '"maxVus"' not in cfg["script"]
 
 
 def test_save_writes_file(tmp_path):
@@ -161,3 +164,24 @@ def test_no_target_no_base_url_const():
 
     script = LoadTest("t").get("/health").to_k6_script()
     assert "const BASE_URL" not in script
+
+
+def test_per_endpoint_checks_replace_default():
+    script = (
+        LoadTest("checks")
+        .target("http://x")
+        .post("/order", {"sku": "a"})
+        .expect_status(201)
+        .check("has id", "res.json().id !== undefined")
+        .get("/health")
+        .to_k6_script()
+    )
+    want = "  check(r, { 'status is 201': (res) => res.status === 201, 'has id': (res) => res.json().id !== undefined });"
+    assert want in script
+    # request without checks keeps the default assertion
+    assert "check(r, { 'status < 400': (res) => res.status < 400 });" in script
+
+
+def test_check_before_any_request_is_noop():
+    script = LoadTest("t").target("http://x").check("x", "true").expect_status(200).to_k6_script()
+    assert "check(r, { 'status < 400'" in script

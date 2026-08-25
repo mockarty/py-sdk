@@ -1,0 +1,168 @@
+"""Autonomous mission REST parity tests."""
+
+import asyncio
+import math
+
+import httpx
+import pytest
+import respx
+
+from mockarty import (
+    AsyncMockartyClient,
+    AutonomousMissionBudgetHint,
+    MissionStartRequest,
+    AutonomousMissionSubmitRequest,
+    MockartyClient,
+)
+
+
+@respx.mock
+def test_autonomous_missions_submit_and_supervise(client: MockartyClient) -> None:
+    base = "http://localhost:5770/api/v1/autotester"
+    submit = respx.post(f"{base}/intents").mock(
+        return_value=httpx.Response(202, json={"missionId": "m-1", "status": "accepted"})
+    )
+    respx.get(f"{base}/missions", params={"status": "active", "limit": 25}).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "missions": [
+                    {"id": "m-1", "goal": "verify checkout", "status": "active"}
+                ],
+                "total": 1,
+            },
+        )
+    )
+    respx.get(f"{base}/missions/m-1").mock(
+        return_value=httpx.Response(200, json={"id": "m-1", "goal": "verify checkout", "status": "active"})
+    )
+    respx.get(f"{base}/missions/m-1/flow").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "mission": {
+                    "id": "m-1",
+                    "goal": "verify checkout",
+                    "status": "done",
+                },
+                "steps": [],
+                "artifacts": [],
+            },
+        )
+    )
+
+    accepted = client.autonomous_missions.submit(
+        AutonomousMissionSubmitRequest(
+            goal=" verify checkout ",
+            product_url="https://shop.example",
+            autonomy="auto",
+            budget=AutonomousMissionBudgetHint(tokens_total=12000),
+        )
+    )
+    assert accepted.mission_id == "m-1"
+    payload = submit.calls.last.request.read().decode()
+    assert '"productUrl":"https://shop.example"' in payload
+    assert '"tokens_total":12000' in payload
+    assert client.autonomous_missions.list(status="active", limit=25).total == 1
+    assert client.autonomous_missions.get("m-1").id == "m-1"
+    assert client.autonomous_missions.get_flow("m-1").mission.status == "done"
+
+
+@respx.mock
+def test_async_autonomous_missions(base_url: str, api_key: str) -> None:
+    respx.get(f"{base_url}/api/v1/autotester/missions/m-1/flow").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "mission": {"id": "m-1", "goal": "verify", "status": "done"},
+                "steps": [],
+                "artifacts": [],
+            },
+        )
+    )
+
+    async def run() -> None:
+        async with AsyncMockartyClient(base_url=base_url, api_key=api_key, max_retries=0) as client:
+            assert (await client.autonomous_missions.get_flow("m-1")).mission.status == "done"
+
+    asyncio.run(run())
+
+
+def test_autonomous_missions_validate_before_network(client: MockartyClient) -> None:
+    with pytest.raises(ValueError, match="goal"):
+        AutonomousMissionSubmitRequest(goal=" ")
+    with pytest.raises(ValueError, match="autonomy"):
+        AutonomousMissionSubmitRequest(goal="x", autonomy="root")
+    for kwargs in (
+        {"tokens_total": -1},
+        {"tokens_per_day": -1},
+        {"usd_cap": -1},
+        {"usd_cap": math.nan},
+        {"usd_cap": math.inf},
+        {"usd_cap": -math.inf},
+    ):
+        with pytest.raises(ValueError, match="budget"):
+            AutonomousMissionBudgetHint(**kwargs)
+    with pytest.raises(ValueError, match="mission_id"):
+        client.autonomous_missions.get(" ")
+    with pytest.raises(ValueError, match="limit"):
+        client.autonomous_missions.list(limit=201)
+
+
+@respx.mock
+def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
+    digest = "sha256:" + "a" * 64
+    preview = respx.get(
+        "http://localhost:5770/api/v1/missions/settings/effective",
+        params={"productId": "product/checkout", "runWindowMinutes": 90},
+    ).mock(return_value=httpx.Response(200, json={
+        "namespace": "team-a", "productId": "product/checkout", "settingsDigest": digest, "count": 1,
+        "settings": [{"key": "mission_run_window_minutes", "value": "90", "layer": "mission", "builtin": "480", "runtimeApplied": True}],
+    }))
+    start = respx.post("http://localhost:5770/api/v1/missions").mock(
+        return_value=httpx.Response(201, json={
+            "created": True,
+            "mission": {"id": "m-unified", "namespace": "team-a", "productId": "product/checkout", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "queued", "chain": []},
+        })
+    )
+
+    settings = client.autonomous_missions.get_effective_settings(
+        product_id="product/checkout", run_window_minutes=90,
+    )
+    assert settings.settings_digest == digest
+    assert settings.settings[0].runtime_applied is True
+    started = client.autonomous_missions.start(MissionStartRequest(
+        goal=" ship checkout ", product_id="product/checkout", kind="testing", expected_settings_digest=digest,
+    ))
+    assert started.created is True
+    assert started.mission.id == "m-unified"
+    assert preview.called and start.called
+    assert start.calls.last.request.read().decode().find(f'"expectedSettingsDigest":"{digest}"') >= 0
+
+
+@respx.mock
+def test_async_unified_mission_settings_and_start(base_url: str, api_key: str) -> None:
+    digest = "sha256:" + "b" * 64
+    respx.get(f"{base_url}/api/v1/missions/settings/effective").mock(
+        return_value=httpx.Response(200, json={"namespace": "default", "settingsDigest": digest, "count": 0, "settings": []})
+    )
+    respx.post(f"{base_url}/api/v1/missions").mock(
+        return_value=httpx.Response(201, json={"created": True, "mission": {"id": "m-2", "namespace": "default", "kind": "testing", "goal": "verify", "origin": "ui", "status": "queued", "chain": []}})
+    )
+
+    async def run() -> None:
+        async with AsyncMockartyClient(base_url=base_url, api_key=api_key, max_retries=0) as client:
+            settings = await client.autonomous_missions.get_effective_settings()
+            started = await client.autonomous_missions.start(MissionStartRequest(goal="verify", kind="testing", expected_settings_digest=settings.settings_digest))
+            assert started.mission.id == "m-2"
+
+    asyncio.run(run())
+
+
+def test_unified_mission_validation_before_network(client: MockartyClient) -> None:
+    with pytest.raises(ValueError, match="run_window_minutes"):
+        client.autonomous_missions.get_effective_settings(run_window_minutes=20161)
+    with pytest.raises(ValueError, match="digest"):
+        MissionStartRequest(goal="x", expected_settings_digest="sha256:bad")
+    with pytest.raises(ValueError, match="goal"):
+        MissionStartRequest(goal=" ")

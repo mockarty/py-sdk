@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
@@ -12,6 +13,41 @@ from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 
 class NamespaceSettingsAPI(SyncAPIBase):
     """Synchronous Namespace Settings API resource."""
+
+    def get_autonomy_settings(self) -> dict[str, Any]:
+        """Return autonomous-mission defaults for the configured namespace."""
+        return self._request("GET", "/api/v1/autotester/settings").json()
+
+    def save_autonomy_settings(
+        self, settings: dict[str, Any], *, request_id: str | None = None
+    ) -> dict[str, Any]:
+        """Update defaults; reuse ``request_id`` after an ambiguous timeout."""
+        loaded = self._request("GET", "/api/v1/autotester/settings")
+        merged = loaded.json()
+        merged.update(settings)
+        etag = loaded.headers.get("ETag") or merged.get("etag", "")
+        return self._request(
+            "PUT", "/api/v1/autotester/settings", json=merged,
+            headers={"Idempotency-Key": request_id or str(uuid.uuid4()), **({"If-Match": etag} if etag else {})},
+        ).json()
+
+    def clear_autonomy_retention(
+        self, *, clear_event: bool = False, clear_payload: bool = False,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Clear selected retention overrides so they inherit instance policy."""
+        if not clear_event and not clear_payload:
+            raise ValueError("at least one retention override must be selected")
+        update: dict[str, Any] = {}
+        if clear_event:
+            update["journalEventRetentionDays"] = None
+        if clear_payload:
+            update["journalPayloadRetentionDays"] = None
+        return self.save_autonomy_settings(update, request_id=request_id)
+
+    def clear_autonomy_run_window(self, *, request_id: str | None = None) -> dict[str, Any]:
+        """Clear the namespace wall override and inherit the effective policy."""
+        return self.save_autonomy_settings({"runWindowMinutes": None}, request_id=request_id)
 
     # ── Users ──────────────────────────────────────────────────────────
 
@@ -101,6 +137,43 @@ class NamespaceSettingsAPI(SyncAPIBase):
 
 class AsyncNamespaceSettingsAPI(AsyncAPIBase):
     """Asynchronous Namespace Settings API resource."""
+
+    async def get_autonomy_settings(self) -> dict[str, Any]:
+        """Return autonomous-mission defaults for the configured namespace."""
+        return (await self._request("GET", "/api/v1/autotester/settings")).json()
+
+    async def save_autonomy_settings(
+        self, settings: dict[str, Any], *, request_id: str | None = None
+    ) -> dict[str, Any]:
+        """Update autonomy defaults without clearing omitted retention fields."""
+        loaded = await self._request("GET", "/api/v1/autotester/settings")
+        merged = loaded.json()
+        merged.update(settings)
+        etag = loaded.headers.get("ETag") or merged.get("etag", "")
+        return (
+            await self._request(
+                "PUT", "/api/v1/autotester/settings", json=merged,
+                headers={"Idempotency-Key": request_id or str(uuid.uuid4()), **({"If-Match": etag} if etag else {})},
+            )
+        ).json()
+
+    async def clear_autonomy_retention(
+        self, *, clear_event: bool = False, clear_payload: bool = False,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Clear selected retention overrides so they inherit instance policy."""
+        if not clear_event and not clear_payload:
+            raise ValueError("at least one retention override must be selected")
+        update: dict[str, Any] = {}
+        if clear_event:
+            update["journalEventRetentionDays"] = None
+        if clear_payload:
+            update["journalPayloadRetentionDays"] = None
+        return await self.save_autonomy_settings(update, request_id=request_id)
+
+    async def clear_autonomy_run_window(self, *, request_id: str | None = None) -> dict[str, Any]:
+        """Clear the namespace wall override and inherit the effective policy."""
+        return await self.save_autonomy_settings({"runWindowMinutes": None}, request_id=request_id)
 
     # ── Users ──────────────────────────────────────────────────────────
 

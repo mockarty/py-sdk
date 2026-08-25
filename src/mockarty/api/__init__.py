@@ -4,13 +4,18 @@
 """API resource classes for Mockarty client."""
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
+from mockarty.api.autonomous_missions import AsyncAutonomousMissionsAPI, AutonomousMissionsAPI
+from mockarty.api.coder_delivery import AsyncCoderDeliveryAPI, CoderDeliveryAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
+from mockarty.api.cloud_entitlements import AsyncCloudEntitlementsAPI, CloudEntitlementsAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI, CITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
 from mockarty.api.economics import AsyncEconomicsAPI, EconomicsAPI
+from mockarty.api.delivery_policy import AsyncDeliveryPolicyAPI, DeliveryPolicyAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
+from mockarty.api.experience import AsyncExperienceAPI, ExperienceAPI
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
 from mockarty.api.fuzzing import AsyncFuzzingAPI, FuzzingAPI
 from mockarty.api.generator import AsyncGeneratorAPI, GeneratorAPI
@@ -38,12 +43,19 @@ from mockarty.api.undefined import AsyncUndefinedAPI, UndefinedAPI
 __all__ = [
     "AgentTaskAPI",
     "AsyncAgentTaskAPI",
+    "AsyncAutonomousMissionsAPI",
+    "AsyncCoderDeliveryAPI",
+    "AutonomousMissionsAPI",
+    "CoderDeliveryAPI",
     "AsyncCITriggerAPI",
     "AsyncChaosAPI",
+    "AsyncCloudEntitlementsAPI",
     "AsyncCollectionAPI",
     "AsyncContractAPI",
     "AsyncEntitySearchAPI",
+    "AsyncExperienceAPI",
     "AsyncEconomicsAPI",
+    "AsyncDeliveryPolicyAPI",
     "AsyncEnvironmentAPI",
     "AsyncFolderAPI",
     "AsyncFuzzingAPI",
@@ -67,10 +79,13 @@ __all__ = [
     "AsyncUndefinedAPI",
     "CITriggerAPI",
     "ChaosAPI",
+    "CloudEntitlementsAPI",
     "CollectionAPI",
     "ContractAPI",
     "EntitySearchAPI",
+    "ExperienceAPI",
     "EconomicsAPI",
+    "DeliveryPolicyAPI",
     "EnvironmentAPI",
     "FolderAPI",
     "FuzzingAPI",

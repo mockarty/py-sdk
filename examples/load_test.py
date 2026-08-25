@@ -11,6 +11,7 @@ Run the generated config locally with the CLI::
     mockarty-cli perf run --from-config checkout.json
 """
 
+from mockarty import PerfConfig, PerfOptions, PerfStage
 from mockarty.builders import LoadTest
 
 
@@ -36,11 +37,23 @@ def main() -> None:
     print("wrote checkout.json — run it with:")
     print("  mockarty-cli perf run --from-config checkout.json")
 
-    # 3) (Optional) submit the same config to a Mockarty server via the SDK:
-    #      from mockarty import MockartyClient, PerfConfig
-    #      client = MockartyClient("http://localhost:5770", api_key="...")
-    #      cfg = profile.to_perf_config()
-    #      client.perf.run(PerfConfig(name=cfg["name"], script=cfg["script"]))
+    # 3) A saved profile uses the typed options envelope. That keeps reusable
+    #    run controls, including an opt-in metrics sink, in one server object.
+    saved = PerfConfig(
+        name="checkout soak",
+        script=profile.to_k6_script(),
+        options=PerfOptions(
+            stages=[
+                PerfStage(duration="30s", target=50),
+                PerfStage(duration="1m", target=50),
+                PerfStage(duration="10s", target=0),
+            ],
+            metrics_push=["prometheus:https://metrics.example.test/push"],
+            metrics_push_interval="10s",
+        ),
+    )
+    # client.perf.create_config(saved)
+    print(saved.model_dump_json(by_alias=True, exclude_none=True, indent=2))
 
 
 if __name__ == "__main__":

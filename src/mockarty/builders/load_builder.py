@@ -53,7 +53,7 @@ StageInput = Union[tuple[str, int], dict[str, Any]]
 class LoadRequest:
     """One HTTP request in the load scenario's iteration body."""
 
-    __slots__ = ("method", "path", "body", "headers")
+    __slots__ = ("method", "path", "body", "headers", "checks")
 
     def __init__(
         self,
@@ -66,6 +66,9 @@ class LoadRequest:
         self.path = path
         self.body = body
         self.headers = headers or {}
+        # List of (name, expr) per-request k6 checks. When non-empty they
+        # replace the default `status < 400` assertion.
+        self.checks: list[tuple[str, str]] = []
 
 
 def _js_str(s: str) -> str:
@@ -146,6 +149,20 @@ class LoadTest:
 
     def delete(self, path: str, headers: Optional[dict[str, str]] = None) -> "LoadTest":
         return self.request("DELETE", path, headers=headers)
+
+    def check(self, name: str, expr: str) -> "LoadTest":
+        """Attach a named assertion to the MOST RECENTLY added request. ``name``
+        is the check label; ``expr`` is a JavaScript boolean expression that may
+        reference the response as ``res`` (e.g. ``res.json().id !== undefined``).
+        When a request has one or more checks they REPLACE the default
+        ``status < 400`` check. No-op if no request has been added yet."""
+        if self._requests:
+            self._requests[-1].checks.append((name, expr))
+        return self
+
+    def expect_status(self, code: int) -> "LoadTest":
+        """Shorthand for :meth:`check` asserting the response status code."""
+        return self.check(f"status is {code}", f"res.status === {code}")
 
     # -- load profile --------------------------------------------------------
 
@@ -273,7 +290,7 @@ class LoadTest:
         if self._rps is not None:
             opts["rps"] = self._rps
         if self._max_vus is not None:
-            opts["maxVus"] = self._max_vus
+            opts["maxVUs"] = self._max_vus
         if self._thresholds:
             opts["thresholds"] = self._thresholds
         if not opts:
@@ -317,8 +334,19 @@ class LoadTest:
                 out.append(f"  r = http.{method}({url}, {body_lit}, {params});")
             else:
                 out.append(f"  r = http.{method}({url}, {body_lit});")
-        out.append("  check(r, { 'status < 400': (res) => res.status < 400 });")
+        out.append(self._check_js(req.checks))
         return out
+
+    @staticmethod
+    def _check_js(checks: list[tuple[str, str]]) -> str:
+        """Emit the k6 ``check(r, { ... })`` line for a request. With no custom
+        checks it emits the default ``status < 400`` assertion (backward
+        compatible); otherwise every custom check in insertion order. Kept
+        byte-identical across the Go/Python/Java SDKs."""
+        if not checks:
+            return "  check(r, { 'status < 400': (res) => res.status < 400 });"
+        parts = [f"{_js_str(name)}: (res) => {expr}" for name, expr in checks]
+        return "  check(r, { " + ", ".join(parts) + " });"
 
     def to_perf_config(self) -> dict[str, Any]:
         """Emit the perf-config dict consumed by the CLI ``--from-config`` flag
@@ -342,7 +370,7 @@ class LoadTest:
         if self._rps is not None:
             cfg["rps"] = self._rps
         if self._max_vus is not None:
-            cfg["maxVus"] = self._max_vus
+            cfg["maxVUs"] = self._max_vus
         if self._thresholds:
             cfg["thresholds"] = {k: list(v) for k, v in self._thresholds.items()}
         if self._env:

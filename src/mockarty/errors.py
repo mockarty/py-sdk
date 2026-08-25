@@ -90,3 +90,18 @@ class MockartyConnectionError(MockartyError):
 
 class MockartyTimeoutError(MockartyError):
     """Raised when a request to the Mockarty server times out."""
+
+
+class MockartyTaskError(MockartyError):
+    """Raised by ``wait_for_result`` when an agent task ends in a non-success
+    terminal state (``failed`` / ``cancelled``).
+
+    Attributes:
+        task: The final task dict as returned by the server.
+        status: The terminal status string that triggered the error.
+    """
+
+    def __init__(self, message: str, task: dict | None = None, status: str = "") -> None:
+        super().__init__(message)
+        self.task = task or {}
+        self.status = status

@@ -301,6 +301,63 @@ Full cross-language reference (Python / Go / Java side-by-side, every
 protocol, options, classification rules, troubleshooting):
 **[SDK Protocol Clients](https://mockarty.ru/docs/sdk-protocol-clients)**.
 
+## MCP Client
+
+Drive Mockarty's agent-facing tool surface programmatically over the admin
+node's Model Context Protocol endpoint — list the tools the server exposes and
+call them with typed arguments. Reuses the client's server URL + API key; tool
+licensing is enforced server-side. Handshake, session, and JSON/SSE framing are
+handled for you.
+
+```python
+mcp = client.mcp
+for tool in mcp.list_tools():          # discover available tools
+    print(tool.name, tool.description)
+
+result = mcp.call_tool("list_mocks", {})
+print(result.text)                      # JSON result text
+```
+
+Async: `await async_client.mcp.list_tools()`. See `examples/mcp_client.py`.
+
+## Agent Tasks (submit-and-wait)
+
+Dispatch a free-form task into Mockarty's autonomous agent network and block
+for its result:
+
+```python
+task = client.agent_tasks.submit_and_wait(
+    {"title": "audit", "prompt": "Fuzz the /users API and summarise"})
+print(task["result"])   # MockartyTaskError is raised if the task fails/cancels
+```
+
+## Issue Tracker (task automation)
+
+Create/read/update/transition issues, comment, search, claim the next issue,
+and manage projects/sprints:
+
+```python
+it = client.issue_tracker
+issue = it.create_issue({"projectId": pid, "type": "bug", "title": "500 on /pay"})
+it.add_comment(issue["id"], "repro attached")
+it.move_issue(issue["id"], "in_progress")
+nxt = it.next_issue(assigneeId=me)
+```
+
+## Test Case Management (TCM)
+
+Author cases, run them, poll case-runs, file defects, manage folders +
+attachments:
+
+```python
+tcm = client.tcm
+case = tcm.create_case({"folderId": fid, "title": "Checkout smoke"})
+run = tcm.run_case(case["id"])
+cr = tcm.get_case_run(run["runId"])
+if cr["status"] == "failed":
+    tcm.create_defect({"title": "checkout broke", "caseRunId": run["runId"]})
+```
+
 ## pytest Integration
 
 Install the test extras:

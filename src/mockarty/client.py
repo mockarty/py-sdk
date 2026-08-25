@@ -16,23 +16,32 @@ from mockarty._base_client import (
     resolve_base_url,
 )
 from mockarty.api.agent_tasks import AgentTaskAPI
+from mockarty.api.autonomous_missions import AutonomousMissionsAPI
 from mockarty.api.chaos import ChaosAPI
+from mockarty.api.cloud_webhooks import CloudWebhooksAPI
+from mockarty.api.cloud_spaces import CloudSpacesAPI
+from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
+from mockarty.api.coder_delivery import CoderDeliveryAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
 from mockarty.api.discovery import DiscoveryAPI
+from mockarty.api.delivery_policy import DeliveryPolicyAPI
 from mockarty.api.economics import EconomicsAPI
 from mockarty.api.entity_search import EntitySearchAPI
+from mockarty.api.environments import EnvironmentAPI
+from mockarty.api.experience import ExperienceAPI
 from mockarty.api.llm_security import LLMSecurityAPI
 from mockarty.api.external_runs import ExternalRunsAPI
 from mockarty.api.flow_runs import FlowRunsAPI
-from mockarty.api.environments import EnvironmentAPI
 from mockarty.api.folders import FolderAPI
 from mockarty.api.fuzzing import FuzzingAPI
 from mockarty.api.generator import GeneratorAPI
 from mockarty.api.gitsync import GitSyncAPI
 from mockarty.api.health import HealthAPI
 from mockarty.api.imports import ImportAPI
+from mockarty.api.issuetracker import IssueTrackerAPI
+from mockarty.api.mcp import MCPClient
 from mockarty.api.me import MeAPI
 from mockarty.api.mocks import MockAPI
 from mockarty.api.namespace_settings import NamespaceSettingsAPI
@@ -46,11 +55,13 @@ from mockarty.api.security import SecurityAPI
 from mockarty.api.stats import StatsAPI
 from mockarty.api.stores import StoreAPI
 from mockarty.api.tags import TagAPI
+from mockarty.api.tcm import TCMAPI
 from mockarty.api.templates import TemplateAPI
 from mockarty.api.testplans import TestPlansAPI
 from mockarty.api.testruns import TestRunAPI
 from mockarty.api.uitests import UITestAPI
 from mockarty.api.undefined import UndefinedAPI
+from mockarty.api.workflow_definitions import WorkflowDefinitionsAPI
 
 
 class MockartyClient:
@@ -88,6 +99,11 @@ class MockartyClient:
     # access, never a stale cached client.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
         "_chaos",
+        "_cloud_webhooks",
+        "_cloud_spaces",
+        "_cloud_entitlements",
+        "_coder_delivery",
+        "_delivery_policy",
         "_ci_triggers",
         "_mocks",
         "_namespaces",
@@ -110,15 +126,21 @@ class MockartyClient:
         "_undefined",
         "_stats",
         "_agent_tasks",
+        "_autonomous_missions",
+        "_mcp",
+        "_issue_tracker",
+        "_tcm",
         "_namespace_settings",
         "_proxy",
         "_environments",
         "_entity_search",
+        "_experience",
         "_economics",
         "_llm_security",
         "_external_runs",
         "_discovery",
         "_flow_runs",
+        "_workflow_definitions",
         "_secrets",
         "_security",
         "_prompts",
@@ -196,6 +218,34 @@ class MockartyClient:
         if self._chaos is None:
             self._chaos = ChaosAPI(self._http, self._namespace)
         return self._chaos
+
+    @property
+    def cloud_webhooks(self) -> CloudWebhooksAPI:
+        """Cloud webhook lifecycle API."""
+        if self._cloud_webhooks is None:
+            self._cloud_webhooks = CloudWebhooksAPI(self._http, self._namespace)
+        return self._cloud_webhooks
+
+    @property
+    def cloud_spaces(self) -> CloudSpacesAPI:
+        """Canonical explicit-Space collaboration API."""
+        if self._cloud_spaces is None:
+            self._cloud_spaces = CloudSpacesAPI(self._http, self._namespace)
+        return self._cloud_spaces
+
+    @property
+    def cloud_entitlements(self) -> CloudEntitlementsAPI:
+        """Committed unsigned Cloud entitlement projection API."""
+        if self._cloud_entitlements is None:
+            self._cloud_entitlements = CloudEntitlementsAPI(self._http, self._namespace)
+        return self._cloud_entitlements
+
+    @property
+    def delivery_policy(self) -> DeliveryPolicyAPI:
+        """Administrator delivery-policy environment management."""
+        if self._delivery_policy is None:
+            self._delivery_policy = DeliveryPolicyAPI(self._http, self._namespace)
+        return self._delivery_policy
 
     @property
     def ci_triggers(self) -> CITriggerAPI:
@@ -392,6 +442,27 @@ class MockartyClient:
         return self._agent_tasks
 
     @property
+    def mcp(self) -> MCPClient:
+        """Model Context Protocol client — list_tools/call_tool against /mcp."""
+        if self._mcp is None:
+            self._mcp = MCPClient(self._http, self._namespace)
+        return self._mcp
+
+    @property
+    def issue_tracker(self) -> IssueTrackerAPI:
+        """Issue-tracker task automation (issues/comments/projects/sprints)."""
+        if self._issue_tracker is None:
+            self._issue_tracker = IssueTrackerAPI(self._http, self._namespace)
+        return self._issue_tracker
+
+    @property
+    def tcm(self) -> TCMAPI:
+        """Test Case Management automation (cases/case-runs/defects)."""
+        if self._tcm is None:
+            self._tcm = TCMAPI(self._http, self._namespace)
+        return self._tcm
+
+    @property
     def namespace_settings(self) -> NamespaceSettingsAPI:
         """Per-namespace settings API (users, cleanup, webhooks)."""
         if self._namespace_settings is None:
@@ -418,6 +489,27 @@ class MockartyClient:
         if self._entity_search is None:
             self._entity_search = EntitySearchAPI(self._http, self._namespace)
         return self._entity_search
+
+    @property
+    def experience(self) -> ExperienceAPI:
+        """Reusable AutoTester run experience API."""
+        if self._experience is None:
+            self._experience = ExperienceAPI(self._http, self._namespace)
+        return self._experience
+
+    @property
+    def autonomous_missions(self) -> AutonomousMissionsAPI:
+        """Autonomous mission intake and supervision API."""
+        if self._autonomous_missions is None:
+            self._autonomous_missions = AutonomousMissionsAPI(self._http, self._namespace)
+        return self._autonomous_missions
+
+    @property
+    def coder_delivery(self) -> CoderDeliveryAPI:
+        """Admitted repositories, delivery configuration, and deploy missions."""
+        if self._coder_delivery is None:
+            self._coder_delivery = CoderDeliveryAPI(self._http, self._namespace)
+        return self._coder_delivery
 
     @property
     def economics(self) -> EconomicsAPI:
@@ -464,3 +556,10 @@ class MockartyClient:
         if self._flow_runs is None:
             self._flow_runs = FlowRunsAPI(self._http, self._namespace)
         return self._flow_runs
+
+    @property
+    def workflow_definitions(self) -> WorkflowDefinitionsAPI:
+        """Versioned workflow draft, dry-run and publish API."""
+        if self._workflow_definitions is None:
+            self._workflow_definitions = WorkflowDefinitionsAPI(self._http, self._namespace)
+        return self._workflow_definitions

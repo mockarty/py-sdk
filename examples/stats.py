@@ -5,6 +5,7 @@ Demonstrates:
   - Getting resource counts (mocks, namespaces, stores)
   - Checking system status and health
   - Querying available feature flags
+  - Discovering canonical capabilities and their availability
   - Building a monitoring dashboard
 """
 
@@ -91,6 +92,18 @@ def get_feature_flags(client: MockartyClient) -> None:
         print(f"  {feature}: {status}")
 
 
+def list_capabilities(client: MockartyClient) -> None:
+    """List versioned capabilities with policy and availability metadata."""
+    catalog = client.stats.list_capabilities()
+    print(f"Canonical capabilities: {catalog['count']}")
+    for capability in catalog["capabilities"]:
+        availability = capability.get("availability", {})
+        print(
+            f"  {capability['key']}@{capability['version']} "
+            f"available={availability.get('available', False)}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Monitoring Dashboard
 # ---------------------------------------------------------------------------
@@ -155,6 +168,11 @@ def main() -> None:
 
         print("=== Feature Flags ===")
         get_feature_flags(client)
+        print()
+
+        # The catalogue is caller- and namespace-scoped.
+        print("=== Capability Catalogue ===")
+        list_capabilities(client)
         print()
 
         print("=== Monitoring Dashboard ===")

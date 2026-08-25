@@ -5,10 +5,30 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 from urllib.parse import quote
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
+from mockarty.errors import MockartyTaskError
+
+# Terminal task statuses. Kept in sync with the Go/Java SDKs and the server's
+# agent executor (internal/agent/executor.go).
+_TASK_SUCCESS = frozenset({"completed", "done", "succeeded"})
+_TASK_FAILED = frozenset({"failed", "error"})
+_TASK_CANCELLED = frozenset({"cancelled", "canceled"})
+
+
+def _terminal_task_error(task: dict[str, Any]) -> MockartyTaskError | None:
+    """Return a MockartyTaskError if the task reached a non-success terminal
+    state, or None if it is still running or completed successfully."""
+    status = str(task.get("status", "")).lower()
+    if status in _TASK_FAILED:
+        return MockartyTaskError(f"agent task {task.get('id', '')} failed", task, status)
+    if status in _TASK_CANCELLED:
+        return MockartyTaskError(f"agent task {task.get('id', '')} cancelled", task, status)
+    return None
 
 
 class AgentTaskAPI(SyncAPIBase):
@@ -32,8 +52,48 @@ class AgentTaskAPI(SyncAPIBase):
         resp = self._request("GET", f"/api/v1/agent/tasks/{task_id}")
         data = resp.json()
         if isinstance(data, dict) and "task" in data:
-            return data["task"] or {}
+            task = data["task"] or {}
+            if isinstance(task, dict):
+                task["toolReceipts"] = data.get("toolReceipts") or []
+                task["canReconcileToolReceipts"] = data.get("canReconcileToolReceipts") is True
+                task["toolReceiptRetryAllowed"] = data.get("toolReceiptRetryAllowed") is True
+                task["toolReceiptReconcileBlockedReason"] = data.get("toolReceiptReconcileBlockedReason") or ""
+            return task
         return data
+
+    def reconcile_tool_receipt(
+        self,
+        task_id: str,
+        receipt_key: str,
+        *,
+        expected_version: int,
+        idempotency_key: str,
+        decision: str,
+        reason: str,
+        result: str = "",
+    ) -> dict[str, Any]:
+        """Resolve one uncertain external action after inspecting the real target.
+
+        ``decision`` is ``already_applied``, ``retry_once`` or ``mark_failed``.
+        Keep ``idempotency_key`` stable when retrying the same HTTP request.
+        ``reason`` is limited to 2000 encoded UTF-8 bytes and ``result`` to
+        65536 encoded UTF-8 bytes.
+        ``retry_once`` requires an empty result and permits exactly one new
+        physical dispatch generation.
+        """
+        payload = {
+            "expectedVersion": expected_version,
+            "idempotencyKey": idempotency_key,
+            "decision": decision,
+            "reason": reason,
+            "result": result,
+        }
+        data = self._request(
+            "POST",
+            f"/api/v1/agent/tasks/{task_id}/tool-receipts/{receipt_key}/reconcile",
+            json=payload,
+        ).json()
+        return data.get("receipt", {}) if isinstance(data, dict) else data
 
     def submit(self, task: dict[str, Any]) -> dict[str, Any]:
         """Submit a new agent task.
@@ -127,6 +187,32 @@ class AgentTaskAPI(SyncAPIBase):
         )
         return resp.json().get("session", {})
 
+    def wait_for_result(self, task_id: str, poll_interval: float = 2.0) -> dict[str, Any]:
+        """Poll a task until it reaches a terminal state, returning the finished
+        task dict (with ``result``). Raises :class:`MockartyTaskError` on a
+        ``failed`` / ``cancelled`` terminal state. Automation counterpart to
+        :meth:`submit` — dispatch into the agent network and block for a result.
+        """
+        interval = poll_interval if poll_interval > 0 else 2.0
+        while True:
+            task = self.get(task_id)
+            if str(task.get("status", "")).lower() in _TASK_SUCCESS:
+                return task
+            err = _terminal_task_error(task)
+            if err is not None:
+                raise err
+            time.sleep(interval)
+
+    def submit_and_wait(self, task: dict[str, Any], poll_interval: float = 2.0) -> dict[str, Any]:
+        """Submit a task and block until it reaches a terminal state — the
+        one-call entry point for 'run this in the agent network, give me the
+        result'."""
+        submitted = self.submit(task)
+        task_id = submitted.get("id")
+        if not task_id:
+            raise MockartyTaskError("agent task submitted without an id", submitted)
+        return self.wait_for_result(task_id, poll_interval)
+
 
 class AsyncAgentTaskAPI(AsyncAPIBase):
     """Asynchronous Agent Task API resource."""
@@ -146,8 +232,40 @@ class AsyncAgentTaskAPI(AsyncAPIBase):
         resp = await self._request("GET", f"/api/v1/agent/tasks/{task_id}")
         data = resp.json()
         if isinstance(data, dict) and "task" in data:
-            return data["task"] or {}
+            task = data["task"] or {}
+            if isinstance(task, dict):
+                task["toolReceipts"] = data.get("toolReceipts") or []
+                task["canReconcileToolReceipts"] = data.get("canReconcileToolReceipts") is True
+                task["toolReceiptRetryAllowed"] = data.get("toolReceiptRetryAllowed") is True
+                task["toolReceiptReconcileBlockedReason"] = data.get("toolReceiptReconcileBlockedReason") or ""
+            return task
         return data
+
+    async def reconcile_tool_receipt(
+        self,
+        task_id: str,
+        receipt_key: str,
+        *,
+        expected_version: int,
+        idempotency_key: str,
+        decision: str,
+        reason: str,
+        result: str = "",
+    ) -> dict[str, Any]:
+        """Async mirror of :meth:`AgentTaskAPI.reconcile_tool_receipt`."""
+        payload = {
+            "expectedVersion": expected_version,
+            "idempotencyKey": idempotency_key,
+            "decision": decision,
+            "reason": reason,
+            "result": result,
+        }
+        data = (await self._request(
+            "POST",
+            f"/api/v1/agent/tasks/{task_id}/tool-receipts/{receipt_key}/reconcile",
+            json=payload,
+        )).json()
+        return data.get("receipt", {}) if isinstance(data, dict) else data
 
     async def submit(self, task: dict[str, Any]) -> dict[str, Any]:
         """Async mirror — see sync ``submit`` for required fields."""
@@ -236,3 +354,23 @@ class AsyncAgentTaskAPI(AsyncAPIBase):
             json=payload,
         )
         return resp.json().get("session", {})
+
+    async def wait_for_result(self, task_id: str, poll_interval: float = 2.0) -> dict[str, Any]:
+        """Async mirror of the sync ``wait_for_result``."""
+        interval = poll_interval if poll_interval > 0 else 2.0
+        while True:
+            task = await self.get(task_id)
+            if str(task.get("status", "")).lower() in _TASK_SUCCESS:
+                return task
+            err = _terminal_task_error(task)
+            if err is not None:
+                raise err
+            await asyncio.sleep(interval)
+
+    async def submit_and_wait(self, task: dict[str, Any], poll_interval: float = 2.0) -> dict[str, Any]:
+        """Async mirror of the sync ``submit_and_wait``."""
+        submitted = await self.submit(task)
+        task_id = submitted.get("id")
+        if not task_id:
+            raise MockartyTaskError("agent task submitted without an id", submitted)
+        return await self.wait_for_result(task_id, poll_interval)

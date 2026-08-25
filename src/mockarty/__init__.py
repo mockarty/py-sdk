@@ -20,6 +20,7 @@ Quick start::
 from __future__ import annotations
 
 from mockarty.api.agent_tasks import AgentTaskAPI, AsyncAgentTaskAPI
+from mockarty.api.autonomous_missions import AsyncAutonomousMissionsAPI, AutonomousMissionsAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.discovery import (
     AsyncDiscoveryAPI,
@@ -30,6 +31,7 @@ from mockarty.api.discovery import (
 from mockarty.api.economics import AsyncEconomicsAPI, EconomicsAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI
+from mockarty.api.experience import AsyncExperienceAPI, ExperienceAPI
 from mockarty.api.external_runs import (
     EXTERNAL_RUN_SCHEMA_VERSION,
     EXTERNAL_STATUS_BROKEN,
@@ -42,6 +44,13 @@ from mockarty.api.external_runs import (
 )
 from mockarty.api.folders import AsyncFolderAPI, FolderAPI
 from mockarty.api.llm_security import AsyncLLMSecurityAPI, LLMSecurityAPI
+from mockarty.api.mcp import (
+    AsyncMCPClient,
+    MCPClient,
+    MCPTool,
+    MCPToolResult,
+    MockartyMCPError,
+)
 from mockarty.api.namespace_settings import (
     AsyncNamespaceSettingsAPI,
     NamespaceSettingsAPI,
@@ -75,6 +84,7 @@ from mockarty.errors import (
     MockartyNotFoundError,
     MockartyRateLimitError,
     MockartyServerError,
+    MockartyTaskError,
     MockartyTimeoutError,
     MockartyUnauthorizedError,
     MockartyUnavailableError,
@@ -106,6 +116,7 @@ from mockarty.models.chaos import (
     TimelineEvent,
 )
 from mockarty.models.common import (
+    AbortCriterion,
     Collection,
     ErrorResponse,
     HealthResponse,
@@ -113,10 +124,27 @@ from mockarty.models.common import (
     Page,
     PerfComparison,
     PerfConfig,
+    PerfOptions,
     PerfResult,
+    PerfStage,
     PerfTask,
     RequestLog,
     TestRunResult,
+)
+from mockarty.models.autonomous_missions import (
+    AutonomousMission,
+    AutonomousMissionBudget,
+    AutonomousMissionBudgetHint,
+    AutonomousMissionContextRef,
+    AutonomousMissionFlow,
+    AutonomousMissionListResponse,
+    AutonomousMissionSubmitRequest,
+    AutonomousMissionSubmitResponse,
+    MissionEffectiveSetting,
+    MissionEffectiveSettings,
+    MissionStartRequest,
+    MissionStartResponse,
+    UnifiedMission,
 )
 from mockarty.models.condition import AssertAction, Condition
 from mockarty.models.contexts import (
@@ -167,6 +195,21 @@ from mockarty.models.entity_search import (
     ENTITY_TYPE_TEST_PLAN,
     EntitySearchResponse,
     EntitySearchResult,
+)
+from mockarty.models.experience import (
+    EXPERIENCE_KIND_DEFECT_ROOT_CAUSE,
+    EXPERIENCE_KIND_MISSION_LESSON,
+    EXPERIENCE_KIND_PITFALL,
+    EXPERIENCE_KIND_PRODUCT_FACT,
+    ExperienceItem,
+    ExperienceRecordResponse,
+    ExperienceReviewDetail,
+    ExperienceReviewItem,
+    ExperienceReviewMutation,
+    ExperienceReviewPage,
+    ExperienceReviewRelation,
+    ExperienceReviewResponse,
+    ExperienceSearchResponse,
 )
 from mockarty.models.folders import MockFolder
 from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun
@@ -245,6 +288,8 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "LLMSecuritySandboxRequest",
     "LLMSecuritySandboxResponse",
     "LLMSecuritySource",
+    "ExperienceAPI",
+    "AsyncExperienceAPI",
     "EconomicsAPI",
     "AsyncEconomicsAPI",
     "LLMPrice",
@@ -262,6 +307,19 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "ResourcePrice",
     "ResourcePriceList",
     "ResourceUsageTotal",
+    "ExperienceItem",
+    "ExperienceSearchResponse",
+    "ExperienceRecordResponse",
+    "ExperienceReviewDetail",
+    "ExperienceReviewItem",
+    "ExperienceReviewMutation",
+    "ExperienceReviewPage",
+    "ExperienceReviewRelation",
+    "ExperienceReviewResponse",
+    "EXPERIENCE_KIND_MISSION_LESSON",
+    "EXPERIENCE_KIND_PITFALL",
+    "EXPERIENCE_KIND_PRODUCT_FACT",
+    "EXPERIENCE_KIND_DEFECT_ROOT_CAUSE",
     # Builders
     "MockBuilder",
     "OneOfBuilder",
@@ -354,6 +412,10 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "ImportResult",
     # Test run models
     "TestRun",
+    # Performance config models
+    "AbortCriterion",
+    "PerfOptions",
+    "PerfStage",
     # Test plan models
     "TestPlan",
     "TestPlanItem",
@@ -390,6 +452,21 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "AsyncStatsAPI",
     "AgentTaskAPI",
     "AsyncAgentTaskAPI",
+    "AsyncAutonomousMissionsAPI",
+    "AutonomousMissionsAPI",
+    "AutonomousMission",
+    "AutonomousMissionBudget",
+    "AutonomousMissionBudgetHint",
+    "AutonomousMissionContextRef",
+    "AutonomousMissionFlow",
+    "AutonomousMissionListResponse",
+    "AutonomousMissionSubmitRequest",
+    "AutonomousMissionSubmitResponse",
+    "MissionEffectiveSetting",
+    "MissionEffectiveSettings",
+    "MissionStartRequest",
+    "MissionStartResponse",
+    "UnifiedMission",
     "NamespaceSettingsAPI",
     "AsyncNamespaceSettingsAPI",
     "ProxyAPI",
@@ -445,4 +522,10 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "MockartyExternalError",
     "MockartyConnectionError",
     "MockartyTimeoutError",
+    "MockartyTaskError",
+    "MCPClient",
+    "AsyncMCPClient",
+    "MCPTool",
+    "MCPToolResult",
+    "MockartyMCPError",
 ]
