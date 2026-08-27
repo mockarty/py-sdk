@@ -132,12 +132,14 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     assert settings.settings_digest == digest
     assert settings.settings[0].runtime_applied is True
     started = client.autonomous_missions.start(MissionStartRequest(
-        goal=" ship checkout ", product_id="product/checkout", kind="testing", expected_settings_digest=digest,
+        goal=" ship checkout ", product_id="product/checkout", expected_settings_digest=digest,
     ))
     assert started.created is True
     assert started.mission.id == "m-unified"
     assert preview.called and start.called
-    assert start.calls.last.request.read().decode().find(f'"expectedSettingsDigest":"{digest}"') >= 0
+    start_body = start.calls.last.request.read().decode()
+    assert start_body.find(f'"expectedSettingsDigest":"{digest}"') >= 0
+    assert '"kind"' not in start_body and '"chain"' not in start_body
 
 
 @respx.mock
@@ -153,7 +155,7 @@ def test_async_unified_mission_settings_and_start(base_url: str, api_key: str) -
     async def run() -> None:
         async with AsyncMockartyClient(base_url=base_url, api_key=api_key, max_retries=0) as client:
             settings = await client.autonomous_missions.get_effective_settings()
-            started = await client.autonomous_missions.start(MissionStartRequest(goal="verify", kind="testing", expected_settings_digest=settings.settings_digest))
+            started = await client.autonomous_missions.start(MissionStartRequest(goal="verify", expected_settings_digest=settings.settings_digest))
             assert started.mission.id == "m-2"
 
     asyncio.run(run())

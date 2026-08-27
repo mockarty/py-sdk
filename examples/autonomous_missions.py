@@ -1,4 +1,4 @@
-"""Submit and supervise one bounded autonomous testing mission."""
+"""Submit and supervise one bounded goal-first autonomous mission."""
 
 import os
 from mockarty import (
@@ -16,9 +16,8 @@ with MockartyClient(
     settings = client.autonomous_missions.get_effective_settings(product_id=product_id)
     started = client.autonomous_missions.start(
         MissionStartRequest(
-            goal="Verify the checkout API and fuzz the payment endpoint",
+            goal="Take the checkout release to production quality and provide evidence",
             product_id=product_id,
-            kind="testing",
             autonomy="auto",
             budget_tokens_total=100_000,
             expected_settings_digest=settings.settings_digest,

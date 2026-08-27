@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
 # Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
 
-"""Submit and supervise durable autonomous testing missions."""
+"""Submit and supervise durable goal-first autonomous missions."""
 
 from __future__ import annotations
 

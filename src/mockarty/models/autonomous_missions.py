@@ -139,6 +139,8 @@ class MissionEffectiveSettings(BaseModel):
 
 
 class MissionStartRequest(BaseModel):
+    """Goal-first mission input; kind/chain are legacy routing overrides."""
+
     data: dict[str, Any] = Field(default_factory=dict)
     namespace: str = ""
     product_id: str = Field("", alias="productId")
