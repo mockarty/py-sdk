@@ -11,6 +11,7 @@ from mockarty import (
     AsyncMockartyClient,
     AutonomousMissionBudgetHint,
     MissionStartRequest,
+    MissionCancelRequest,
     AutonomousMissionSubmitRequest,
     MockartyClient,
 )
@@ -125,6 +126,12 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
             "mission": {"id": "m-unified", "namespace": "team-a", "productId": "product/checkout", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "queued", "chain": []},
         })
     )
+    cancel = respx.post("http://localhost:5770/api/v1/missions/m-unified/cancel").mock(
+        return_value=httpx.Response(200, json={
+            "mission": {"id": "m-unified", "namespace": "team-a", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "canceled", "chain": []},
+            "control": {"id": "control-1", "missionId": "m-unified", "idempotencyKey": "cancel-1", "action": "cancel", "phase": "committed", "outcome": "applied", "reason": "release withdrawn", "createdAt": "2026-08-27T00:00:00Z", "updatedAt": "2026-08-27T00:00:01Z"},
+        })
+    )
 
     settings = client.autonomous_missions.get_effective_settings(
         product_id="product/checkout", run_window_minutes=90,
@@ -136,10 +143,19 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     ))
     assert started.created is True
     assert started.mission.id == "m-unified"
+    cancelled = client.autonomous_missions.cancel("m-unified", MissionCancelRequest(
+        reason=" release withdrawn ", idempotency_key=" cancel-1 ",
+    ))
+    assert cancelled.mission.status == "canceled"
+    assert cancelled.control.reason == "release withdrawn"
+    assert cancelled.control.idempotency_key == "cancel-1"
     assert preview.called and start.called
     start_body = start.calls.last.request.read().decode()
     assert start_body.find(f'"expectedSettingsDigest":"{digest}"') >= 0
     assert '"kind"' not in start_body and '"chain"' not in start_body
+    cancel_body = cancel.calls.last.request.read().decode()
+    assert '"reason":"release withdrawn"' in cancel_body
+    assert '"idempotencyKey":"cancel-1"' in cancel_body
 
 
 @respx.mock
@@ -151,12 +167,20 @@ def test_async_unified_mission_settings_and_start(base_url: str, api_key: str) -
     respx.post(f"{base_url}/api/v1/missions").mock(
         return_value=httpx.Response(201, json={"created": True, "mission": {"id": "m-2", "namespace": "default", "kind": "testing", "goal": "verify", "origin": "ui", "status": "queued", "chain": []}})
     )
+    respx.post(f"{base_url}/api/v1/missions/m-2/cancel").mock(return_value=httpx.Response(200, json={
+        "mission": {"id": "m-2", "namespace": "default", "kind": "testing", "goal": "verify", "origin": "ui", "status": "canceled", "chain": []},
+        "control": {"id": "control-2", "missionId": "m-2", "idempotencyKey": "cancel-2", "action": "cancel", "phase": "committed", "outcome": "applied", "reason": "stale", "createdAt": "2026-08-27T00:00:00Z", "updatedAt": "2026-08-27T00:00:01Z"},
+    }))
 
     async def run() -> None:
         async with AsyncMockartyClient(base_url=base_url, api_key=api_key, max_retries=0) as client:
             settings = await client.autonomous_missions.get_effective_settings()
             started = await client.autonomous_missions.start(MissionStartRequest(goal="verify", expected_settings_digest=settings.settings_digest))
             assert started.mission.id == "m-2"
+            cancelled = await client.autonomous_missions.cancel("m-2", MissionCancelRequest(
+                reason="stale", idempotency_key="cancel-2",
+            ))
+            assert cancelled.control.reason == "stale"
 
     asyncio.run(run())
 
@@ -168,3 +192,5 @@ def test_unified_mission_validation_before_network(client: MockartyClient) -> No
         MissionStartRequest(goal="x", expected_settings_digest="sha256:bad")
     with pytest.raises(ValueError, match="goal"):
         MissionStartRequest(goal=" ")
+    with pytest.raises(ValueError, match="mission_id"):
+        client.autonomous_missions.cancel(" ")

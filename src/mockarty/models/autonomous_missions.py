@@ -212,3 +212,43 @@ class UnifiedMission(BaseModel):
 class MissionStartResponse(BaseModel):
     mission: UnifiedMission
     created: bool
+
+
+class MissionCancelRequest(BaseModel):
+    """Durable operator intent accepted by the unified cancel endpoint."""
+
+    reason: str = ""
+    idempotency_key: str = Field("", alias="idempotencyKey")
+
+    model_config = {"populate_by_name": True}
+
+    @field_validator("reason", "idempotency_key")
+    @classmethod
+    def trim_cancel_value(cls, value: str) -> str:
+        return value.strip()
+
+
+class MissionControlReceipt(BaseModel):
+    created_at: datetime | None = Field(None, alias="createdAt")
+    updated_at: datetime | None = Field(None, alias="updatedAt")
+    committed_at: datetime | None = Field(None, alias="committedAt")
+    resolved_at: datetime | None = Field(None, alias="resolvedAt")
+    id: str
+    mission_id: str = Field(alias="missionId")
+    idempotency_key: str = Field(alias="idempotencyKey")
+    action: str
+    phase: str
+    outcome: str
+    reason: str = ""
+    resolution: str = ""
+    resolved_by: str = Field("", alias="resolvedBy")
+    resolution_reason: str = Field("", alias="resolutionReason")
+
+    model_config = {"populate_by_name": True, "extra": "allow"}
+
+
+class MissionControlResponse(BaseModel):
+    error: dict[str, Any] | None = None
+    mission: UnifiedMission
+    control: MissionControlReceipt
+    pending: bool = False

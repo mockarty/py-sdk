@@ -15,6 +15,8 @@ from mockarty.models.autonomous_missions import (
     AutonomousMissionSubmitRequest,
     AutonomousMissionSubmitResponse,
     MissionEffectiveSettings,
+    MissionCancelRequest,
+    MissionControlResponse,
     MissionStartRequest,
     MissionStartResponse,
 )
@@ -90,6 +92,17 @@ class AutonomousMissionsAPI(SyncAPIBase):
         )
         return MissionStartResponse.model_validate(resp.json())
 
+    def cancel(self, mission_id: str, request: MissionCancelRequest | None = None) -> MissionControlResponse:
+        mission_id = (mission_id or "").strip()
+        if not mission_id:
+            raise ValueError("mission_id is required")
+        body = request or MissionCancelRequest()
+        resp = self._request(
+            "POST", f"{_UNIFIED_MISSIONS_PATH}/{quote(mission_id, safe='')}/cancel",
+            json=body.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+        )
+        return MissionControlResponse.model_validate(resp.json())
+
 
 class AsyncAutonomousMissionsAPI(AsyncAPIBase):
     async def submit(self, request: AutonomousMissionSubmitRequest) -> AutonomousMissionSubmitResponse:
@@ -123,3 +136,14 @@ class AsyncAutonomousMissionsAPI(AsyncAPIBase):
             json=request.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
         )
         return MissionStartResponse.model_validate(resp.json())
+
+    async def cancel(self, mission_id: str, request: MissionCancelRequest | None = None) -> MissionControlResponse:
+        mission_id = (mission_id or "").strip()
+        if not mission_id:
+            raise ValueError("mission_id is required")
+        body = request or MissionCancelRequest()
+        resp = await self._request(
+            "POST", f"{_UNIFIED_MISSIONS_PATH}/{quote(mission_id, safe='')}/cancel",
+            json=body.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+        )
+        return MissionControlResponse.model_validate(resp.json())

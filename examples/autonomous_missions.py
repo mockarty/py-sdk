@@ -2,6 +2,7 @@
 
 import os
 from mockarty import (
+    MissionCancelRequest,
     MissionStartRequest,
     MockartyClient,
 )
@@ -24,3 +25,12 @@ with MockartyClient(
         )
     )
     print("mission:", started.mission.id, started.mission.status, "created:", started.created)
+    if os.environ.get("MOCKARTY_EXAMPLE_CANCEL") == "1":
+        cancelled = client.autonomous_missions.cancel(
+            started.mission.id,
+            MissionCancelRequest(
+                reason="example run no longer needed",
+                idempotency_key="autonomous-missions-example-cancel",
+            ),
+        )
+        print("cancel receipt:", cancelled.control.id, cancelled.control.outcome, cancelled.control.reason)
