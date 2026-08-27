@@ -47,6 +47,7 @@ from mockarty.api.mocks import MockAPI
 from mockarty.api.namespace_settings import NamespaceSettingsAPI
 from mockarty.api.namespaces import NamespaceAPI
 from mockarty.api.perf import PerfAPI
+from mockarty.api.page_analyzer import PageAnalyzerAPI
 from mockarty.api.prompts import PromptsAPI
 from mockarty.api.proxy import ProxyAPI
 from mockarty.api.recorder import RecorderAPI
@@ -104,6 +105,7 @@ class MockartyClient:
         "_cloud_entitlements",
         "_coder_delivery",
         "_delivery_policy",
+        "_page_analyzer",
         "_ci_triggers",
         "_mocks",
         "_namespaces",
@@ -246,6 +248,13 @@ class MockartyClient:
         if self._delivery_policy is None:
             self._delivery_policy = DeliveryPolicyAPI(self._http, self._namespace)
         return self._delivery_policy
+
+    @property
+    def page_analyzer(self) -> PageAnalyzerAPI:
+        """HTTP-level page analysis API."""
+        if self._page_analyzer is None:
+            self._page_analyzer = PageAnalyzerAPI(self._http, self._namespace)
+        return self._page_analyzer
 
     @property
     def ci_triggers(self) -> CITriggerAPI:

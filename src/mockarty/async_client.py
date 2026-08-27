@@ -46,6 +46,7 @@ from mockarty.api.mocks import AsyncMockAPI
 from mockarty.api.namespace_settings import AsyncNamespaceSettingsAPI
 from mockarty.api.namespaces import AsyncNamespaceAPI
 from mockarty.api.perf import AsyncPerfAPI
+from mockarty.api.page_analyzer import AsyncPageAnalyzerAPI
 from mockarty.api.prompts import AsyncPromptsAPI
 from mockarty.api.proxy import AsyncProxyAPI
 from mockarty.api.recorder import AsyncRecorderAPI
@@ -87,7 +88,7 @@ class AsyncMockartyClient:
     # construction and namespace changes reset this exact set, so a newly
     # added API cannot retain the previous tenant by omission.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
-        "_chaos", "_cloud_webhooks", "_cloud_spaces", "_cloud_entitlements", "_delivery_policy", "_ci_triggers", "_mocks", "_namespaces",
+        "_chaos", "_cloud_webhooks", "_cloud_spaces", "_cloud_entitlements", "_delivery_policy", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
         "_stores", "_collections", "_perf", "_health", "_generator", "_fuzzing",
         "_contracts", "_recorder", "_templates", "_imports", "_test_runs",
         "_test_plans", "_tags", "_ui_tests", "_git_sync", "_folders", "_undefined",
@@ -195,6 +196,13 @@ class AsyncMockartyClient:
         if self._delivery_policy is None:
             self._delivery_policy = AsyncDeliveryPolicyAPI(self._http, self._namespace)
         return self._delivery_policy
+
+    @property
+    def page_analyzer(self) -> AsyncPageAnalyzerAPI:
+        """HTTP-level page analysis API."""
+        if self._page_analyzer is None:
+            self._page_analyzer = AsyncPageAnalyzerAPI(self._http, self._namespace)
+        return self._page_analyzer
 
     @property
     def mocks(self) -> AsyncMockAPI:
