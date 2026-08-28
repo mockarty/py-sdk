@@ -21,6 +21,7 @@ from mockarty.api.chaos import AsyncChaosAPI
 from mockarty.api.cloud_webhooks import AsyncCloudWebhooksAPI
 from mockarty.api.cloud_spaces import AsyncCloudSpacesAPI
 from mockarty.api.cloud_entitlements import AsyncCloudEntitlementsAPI
+from mockarty.api.cloud_shared_projects import AsyncCloudSharedProjectsAPI
 from mockarty.api.coder_delivery import AsyncCoderDeliveryAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI
@@ -88,7 +89,7 @@ class AsyncMockartyClient:
     # construction and namespace changes reset this exact set, so a newly
     # added API cannot retain the previous tenant by omission.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
-        "_chaos", "_cloud_webhooks", "_cloud_spaces", "_cloud_entitlements", "_delivery_policy", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
+        "_chaos", "_cloud_webhooks", "_cloud_spaces", "_cloud_entitlements", "_cloud_shared_projects", "_delivery_policy", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
         "_stores", "_collections", "_perf", "_health", "_generator", "_fuzzing",
         "_contracts", "_recorder", "_templates", "_imports", "_test_runs",
         "_test_plans", "_tags", "_ui_tests", "_git_sync", "_folders", "_undefined",
@@ -189,6 +190,13 @@ class AsyncMockartyClient:
         if self._cloud_entitlements is None:
             self._cloud_entitlements = AsyncCloudEntitlementsAPI(self._http, self._namespace)
         return self._cloud_entitlements
+
+    @property
+    def cloud_shared_projects(self) -> AsyncCloudSharedProjectsAPI:
+        """Public Shared SaaS project CRUD API."""
+        if self._cloud_shared_projects is None:
+            self._cloud_shared_projects = AsyncCloudSharedProjectsAPI(self._http, self._namespace)
+        return self._cloud_shared_projects
 
     @property
     def delivery_policy(self) -> AsyncDeliveryPolicyAPI:

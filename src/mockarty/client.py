@@ -21,6 +21,7 @@ from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
 from mockarty.api.cloud_spaces import CloudSpacesAPI
 from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
+from mockarty.api.cloud_shared_projects import CloudSharedProjectsAPI
 from mockarty.api.coder_delivery import CoderDeliveryAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
@@ -103,6 +104,7 @@ class MockartyClient:
         "_cloud_webhooks",
         "_cloud_spaces",
         "_cloud_entitlements",
+        "_cloud_shared_projects",
         "_coder_delivery",
         "_delivery_policy",
         "_page_analyzer",
@@ -241,6 +243,13 @@ class MockartyClient:
         if self._cloud_entitlements is None:
             self._cloud_entitlements = CloudEntitlementsAPI(self._http, self._namespace)
         return self._cloud_entitlements
+
+    @property
+    def cloud_shared_projects(self) -> CloudSharedProjectsAPI:
+        """Public Shared SaaS project CRUD API."""
+        if self._cloud_shared_projects is None:
+            self._cloud_shared_projects = CloudSharedProjectsAPI(self._http, self._namespace)
+        return self._cloud_shared_projects
 
     @property
     def delivery_policy(self) -> DeliveryPolicyAPI:
