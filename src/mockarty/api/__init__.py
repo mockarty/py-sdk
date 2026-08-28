@@ -8,7 +8,6 @@ from mockarty.api.autonomous_missions import AsyncAutonomousMissionsAPI, Autonom
 from mockarty.api.coder_delivery import AsyncCoderDeliveryAPI, CoderDeliveryAPI
 from mockarty.api.chaos import AsyncChaosAPI, ChaosAPI
 from mockarty.api.cloud_entitlements import AsyncCloudEntitlementsAPI, CloudEntitlementsAPI
-from mockarty.api.cloud_shared_projects import AsyncCloudSharedProjectsAPI, CloudSharedProjectsAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI, CITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
@@ -51,7 +50,6 @@ __all__ = [
     "AsyncCITriggerAPI",
     "AsyncChaosAPI",
     "AsyncCloudEntitlementsAPI",
-    "AsyncCloudSharedProjectsAPI",
     "AsyncCollectionAPI",
     "AsyncContractAPI",
     "AsyncEntitySearchAPI",
@@ -82,7 +80,6 @@ __all__ = [
     "CITriggerAPI",
     "ChaosAPI",
     "CloudEntitlementsAPI",
-    "CloudSharedProjectsAPI",
     "CollectionAPI",
     "ContractAPI",
     "EntitySearchAPI",
