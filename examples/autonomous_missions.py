@@ -4,6 +4,7 @@ import os
 from mockarty import (
     MissionAnswerRequest,
     MissionCancelRequest,
+    MissionRevisionReference,
     MissionStartRequest,
     MockartyClient,
 )
@@ -16,15 +17,21 @@ with MockartyClient(
 ) as client:
     product_id = os.environ.get("MOCKARTY_PRODUCT_ID", "")
     settings = client.autonomous_missions.get_effective_settings(product_id=product_id)
-    started = client.autonomous_missions.start(
-        MissionStartRequest(
-            goal="Take the checkout release to production quality and provide evidence",
-            product_id=product_id,
-            autonomy="auto",
-            budget_tokens_total=100_000,
-            expected_settings_digest=settings.settings_digest,
-        )
+    request = MissionStartRequest(
+        goal="Take the checkout release to production quality and provide evidence",
+        product_id=product_id,
+        autonomy="auto",
+        budget_tokens_total=100_000,
+        expected_settings_digest=settings.settings_digest,
     )
+    if target_digest := os.environ.get("MOCKARTY_TARGET_DIGEST"):
+        request.targets = [MissionRevisionReference(
+            kind="repo",
+            id=os.environ["MOCKARTY_TARGET_ID"],
+            revision=int(os.environ["MOCKARTY_TARGET_REVISION"]),
+            digest=target_digest,
+        )]
+    started = client.autonomous_missions.start(request)
     print("mission:", started.mission.id, started.mission.status, "created:", started.created)
     if answer := os.environ.get("MOCKARTY_EXAMPLE_ANSWER"):
         answered = client.autonomous_missions.answer(

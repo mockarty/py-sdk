@@ -1,6 +1,7 @@
 """Autonomous mission REST parity tests."""
 
 import asyncio
+import json
 import math
 
 import httpx
@@ -13,6 +14,7 @@ from mockarty import (
     MissionStartRequest,
     MissionAnswerRequest,
     MissionCancelRequest,
+    MissionRevisionReference,
     AutonomousMissionSubmitRequest,
     MockartyClient,
 )
@@ -124,7 +126,7 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     start = respx.post("http://localhost:5770/api/v1/missions").mock(
         return_value=httpx.Response(201, json={
             "created": True,
-            "mission": {"id": "m-unified", "namespace": "team-a", "productId": "product/checkout", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "queued", "chain": []},
+            "mission": {"id": "m-unified", "namespace": "team-a", "productId": "product/checkout", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "queued", "pins": [{"kind": "repo", "id": "gitlab/mockarty", "revision": 41, "digest": digest}], "chain": []},
         })
     )
     cancel = respx.post("http://localhost:5770/api/v1/missions/m-unified/cancel").mock(
@@ -149,9 +151,11 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     assert settings.settings[0].runtime_applied is True
     started = client.autonomous_missions.start(MissionStartRequest(
         goal=" ship checkout ", product_id="product/checkout", expected_settings_digest=digest,
+        targets=[MissionRevisionReference(kind="repo", id="gitlab/mockarty", revision=41, digest=digest)],
     ))
     assert started.created is True
     assert started.mission.id == "m-unified"
+    assert started.mission.pins[0].revision == 41
     cancelled = client.autonomous_missions.cancel("m-unified", MissionCancelRequest(
         reason=" release withdrawn ", idempotency_key=" cancel-1 ",
     ))
@@ -168,7 +172,9 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     assert preview.called and start.called
     start_body = start.calls.last.request.read().decode()
     assert start_body.find(f'"expectedSettingsDigest":"{digest}"') >= 0
-    assert '"kind"' not in start_body and '"chain"' not in start_body
+    assert '"targets":[{"kind":"repo","id":"gitlab/mockarty"' in start_body
+    start_payload = json.loads(start_body)
+    assert "kind" not in start_payload and "chain" not in start_payload
     cancel_body = cancel.calls.last.request.read().decode()
     assert '"reason":"release withdrawn"' in cancel_body
     assert '"idempotencyKey":"cancel-1"' in cancel_body

@@ -138,6 +138,15 @@ class MissionEffectiveSettings(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MissionRevisionReference(BaseModel):
+    """Exact target or artifact revision sealed into a mission brief."""
+
+    kind: str
+    id: str
+    digest: str
+    revision: int
+
+
 class MissionStartRequest(BaseModel):
     """Goal-first mission input; kind/chain are legacy routing overrides."""
 
@@ -150,6 +159,8 @@ class MissionStartRequest(BaseModel):
     autonomy: str = ""
     origin_ref: str = Field("", alias="originRef")
     expected_settings_digest: str = Field("", alias="expectedSettingsDigest")
+    targets: list[MissionRevisionReference] = Field(default_factory=list)
+    artifacts: list[MissionRevisionReference] = Field(default_factory=list)
     chain: list[str] = Field(default_factory=list)
     budget_tokens_total: int = Field(0, alias="budgetTokensTotal")
     budget_tokens_per_day: int = Field(0, alias="budgetTokensPerDay")
@@ -199,6 +210,7 @@ class UnifiedMission(BaseModel):
     origin: str
     origin_ref: str = Field("", alias="originRef")
     status: str
+    pins: list[MissionRevisionReference] = Field(default_factory=list)
     chain: list[dict[str, Any]] = Field(default_factory=list)
     budget_tokens_total: int = Field(0, alias="budgetTokensTotal")
     budget_tokens_per_day: int = Field(0, alias="budgetTokensPerDay")
