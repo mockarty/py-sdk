@@ -228,6 +228,28 @@ class MissionCancelRequest(BaseModel):
         return value.strip()
 
 
+class MissionAnswerRequest(BaseModel):
+    """Durable human input accepted while a mission waits for an answer."""
+
+    answer: str
+    idempotency_key: str = Field("", alias="idempotencyKey")
+
+    model_config = {"populate_by_name": True}
+
+    @field_validator("answer")
+    @classmethod
+    def validate_answer(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("answer must not be empty")
+        return value
+
+    @field_validator("idempotency_key")
+    @classmethod
+    def trim_answer_key(cls, value: str) -> str:
+        return value.strip()
+
+
 class MissionControlReceipt(BaseModel):
     created_at: datetime | None = Field(None, alias="createdAt")
     updated_at: datetime | None = Field(None, alias="updatedAt")

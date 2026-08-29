@@ -11,6 +11,7 @@ from mockarty import (
     AsyncMockartyClient,
     AutonomousMissionBudgetHint,
     MissionStartRequest,
+    MissionAnswerRequest,
     MissionCancelRequest,
     AutonomousMissionSubmitRequest,
     MockartyClient,
@@ -134,6 +135,12 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
             "executionBindings": [{"id": "binding-1", "nodeId": "m-unified", "externalId": "runner-1", "kind": "runner_task", "state": "cancel_acknowledged", "graphRevision": 2, "generation": 1, "cancelEpoch": 3}],
         })
     )
+    answer = respx.post("http://localhost:5770/api/v1/missions/m-unified/answer").mock(
+        return_value=httpx.Response(200, json={
+            "mission": {"id": "m-unified", "namespace": "team-a", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "queued", "chain": []},
+            "control": {"id": "control-2", "missionId": "m-unified", "idempotencyKey": "answer-1", "action": "answer", "phase": "committed", "outcome": "applied"},
+        })
+    )
 
     settings = client.autonomous_missions.get_effective_settings(
         product_id="product/checkout", run_window_minutes=90,
@@ -153,6 +160,11 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     assert cancelled.control.idempotency_key == "cancel-1"
     assert cancelled.execution_bindings_available is True
     assert cancelled.execution_bindings[0].state == "cancel_acknowledged"
+    answered = client.autonomous_missions.answer("m-unified", MissionAnswerRequest(
+        answer=" use sandbox account ", idempotency_key=" answer-1 ",
+    ))
+    assert answered.control.action == "answer"
+    assert answered.control.reason == ""
     assert preview.called and start.called
     start_body = start.calls.last.request.read().decode()
     assert start_body.find(f'"expectedSettingsDigest":"{digest}"') >= 0
@@ -160,6 +172,9 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     cancel_body = cancel.calls.last.request.read().decode()
     assert '"reason":"release withdrawn"' in cancel_body
     assert '"idempotencyKey":"cancel-1"' in cancel_body
+    answer_body = answer.calls.last.request.read().decode()
+    assert '"answer":"use sandbox account"' in answer_body
+    assert '"idempotencyKey":"answer-1"' in answer_body
 
 
 @respx.mock
@@ -198,3 +213,5 @@ def test_unified_mission_validation_before_network(client: MockartyClient) -> No
         MissionStartRequest(goal=" ")
     with pytest.raises(ValueError, match="mission_id"):
         client.autonomous_missions.cancel(" ")
+    with pytest.raises(ValueError, match="answer"):
+        MissionAnswerRequest(answer=" ")
