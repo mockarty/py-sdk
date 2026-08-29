@@ -21,6 +21,7 @@ from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
 from mockarty.api.cloud_instances import CloudInstancesAPI
 from mockarty.api.cloud_oauth_providers import CloudOAuthProvidersAPI
+from mockarty.api.cloud_risk import CloudRiskAPI
 from mockarty.api.cloud_identity import CloudIdentityAPI
 from mockarty.api.cloud_spaces import CloudSpacesAPI
 from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
@@ -107,6 +108,7 @@ class MockartyClient:
         "_cloud_webhooks",
         "_cloud_instances",
         "_cloud_oauth_providers",
+        "_cloud_risk",
         "_cloud_identity",
         "_cloud_spaces",
         "_cloud_entitlements",
@@ -249,6 +251,13 @@ class MockartyClient:
         if self._cloud_oauth_providers is None:
             self._cloud_oauth_providers = CloudOAuthProvidersAPI(self._http, self._namespace)
         return self._cloud_oauth_providers
+
+    @property
+    def cloud_risk(self) -> CloudRiskAPI:
+        """Operator-only Cloud risk case and enforcement API."""
+        if self._cloud_risk is None:
+            self._cloud_risk = CloudRiskAPI(self._http, self._namespace)
+        return self._cloud_risk
 
     @property
     def cloud_identity(self) -> CloudIdentityAPI:

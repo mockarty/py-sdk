@@ -21,6 +21,7 @@ from mockarty.api.chaos import AsyncChaosAPI
 from mockarty.api.cloud_webhooks import AsyncCloudWebhooksAPI
 from mockarty.api.cloud_instances import AsyncCloudInstancesAPI
 from mockarty.api.cloud_oauth_providers import AsyncCloudOAuthProvidersAPI
+from mockarty.api.cloud_risk import AsyncCloudRiskAPI
 from mockarty.api.cloud_identity import AsyncCloudIdentityAPI
 from mockarty.api.cloud_spaces import AsyncCloudSpacesAPI
 from mockarty.api.cloud_entitlements import AsyncCloudEntitlementsAPI
@@ -92,7 +93,7 @@ class AsyncMockartyClient:
     # construction and namespace changes reset this exact set, so a newly
     # added API cannot retain the previous tenant by omission.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
-        "_chaos", "_cloud_webhooks", "_cloud_instances", "_cloud_oauth_providers", "_cloud_identity", "_cloud_spaces", "_cloud_entitlements", "_cloud_shared_projects", "_delivery_policy", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
+        "_chaos", "_cloud_webhooks", "_cloud_instances", "_cloud_oauth_providers", "_cloud_risk", "_cloud_identity", "_cloud_spaces", "_cloud_entitlements", "_cloud_shared_projects", "_delivery_policy", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
         "_stores", "_collections", "_perf", "_health", "_generator", "_fuzzing",
         "_contracts", "_recorder", "_templates", "_imports", "_test_runs",
         "_test_plans", "_tags", "_ui_tests", "_git_sync", "_folders", "_undefined",
@@ -193,6 +194,13 @@ class AsyncMockartyClient:
         if self._cloud_oauth_providers is None:
             self._cloud_oauth_providers = AsyncCloudOAuthProvidersAPI(self._http, self._namespace)
         return self._cloud_oauth_providers
+
+    @property
+    def cloud_risk(self) -> AsyncCloudRiskAPI:
+        """Operator-only Cloud risk case and enforcement API."""
+        if self._cloud_risk is None:
+            self._cloud_risk = AsyncCloudRiskAPI(self._http, self._namespace)
+        return self._cloud_risk
 
     @property
     def cloud_identity(self) -> AsyncCloudIdentityAPI:
