@@ -34,3 +34,5 @@ with MockartyClient(
             ),
         )
         print("cancel receipt:", cancelled.control.id, cancelled.control.outcome, cancelled.control.reason)
+        for binding in cancelled.execution_bindings:
+            print("child:", binding.external_id, binding.kind, binding.state)

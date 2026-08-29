@@ -130,6 +130,8 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
         return_value=httpx.Response(200, json={
             "mission": {"id": "m-unified", "namespace": "team-a", "kind": "testing", "goal": "ship checkout", "origin": "ui", "status": "canceled", "chain": []},
             "control": {"id": "control-1", "missionId": "m-unified", "idempotencyKey": "cancel-1", "action": "cancel", "phase": "committed", "outcome": "applied", "reason": "release withdrawn", "createdAt": "2026-08-27T00:00:00Z", "updatedAt": "2026-08-27T00:00:01Z"},
+            "executionBindingsAvailable": True,
+            "executionBindings": [{"id": "binding-1", "nodeId": "m-unified", "externalId": "runner-1", "kind": "runner_task", "state": "cancel_acknowledged", "graphRevision": 2, "generation": 1, "cancelEpoch": 3}],
         })
     )
 
@@ -149,6 +151,8 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     assert cancelled.mission.status == "canceled"
     assert cancelled.control.reason == "release withdrawn"
     assert cancelled.control.idempotency_key == "cancel-1"
+    assert cancelled.execution_bindings_available is True
+    assert cancelled.execution_bindings[0].state == "cancel_acknowledged"
     assert preview.called and start.called
     start_body = start.calls.last.request.read().decode()
     assert start_body.find(f'"expectedSettingsDigest":"{digest}"') >= 0

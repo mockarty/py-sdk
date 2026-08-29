@@ -247,8 +247,30 @@ class MissionControlReceipt(BaseModel):
     model_config = {"populate_by_name": True, "extra": "allow"}
 
 
+class MissionExecutionBinding(BaseModel):
+    """Durable public cancellation evidence for one exact child execution."""
+
+    created_at: datetime | None = Field(None, alias="createdAt")
+    updated_at: datetime | None = Field(None, alias="updatedAt")
+    id: str
+    node_id: str = Field(alias="nodeId")
+    external_id: str = Field(alias="externalId")
+    kind: str
+    state: str
+    graph_revision: int = Field(alias="graphRevision")
+    generation: int
+    cancel_epoch: int = Field(0, alias="cancelEpoch")
+    delivery_count: int = Field(0, alias="deliveryCount")
+
+    model_config = {"populate_by_name": True, "extra": "allow"}
+
+
 class MissionControlResponse(BaseModel):
     error: dict[str, Any] | None = None
     mission: UnifiedMission
     control: MissionControlReceipt
+    execution_bindings: list[MissionExecutionBinding] = Field(default_factory=list, alias="executionBindings")
+    execution_bindings_available: bool = Field(False, alias="executionBindingsAvailable")
     pending: bool = False
+
+    model_config = {"populate_by_name": True, "extra": "allow"}
