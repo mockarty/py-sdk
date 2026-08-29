@@ -17,6 +17,13 @@ def _mission_path(mission_id: str) -> str:
     return "/api/v1/coder/missions/" + quote(mission_id, safe="")
 
 
+def _deploy_reconciliation(outcome: str) -> dict[str, str]:
+    outcome = (outcome or "").strip()
+    if outcome not in {"applied", "not_applied"}:
+        raise ValueError("outcome must be applied or not_applied")
+    return {"outcome": outcome}
+
+
 class CoderDeliveryAPI(SyncAPIBase):
     def get_config(self, *, product_id: str = "") -> dict:
         params = {"namespace": self._namespace}
@@ -47,6 +54,9 @@ class CoderDeliveryAPI(SyncAPIBase):
 
     def approve_mission(self, mission_id: str, approve: bool) -> dict:
         return self._request("POST", _mission_path(mission_id) + "/approve", params={"namespace": self._namespace}, json={"approve": approve}).json()
+
+    def reconcile_deploy(self, mission_id: str, outcome: str) -> dict:
+        return self._request("POST", _mission_path(mission_id) + "/deploy-outcome", params={"namespace": self._namespace}, json=_deploy_reconciliation(outcome)).json()
 
 
 class AsyncCoderDeliveryAPI(AsyncAPIBase):
@@ -79,3 +89,6 @@ class AsyncCoderDeliveryAPI(AsyncAPIBase):
 
     async def approve_mission(self, mission_id: str, approve: bool) -> dict:
         return (await self._request("POST", _mission_path(mission_id) + "/approve", params={"namespace": self._namespace}, json={"approve": approve})).json()
+
+    async def reconcile_deploy(self, mission_id: str, outcome: str) -> dict:
+        return (await self._request("POST", _mission_path(mission_id) + "/deploy-outcome", params={"namespace": self._namespace}, json=_deploy_reconciliation(outcome))).json()

@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import httpx
+import pytest
 
 import respx
 
@@ -15,6 +16,8 @@ def test_coder_delivery_routes_and_approval():
         seen.append((request.method, request.url.path, dict(request.url.params)))
         if request.url.path.endswith("/approve"):
             assert json.loads(request.content) == {"approve": True}
+        if request.url.path.endswith("/deploy-outcome"):
+            assert json.loads(request.content) == {"outcome": "not_applied"}
         return httpx.Response(200, json={"id": "m1", "missions": []})
 
     client = MockartyClient(base_url="https://mockarty.test", api_key="mk_test", namespace="team-a")
@@ -27,7 +30,8 @@ def test_coder_delivery_routes_and_approval():
     api.list_missions()
     api.get_mission("m1")
     api.approve_mission("m1", True)
-    assert len(seen) == 7
+    api.reconcile_deploy("m1", "not_applied")
+    assert len(seen) == 8
 
 
 @respx.mock
@@ -47,3 +51,12 @@ def test_async_coder_delivery_preserves_product_and_explicit_denial():
     asyncio.run(run())
     assert json.loads(start.calls.last.request.content)["productId"] == "p1"
     assert json.loads(deny.calls.last.request.content) == {"approve": False}
+
+
+def test_coder_deploy_reconciliation_requires_explicit_outcome():
+    client = MockartyClient(base_url="https://mockarty.test", api_key="mk_test", namespace="team-a")
+    try:
+        with pytest.raises(ValueError, match="applied or not_applied"):
+            client.coder_delivery.reconcile_deploy("m1", "")
+    finally:
+        client.close()

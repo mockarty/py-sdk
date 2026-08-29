@@ -10,3 +10,6 @@ with MockartyClient(namespace=os.environ["MOCKARTY_NAMESPACE"]) as client:
         "deployTarget": "staging",
     })
     print(mission["id"], mission["status"])
+    if outcome := os.getenv("CODER_DEPLOY_RECONCILIATION"):
+        mission = client.coder_delivery.reconcile_deploy(mission["id"], outcome)
+        print("reconciled", mission.get("deployStopState"))
