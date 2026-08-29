@@ -20,6 +20,7 @@ from mockarty.api.autonomous_missions import AutonomousMissionsAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
 from mockarty.api.cloud_instances import CloudInstancesAPI
+from mockarty.api.cloud_oauth_providers import CloudOAuthProvidersAPI
 from mockarty.api.cloud_spaces import CloudSpacesAPI
 from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
 from mockarty.api.cloud_shared_projects import CloudSharedProjectsAPI
@@ -104,6 +105,7 @@ class MockartyClient:
         "_chaos",
         "_cloud_webhooks",
         "_cloud_instances",
+        "_cloud_oauth_providers",
         "_cloud_spaces",
         "_cloud_entitlements",
         "_cloud_shared_projects",
@@ -238,6 +240,13 @@ class MockartyClient:
         if self._cloud_instances is None:
             self._cloud_instances = CloudInstancesAPI(self._http, self._namespace)
         return self._cloud_instances
+
+    @property
+    def cloud_oauth_providers(self) -> CloudOAuthProvidersAPI:
+        """Operator-only Cloud cabinet sign-in provider registry."""
+        if self._cloud_oauth_providers is None:
+            self._cloud_oauth_providers = CloudOAuthProvidersAPI(self._http, self._namespace)
+        return self._cloud_oauth_providers
 
     @property
     def cloud_spaces(self) -> CloudSpacesAPI:
