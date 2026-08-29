@@ -21,6 +21,7 @@ from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
 from mockarty.api.cloud_instances import CloudInstancesAPI
 from mockarty.api.cloud_oauth_providers import CloudOAuthProvidersAPI
+from mockarty.api.cloud_identity import CloudIdentityAPI
 from mockarty.api.cloud_spaces import CloudSpacesAPI
 from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
 from mockarty.api.cloud_shared_projects import CloudSharedProjectsAPI
@@ -106,6 +107,7 @@ class MockartyClient:
         "_cloud_webhooks",
         "_cloud_instances",
         "_cloud_oauth_providers",
+        "_cloud_identity",
         "_cloud_spaces",
         "_cloud_entitlements",
         "_cloud_shared_projects",
@@ -247,6 +249,13 @@ class MockartyClient:
         if self._cloud_oauth_providers is None:
             self._cloud_oauth_providers = CloudOAuthProvidersAPI(self._http, self._namespace)
         return self._cloud_oauth_providers
+
+    @property
+    def cloud_identity(self) -> CloudIdentityAPI:
+        """Current Cloud account sign-in methods and step-up verification."""
+        if self._cloud_identity is None:
+            self._cloud_identity = CloudIdentityAPI(self._http, self._namespace)
+        return self._cloud_identity
 
     @property
     def cloud_spaces(self) -> CloudSpacesAPI:
