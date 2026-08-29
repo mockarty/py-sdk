@@ -23,3 +23,4 @@ def test_cloud_risk_case_and_release_contract() -> None:
     assert client.cloud_risk.release_enforcement("case-1", "enf-1", revision=2, reason="customer verified")["enforcement"]["status"] == "released"
     assert listing.called and detail.called
     assert release.calls.last.request.content == b'{"revision":2,"reason":"customer verified"}'
+    assert release.calls.last.request.headers["Idempotency-Key"].startswith("risk-release:")

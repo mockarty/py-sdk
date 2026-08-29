@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 from urllib.parse import quote
 
@@ -15,6 +16,11 @@ def _release_payload(revision: int, reason: str) -> dict[str, Any]:
     if revision < 1 or len(reason.strip()) < 3 or len(reason.strip()) > 512:
         raise ValueError("positive revision and release reason are required")
     return {"revision": revision, "reason": reason.strip()}
+
+
+def _release_idempotency_key(case_id: str, enforcement_id: str, revision: int, reason: str) -> str:
+    canonical = f"{case_id}\0{enforcement_id}\0{revision}\0{reason.strip()}".encode()
+    return "risk-release:" + hashlib.sha256(canonical).hexdigest()
 
 
 class CloudRiskAPI(SyncAPIBase):
@@ -37,7 +43,8 @@ class CloudRiskAPI(SyncAPIBase):
             raise ValueError("case_id and enforcement_id are required")
         path = (f"/api/v1/cloud/operator/risk/cases/{quote(case_id, safe='')}/enforcements/"
                 f"{quote(enforcement_id, safe='')}/release")
-        return self._request("POST", path, json=_release_payload(revision, reason)).json()
+        return self._request("POST", path, json=_release_payload(revision, reason),
+                             headers={"Idempotency-Key": _release_idempotency_key(case_id, enforcement_id, revision, reason)}).json()
 
 
 class AsyncCloudRiskAPI(AsyncAPIBase):
@@ -60,4 +67,5 @@ class AsyncCloudRiskAPI(AsyncAPIBase):
             raise ValueError("case_id and enforcement_id are required")
         path = (f"/api/v1/cloud/operator/risk/cases/{quote(case_id, safe='')}/enforcements/"
                 f"{quote(enforcement_id, safe='')}/release")
-        return (await self._request("POST", path, json=_release_payload(revision, reason))).json()
+        return (await self._request("POST", path, json=_release_payload(revision, reason),
+                                    headers={"Idempotency-Key": _release_idempotency_key(case_id, enforcement_id, revision, reason)})).json()
