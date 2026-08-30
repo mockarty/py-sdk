@@ -22,7 +22,7 @@ _IDEMPOTENCY_KEY = re.compile(r"[A-Za-z0-9._:/@-]{1,128}\Z")
 
 def _refunds_projection(data: Any) -> list[dict[str, Any]]:
     if not isinstance(data, dict) or not isinstance(data.get("refunds"), list):
-        raise ValueError("operator payments response is missing refunds")
+        raise ValueError("operator refunds response is missing refunds")
     refunds: list[dict[str, Any]] = []
     for item in data["refunds"]:
         if (not isinstance(item, dict)
@@ -32,7 +32,7 @@ def _refunds_projection(data: Any) -> list[dict[str, Any]]:
                 or type(item.get("amount_minor")) is not int or item["amount_minor"] < 0
                 or not isinstance(item.get("currency"), str) or not item["currency"]
                 or not isinstance(item.get("provider"), str) or not item["provider"]):
-            raise ValueError("operator payments response contains an invalid refund projection")
+            raise ValueError("operator refunds response contains an invalid refund projection")
         refunds.append(item)
     return refunds
 
@@ -63,7 +63,7 @@ class CloudRefundsAPI(SyncAPIBase):
 
     def list_refunds(self) -> list[dict[str, Any]]:
         """List redacted refunds; requires ``operator:commerce:write`` exactly."""
-        response = self._request("GET", "/api/v1/cloud/operator/payments")
+        response = self._request("GET", "/api/v1/cloud/operator/refunds")
         return _refunds_projection(response.json())
 
     def resolve_refund(self, operation_id: str, *, action: str, reason_code: str,
@@ -78,7 +78,7 @@ class AsyncCloudRefundsAPI(AsyncAPIBase):
 
     async def list_refunds(self) -> list[dict[str, Any]]:
         """List redacted refunds; requires ``operator:commerce:write`` exactly."""
-        response = await self._request("GET", "/api/v1/cloud/operator/payments")
+        response = await self._request("GET", "/api/v1/cloud/operator/refunds")
         return _refunds_projection(response.json())
 
     async def resolve_refund(self, operation_id: str, *, action: str, reason_code: str,

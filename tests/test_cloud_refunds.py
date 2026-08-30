@@ -9,7 +9,7 @@ from mockarty import AsyncMockartyClient, MockartyClient
 
 @respx.mock
 def test_cloud_refunds_list_decodes_only_redacted_refunds_projection() -> None:
-    route = respx.get("https://cloud.test/api/v1/cloud/operator/payments").mock(
+    route = respx.get("https://cloud.test/api/v1/cloud/operator/refunds").mock(
         return_value=httpx.Response(200, json={
             "payments": [{"operation_id": "payment-ignored"}],
             "refunds": [{
@@ -33,7 +33,7 @@ def test_cloud_refunds_list_decodes_only_redacted_refunds_projection() -> None:
 @respx.mock
 @pytest.mark.asyncio
 async def test_async_cloud_refunds_list_decodes_only_refunds_projection() -> None:
-    route = respx.get("https://cloud.test/api/v1/cloud/operator/payments").mock(
+    route = respx.get("https://cloud.test/api/v1/cloud/operator/refunds").mock(
         return_value=httpx.Response(200, json={"payments": [], "refunds": [{
             "operation_id": "refund-2", "generation": 7, "status": "operator_required",
             "amount_minor": 900, "currency": "RUB", "provider": "tbank",
@@ -48,7 +48,7 @@ async def test_async_cloud_refunds_list_decodes_only_refunds_projection() -> Non
 
 @respx.mock
 def test_cloud_refunds_list_fails_closed_on_malformed_projection() -> None:
-    respx.get("https://cloud.test/api/v1/cloud/operator/payments").mock(
+    respx.get("https://cloud.test/api/v1/cloud/operator/refunds").mock(
         return_value=httpx.Response(200, json={"payments": [], "refunds": [{
             "operation_id": "refund-1", "generation": 4, "status": "operator_required",
             "amount_minor": 1500, "currency": "RUB",
