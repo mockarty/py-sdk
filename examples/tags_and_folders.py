@@ -108,7 +108,9 @@ def batch_update_tags(client: MockartyClient, mock_ids: list[str]) -> None:
 def filter_mocks_by_tag(client: MockartyClient) -> None:
     """Filter mocks using tag-based search."""
     # Find all stable mocks
-    stable_page = client.mocks.list(tags=["stable"])
+    stable_page = client.mocks.list(
+        tags=["stable"], protocol="http", only_active=True
+    )
     print(f"Stable mocks: {stable_page.total}")
     for mock in stable_page.items[:5]:
         print(f"  - {mock.id}")

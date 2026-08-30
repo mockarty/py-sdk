@@ -148,6 +148,9 @@ class MockAPI(SyncAPIBase):
         namespace: str | None = None,
         tags: list[str] | None = None,
         search: str | None = None,
+        folder_id: str | None = None,
+        protocol: str | None = None,
+        only_active: bool = False,
         offset: int = 0,
         limit: int = 50,
     ) -> Page[Mock]:
@@ -159,6 +162,12 @@ class MockAPI(SyncAPIBase):
             params["tags"] = ",".join(tags)
         if search is not None:
             params["search"] = search
+        if folder_id is not None:
+            params["folderId"] = folder_id
+        if protocol is not None:
+            params["protocol"] = protocol
+        if only_active:
+            params["onlyActive"] = "true"
 
         resp = self._request("GET", "/api/v1/mocks", params=params)
         return _decode_mock_list(resp.json(), offset, limit)
@@ -350,6 +359,9 @@ class AsyncMockAPI(AsyncAPIBase):
         namespace: str | None = None,
         tags: list[str] | None = None,
         search: str | None = None,
+        folder_id: str | None = None,
+        protocol: str | None = None,
+        only_active: bool = False,
         offset: int = 0,
         limit: int = 50,
     ) -> Page[Mock]:
@@ -361,6 +373,12 @@ class AsyncMockAPI(AsyncAPIBase):
             params["tags"] = ",".join(tags)
         if search is not None:
             params["search"] = search
+        if folder_id is not None:
+            params["folderId"] = folder_id
+        if protocol is not None:
+            params["protocol"] = protocol
+        if only_active:
+            params["onlyActive"] = "true"
 
         resp = await self._request("GET", "/api/v1/mocks", params=params)
         return _decode_mock_list(resp.json(), offset, limit)

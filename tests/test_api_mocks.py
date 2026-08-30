@@ -217,6 +217,9 @@ class TestMockAPIList:
             namespace="production",
             tags=["orders", "v2"],
             search="user",
+            folder_id="folder-1",
+            protocol="grpc",
+            only_active=True,
             offset=5,
             limit=25,
         )
@@ -226,6 +229,9 @@ class TestMockAPIList:
         assert "namespace=production" in str(request.url)
         assert "tags=orders%2Cv2" in str(request.url) or "tags=orders,v2" in str(request.url)
         assert "search=user" in str(request.url)
+        assert "folderId=folder-1" in str(request.url)
+        assert "protocol=grpc" in str(request.url)
+        assert "onlyActive=true" in str(request.url)
 
 
 class TestMockAPIUpdate:
