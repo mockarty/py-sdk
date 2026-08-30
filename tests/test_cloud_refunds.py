@@ -8,6 +8,58 @@ from mockarty import AsyncMockartyClient, MockartyClient
 
 
 @respx.mock
+def test_cloud_refunds_list_decodes_only_redacted_refunds_projection() -> None:
+    route = respx.get("https://cloud.test/api/v1/cloud/operator/payments").mock(
+        return_value=httpx.Response(200, json={
+            "payments": [{"operation_id": "payment-ignored"}],
+            "refunds": [{
+                "operation_id": "refund-1", "generation": 4, "status": "operator_required",
+                "amount_minor": 1500, "currency": "RUB", "provider": "yookassa",
+            }],
+            "total": 1,
+            "refund_total": 1,
+        })
+    )
+    client = MockartyClient(base_url="https://cloud.test", max_retries=0)
+    refunds = client.cloud_refunds.list_refunds()
+    assert route.called
+    assert len(refunds) == 1
+    assert refunds[0] == {
+        "operation_id": "refund-1", "generation": 4, "status": "operator_required",
+        "amount_minor": 1500, "currency": "RUB", "provider": "yookassa",
+    }
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_async_cloud_refunds_list_decodes_only_refunds_projection() -> None:
+    route = respx.get("https://cloud.test/api/v1/cloud/operator/payments").mock(
+        return_value=httpx.Response(200, json={"payments": [], "refunds": [{
+            "operation_id": "refund-2", "generation": 7, "status": "operator_required",
+            "amount_minor": 900, "currency": "RUB", "provider": "tbank",
+        }]})
+    )
+    async with AsyncMockartyClient(base_url="https://cloud.test", max_retries=0) as client:
+        refunds = await client.cloud_refunds.list_refunds()
+    assert route.called
+    assert refunds[0]["operation_id"] == "refund-2"
+    assert refunds[0]["generation"] == 7
+
+
+@respx.mock
+def test_cloud_refunds_list_fails_closed_on_malformed_projection() -> None:
+    respx.get("https://cloud.test/api/v1/cloud/operator/payments").mock(
+        return_value=httpx.Response(200, json={"payments": [], "refunds": [{
+            "operation_id": "refund-1", "generation": 4, "status": "operator_required",
+            "amount_minor": 1500, "currency": "RUB",
+        }]})
+    )
+    client = MockartyClient(base_url="https://cloud.test", max_retries=0)
+    with pytest.raises(ValueError, match="invalid refund projection"):
+        client.cloud_refunds.list_refunds()
+
+
+@respx.mock
 def test_cloud_refunds_resolve_refund_exact_contract() -> None:
     route = respx.post("https://cloud.test/api/v1/cloud/operator/refunds/refund%2F1/resolve").mock(
         return_value=httpx.Response(200, json={
@@ -19,11 +71,11 @@ def test_cloud_refunds_resolve_refund_exact_contract() -> None:
     client = MockartyClient(base_url="https://cloud.test", max_retries=0)
     result = client.cloud_refunds.resolve_refund(
         "refund/1", action="retry", reason_code="provider_recovery_retry",
-        generation=4, idempotency_key="refund-resolution:exact-1",
+        generation=4, idempotency_key="a",
     )
     request = route.calls.last.request
     assert result["refund"]["generation"] == 5
-    assert request.headers["Idempotency-Key"] == "refund-resolution:exact-1"
+    assert request.headers["Idempotency-Key"] == "a"
     assert request.content == b'{"action":"retry","reason_code":"provider_recovery_retry","generation":4}'
 
 
@@ -50,6 +102,9 @@ async def test_async_cloud_refunds_resolve_refund_exact_contract() -> None:
         ("op-1", "succeeded", "operator_says_paid", 0, "refund-1"),
         ("op-1", "reject", "Customer said no", 0, "refund-1"),
         ("op-1", "retry", "provider_retry", -1, "refund-1"),
+        ("op-1", "retry", "provider_retry", 0, ""),
+        ("op-1", "retry", "provider_retry", 0, "a" * 129),
+        ("op-1", "retry", "provider_retry", 0, "unsafe key"),
         ("op-1", "retry", "provider_retry", 0, " refund-1 "),
     ],
 )
