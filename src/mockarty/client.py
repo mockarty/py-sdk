@@ -34,6 +34,7 @@ from mockarty.api.contracts import ContractAPI
 from mockarty.api.discovery import DiscoveryAPI
 from mockarty.api.delivery_policy import DeliveryPolicyAPI
 from mockarty.api.media_delivery import MediaDeliveryAPI
+from mockarty.api.effect_reconciliation import EffectReconciliationAPI
 from mockarty.api.economics import EconomicsAPI
 from mockarty.api.entity_search import EntitySearchAPI
 from mockarty.api.environments import EnvironmentAPI
@@ -119,6 +120,7 @@ class MockartyClient:
         "_coder_delivery",
         "_delivery_policy",
         "_media_delivery",
+        "_effect_reconciliation",
         "_page_analyzer",
         "_ci_triggers",
         "_mocks",
@@ -311,6 +313,13 @@ class MockartyClient:
         if self._media_delivery is None:
             self._media_delivery = MediaDeliveryAPI(self._http, self._namespace)
         return self._media_delivery
+
+    @property
+    def effect_reconciliation(self) -> EffectReconciliationAPI:
+        """Admin queue for unresolved external effects."""
+        if self._effect_reconciliation is None:
+            self._effect_reconciliation = EffectReconciliationAPI(self._http, self._namespace)
+        return self._effect_reconciliation
 
     @property
     def page_analyzer(self) -> PageAnalyzerAPI:

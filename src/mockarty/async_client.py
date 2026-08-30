@@ -34,6 +34,7 @@ from mockarty.api.contracts import AsyncContractAPI
 from mockarty.api.discovery import AsyncDiscoveryAPI
 from mockarty.api.delivery_policy import AsyncDeliveryPolicyAPI
 from mockarty.api.media_delivery import AsyncMediaDeliveryAPI
+from mockarty.api.effect_reconciliation import AsyncEffectReconciliationAPI
 from mockarty.api.economics import AsyncEconomicsAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI
@@ -95,7 +96,7 @@ class AsyncMockartyClient:
     # construction and namespace changes reset this exact set, so a newly
     # added API cannot retain the previous tenant by omission.
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
-        "_chaos", "_cloud_webhooks", "_cloud_instances", "_cloud_connectors", "_cloud_oauth_providers", "_cloud_risk", "_cloud_identity", "_cloud_spaces", "_cloud_entitlements", "_cloud_shared_projects", "_delivery_policy", "_media_delivery", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
+        "_chaos", "_cloud_webhooks", "_cloud_instances", "_cloud_connectors", "_cloud_oauth_providers", "_cloud_risk", "_cloud_identity", "_cloud_spaces", "_cloud_entitlements", "_cloud_shared_projects", "_delivery_policy", "_media_delivery", "_effect_reconciliation", "_page_analyzer", "_ci_triggers", "_mocks", "_namespaces",
         "_stores", "_collections", "_perf", "_health", "_generator", "_fuzzing",
         "_contracts", "_recorder", "_templates", "_imports", "_test_runs",
         "_test_plans", "_tags", "_ui_tests", "_git_sync", "_folders", "_undefined",
@@ -252,6 +253,13 @@ class AsyncMockartyClient:
         if self._media_delivery is None:
             self._media_delivery = AsyncMediaDeliveryAPI(self._http, self._namespace)
         return self._media_delivery
+
+    @property
+    def effect_reconciliation(self) -> AsyncEffectReconciliationAPI:
+        """Admin queue for unresolved external effects."""
+        if self._effect_reconciliation is None:
+            self._effect_reconciliation = AsyncEffectReconciliationAPI(self._http, self._namespace)
+        return self._effect_reconciliation
 
     @property
     def page_analyzer(self) -> AsyncPageAnalyzerAPI:
