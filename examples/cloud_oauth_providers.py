@@ -1,4 +1,4 @@
-"""Configure a Cloud cabinet OAuth provider without sending a raw secret."""
+"""Configure a Cloud OAuth provider from an environment-held secret."""
 
 from mockarty import MockartyClient
 
@@ -7,7 +7,7 @@ with MockartyClient() as client:
         "github",
         client_id="your-github-client-id",
         client_secret_ref="env://CLOUD_API_PROVIDER_SECRET_OAUTH_GITHUB",
-        expected_revision=0,
+        expected_revision=1,
         enabled=True,
         idempotency_key="configure-github-1",
     )

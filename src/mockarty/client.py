@@ -20,6 +20,7 @@ from mockarty.api.autonomous_missions import AutonomousMissionsAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
 from mockarty.api.cloud_instances import CloudInstancesAPI
+from mockarty.api.cloud_connectors import CloudConnectorsAPI
 from mockarty.api.cloud_oauth_providers import CloudOAuthProvidersAPI
 from mockarty.api.cloud_risk import CloudRiskAPI
 from mockarty.api.cloud_identity import CloudIdentityAPI
@@ -108,6 +109,7 @@ class MockartyClient:
         "_chaos",
         "_cloud_webhooks",
         "_cloud_instances",
+        "_cloud_connectors",
         "_cloud_oauth_providers",
         "_cloud_risk",
         "_cloud_identity",
@@ -246,6 +248,13 @@ class MockartyClient:
         if self._cloud_instances is None:
             self._cloud_instances = CloudInstancesAPI(self._http, self._namespace)
         return self._cloud_instances
+
+    @property
+    def cloud_connectors(self) -> CloudConnectorsAPI:
+        """Operator-only Cloud platform connector lifecycle."""
+        if self._cloud_connectors is None:
+            self._cloud_connectors = CloudConnectorsAPI(self._http, self._namespace)
+        return self._cloud_connectors
 
     @property
     def cloud_oauth_providers(self) -> CloudOAuthProvidersAPI:
