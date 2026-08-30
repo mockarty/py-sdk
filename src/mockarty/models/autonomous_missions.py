@@ -308,3 +308,24 @@ class MissionControlResponse(BaseModel):
     pending: bool = False
 
     model_config = {"populate_by_name": True, "extra": "allow"}
+
+
+class MissionArchiveEnvelope(BaseModel):
+    """Portable digest-bound Mission, immutable Brief, and complete journal."""
+
+    digest: str
+    payload: dict[str, Any]
+
+    @field_validator("digest")
+    @classmethod
+    def validate_archive_digest(cls, value: str) -> str:
+        value = value.strip()
+        if re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None:
+            raise ValueError("digest must be canonical sha256")
+        return value
+
+
+class MissionArchiveRestoreResponse(BaseModel):
+    id: str
+    digest: str
+    created: bool

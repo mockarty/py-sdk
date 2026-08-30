@@ -15,6 +15,8 @@ from mockarty.models.autonomous_missions import (
     AutonomousMissionSubmitRequest,
     AutonomousMissionSubmitResponse,
     MissionEffectiveSettings,
+    MissionArchiveEnvelope,
+    MissionArchiveRestoreResponse,
     MissionAnswerRequest,
     MissionCancelRequest,
     MissionControlResponse,
@@ -114,6 +116,22 @@ class AutonomousMissionsAPI(SyncAPIBase):
         )
         return MissionControlResponse.model_validate(resp.json())
 
+    def export_archive(self, mission_id: str) -> MissionArchiveEnvelope:
+        mission_id = (mission_id or "").strip()
+        if not mission_id:
+            raise ValueError("mission_id is required")
+        resp = self._request(
+            "GET", f"{_UNIFIED_MISSIONS_PATH}/{quote(mission_id, safe='')}/archive",
+        )
+        return MissionArchiveEnvelope.model_validate(resp.json())
+
+    def restore_archive(self, archive: MissionArchiveEnvelope) -> MissionArchiveRestoreResponse:
+        resp = self._request(
+            "POST", _UNIFIED_MISSIONS_PATH + "/archive",
+            json=archive.model_dump(by_alias=True),
+        )
+        return MissionArchiveRestoreResponse.model_validate(resp.json())
+
 
 class AsyncAutonomousMissionsAPI(AsyncAPIBase):
     async def submit(self, request: AutonomousMissionSubmitRequest) -> AutonomousMissionSubmitResponse:
@@ -168,3 +186,19 @@ class AsyncAutonomousMissionsAPI(AsyncAPIBase):
             json=request.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
         )
         return MissionControlResponse.model_validate(resp.json())
+
+    async def export_archive(self, mission_id: str) -> MissionArchiveEnvelope:
+        mission_id = (mission_id or "").strip()
+        if not mission_id:
+            raise ValueError("mission_id is required")
+        resp = await self._request(
+            "GET", f"{_UNIFIED_MISSIONS_PATH}/{quote(mission_id, safe='')}/archive",
+        )
+        return MissionArchiveEnvelope.model_validate(resp.json())
+
+    async def restore_archive(self, archive: MissionArchiveEnvelope) -> MissionArchiveRestoreResponse:
+        resp = await self._request(
+            "POST", _UNIFIED_MISSIONS_PATH + "/archive",
+            json=archive.model_dump(by_alias=True),
+        )
+        return MissionArchiveRestoreResponse.model_validate(resp.json())

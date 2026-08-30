@@ -15,6 +15,10 @@ with MockartyClient(
     api_key=os.environ.get("MOCKARTY_API_KEY"),
     namespace=os.environ.get("MOCKARTY_NAMESPACE", "sandbox"),
 ) as client:
+    if archive_mission_id := os.environ.get("MOCKARTY_ARCHIVE_MISSION_ID"):
+        archive = client.autonomous_missions.export_archive(archive_mission_id)
+        restored = client.autonomous_missions.restore_archive(archive)
+        print("archive:", archive.digest, "mission:", restored.id, "created:", restored.created)
     product_id = os.environ.get("MOCKARTY_PRODUCT_ID", "")
     settings = client.autonomous_missions.get_effective_settings(product_id=product_id)
     request = MissionStartRequest(

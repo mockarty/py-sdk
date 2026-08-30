@@ -14,6 +14,7 @@ from mockarty import (
     MissionStartRequest,
     MissionAnswerRequest,
     MissionCancelRequest,
+    MissionArchiveEnvelope,
     MissionRevisionReference,
     AutonomousMissionSubmitRequest,
     MockartyClient,
@@ -143,6 +144,14 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
             "control": {"id": "control-2", "missionId": "m-unified", "idempotencyKey": "answer-1", "action": "answer", "phase": "committed", "outcome": "applied"},
         })
     )
+    respx.get("http://localhost:5770/api/v1/missions/m-unified/archive").mock(
+        return_value=httpx.Response(200, json={
+            "digest": digest, "payload": {"schema_version": "mockarty.mission-archive/v1"},
+        })
+    )
+    restore = respx.post("http://localhost:5770/api/v1/missions/archive").mock(
+        return_value=httpx.Response(201, json={"id": "m-unified", "digest": digest, "created": True})
+    )
 
     settings = client.autonomous_missions.get_effective_settings(
         product_id="product/checkout", run_window_minutes=90,
@@ -169,6 +178,11 @@ def test_unified_mission_settings_and_start(client: MockartyClient) -> None:
     ))
     assert answered.control.action == "answer"
     assert answered.control.reason == ""
+    archive = client.autonomous_missions.export_archive("m-unified")
+    assert archive.digest == digest
+    restored = client.autonomous_missions.restore_archive(archive)
+    assert restored.created is True and restored.id == "m-unified"
+    assert json.loads(restore.calls.last.request.content)["digest"] == digest
     assert preview.called and start.called
     start_body = start.calls.last.request.read().decode()
     assert start_body.find(f'"expectedSettingsDigest":"{digest}"') >= 0
@@ -221,3 +235,7 @@ def test_unified_mission_validation_before_network(client: MockartyClient) -> No
         client.autonomous_missions.cancel(" ")
     with pytest.raises(ValueError, match="answer"):
         MissionAnswerRequest(answer=" ")
+    with pytest.raises(ValueError, match="mission_id"):
+        client.autonomous_missions.export_archive(" ")
+    with pytest.raises(ValueError, match="digest"):
+        MissionArchiveEnvelope(digest="sha256:bad", payload={})
