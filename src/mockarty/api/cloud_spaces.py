@@ -39,6 +39,12 @@ class CloudSpacesAPI(SyncAPIBase):
     def get(self, space_id: str) -> dict[str, Any]:
         return self._request("GET", _space_path(space_id)).json()
 
+    def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
+        if not name or not name.strip():
+            raise ValueError("Space name is required")
+        return self._request("PATCH", _space_path(space_id), json={"name": name},
+                             headers=_mutation_headers(etag, idempotency_key)).json()
+
     def list_members(self, space_id: str, cursor: str = "", limit: int = 25) -> dict[str, Any]:
         return self._request("GET", _space_path(space_id) + "/members", params=_page_params(cursor, limit)).json()
 
@@ -82,6 +88,12 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
 
     async def get(self, space_id: str) -> dict[str, Any]:
         return (await self._request("GET", _space_path(space_id))).json()
+
+    async def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
+        if not name or not name.strip():
+            raise ValueError("Space name is required")
+        return (await self._request("PATCH", _space_path(space_id), json={"name": name},
+                                    headers=_mutation_headers(etag, idempotency_key))).json()
 
     async def list_members(self, space_id: str, cursor: str = "", limit: int = 25) -> dict[str, Any]:
         return (await self._request("GET", _space_path(space_id) + "/members", params=_page_params(cursor, limit))).json()

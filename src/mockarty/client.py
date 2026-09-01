@@ -28,6 +28,7 @@ from mockarty.api.cloud_identity import CloudIdentityAPI
 from mockarty.api.cloud_spaces import CloudSpacesAPI
 from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
 from mockarty.api.cloud_shared_projects import CloudSharedProjectsAPI
+from mockarty.api.cloud_customer_operations import CloudCustomerAPI, CloudOperationsAPI
 from mockarty.api.coder_delivery import CoderDeliveryAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
@@ -119,6 +120,8 @@ class MockartyClient:
         "_cloud_spaces",
         "_cloud_entitlements",
         "_cloud_shared_projects",
+        "_cloud_customer",
+        "_cloud_operations",
         "_coder_delivery",
         "_delivery_policy",
         "_media_delivery",
@@ -294,6 +297,20 @@ class MockartyClient:
         if self._cloud_spaces is None:
             self._cloud_spaces = CloudSpacesAPI(self._http, self._namespace)
         return self._cloud_spaces
+
+    @property
+    def cloud_customer(self) -> CloudCustomerAPI:
+        """Customer-authorized loyalty, support and security-appeal APIs."""
+        if self._cloud_customer is None:
+            self._cloud_customer = CloudCustomerAPI(self._http, self._namespace)
+        return self._cloud_customer
+
+    @property
+    def cloud_operations(self) -> CloudOperationsAPI:
+        """Least-privilege operator support and product analytics APIs."""
+        if self._cloud_operations is None:
+            self._cloud_operations = CloudOperationsAPI(self._http, self._namespace)
+        return self._cloud_operations
 
     @property
     def cloud_entitlements(self) -> CloudEntitlementsAPI:
