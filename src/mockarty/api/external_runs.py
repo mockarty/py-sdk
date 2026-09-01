@@ -18,6 +18,7 @@ import base64
 import glob
 import json
 import os
+import uuid
 from typing import Any, Iterable, Optional
 from urllib.parse import quote
 
@@ -52,6 +53,28 @@ def _ns_path(namespace: str) -> str:
 def _lifecycle_path(namespace: str) -> str:
     """Return the namespace-scoped streaming-lifecycle base path."""
     return _ns_path(namespace) + "/lifecycle"
+
+
+def _revision_headers(revision: int) -> dict[str, str]:
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+        raise ValueError("revision must be a positive integer")
+    return {"If-Match": f'"{revision}"'}
+
+
+def _multipart_attachment(name: str, data: bytes) -> tuple[bytes, str]:
+    if not isinstance(name, str) or not name or "\r" in name or "\n" in name:
+        raise ValueError("attachment name must be non-empty and single-line")
+    if not isinstance(data, bytes):
+        raise TypeError("attachment data must be bytes")
+    boundary = "mockarty-" + uuid.uuid4().hex
+    escaped = name.replace("\\", "\\\\").replace('"', '\\"')
+    prefix = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{escaped}"\r\n'
+        "Content-Type: application/octet-stream\r\n\r\n"
+    ).encode("utf-8")
+    suffix = f"\r\n--{boundary}--\r\n".encode("ascii")
+    return prefix + data + suffix, f"multipart/form-data; boundary={boundary}"
 
 
 def _build_attachments(
@@ -345,7 +368,9 @@ class ExternalRunsAPI(SyncAPIBase):
 
     # -- streaming lifecycle -------------------------------------------------
 
-    def start_run(self, run: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
+    def start_run(
+        self, run: dict[str, Any], *, namespace: Optional[str] = None
+    ) -> dict[str, Any]:
         """Open a streaming external run and return its server view (with the
         run ``id`` to feed :meth:`append_steps` / :meth:`finish_run`).
 
@@ -358,25 +383,129 @@ class ExternalRunsAPI(SyncAPIBase):
         resp = self._request("POST", _lifecycle_path(ns), json=run)
         return resp.json()
 
-    def append_steps(self, run_id: str, steps: list[dict[str, Any]], *, namespace: Optional[str] = None) -> dict[str, Any]:
+    def append_steps(
+        self,
+        run_id: str,
+        steps: list[dict[str, Any]],
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Stream one or more steps into an open run. Each step accepts
         ``step_key``, ``name``, ``status``, ``message``, ``stack_trace``,
         ``parent_key``, ``duration_ms``, ``parameters``."""
         ns = namespace or self._namespace
-        resp = self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps", json={"steps": steps})
+        resp = self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps",
+            json={"steps": steps},
+        )
         return resp.json()
 
-    def finish_run(self, run_id: str, status: str, *, summary: str = "", namespace: Optional[str] = None) -> dict[str, Any]:
+    def append_steps_at_revision(
+        self,
+        run_id: str,
+        revision: int,
+        steps: list[dict[str, Any]],
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Stream steps only while ``revision`` remains current."""
+        ns = namespace or self._namespace
+        resp = self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps",
+            json={"steps": steps},
+            headers=_revision_headers(revision),
+        )
+        return resp.json()
+
+    def upload_attachment(
+        self, run_id: str, name: str, data: bytes, *, namespace: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Upload one attachment through the legacy unfenced lane."""
+        return self._upload_attachment(run_id, 0, name, data, namespace=namespace)
+
+    def upload_attachment_at_revision(
+        self,
+        run_id: str,
+        revision: int,
+        name: str,
+        data: bytes,
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Upload one attachment only while ``revision`` remains current."""
+        _revision_headers(revision)
+        return self._upload_attachment(
+            run_id, revision, name, data, namespace=namespace
+        )
+
+    def _upload_attachment(
+        self,
+        run_id: str,
+        revision: int,
+        name: str,
+        data: bytes,
+        *,
+        namespace: Optional[str],
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
+        content, content_type = _multipart_attachment(name, data)
+        headers = {"Content-Type": content_type}
+        if revision > 0:
+            headers.update(_revision_headers(revision))
+        resp = self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/attachments",
+            content=content,
+            headers=headers,
+        )
+        return resp.json()
+
+    def finish_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        summary: str = "",
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Close an open run; the returned view carries the resolved TCM
         case/run ids the ingest matched or created."""
         ns = namespace or self._namespace
         body: dict[str, Any] = {"status": status}
         if summary:
             body["summary"] = summary
-        resp = self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish", json=body)
+        resp = self._request(
+            "POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish", json=body
+        )
         return resp.json()
 
-    def get_run(self, run_id: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+    def finish_run_at_revision(
+        self,
+        run_id: str,
+        revision: int,
+        status: str,
+        *,
+        summary: str = "",
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Finish only the accumulated projection identified by ``revision``."""
+        ns = namespace or self._namespace
+        body: dict[str, Any] = {"status": status}
+        if summary:
+            body["summary"] = summary
+        resp = self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish",
+            json=body,
+            headers=_revision_headers(revision),
+        )
+        return resp.json()
+
+    def get_run(
+        self, run_id: str, *, namespace: Optional[str] = None
+    ) -> dict[str, Any]:
         """Fetch the current view of a streaming run."""
         ns = namespace or self._namespace
         resp = self._request("GET", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}")
@@ -473,34 +602,146 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
 
     # -- streaming lifecycle -------------------------------------------------
 
-    async def start_run(self, run: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
+    async def start_run(
+        self, run: dict[str, Any], *, namespace: Optional[str] = None
+    ) -> dict[str, Any]:
         """Async counterpart of :meth:`ExternalRunsAPI.start_run`."""
         ns = namespace or self._namespace
         resp = await self._request("POST", _lifecycle_path(ns), json=run)
         return resp.json()
 
-    async def append_steps(self, run_id: str, steps: list[dict[str, Any]], *, namespace: Optional[str] = None) -> dict[str, Any]:
+    async def append_steps(
+        self,
+        run_id: str,
+        steps: list[dict[str, Any]],
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Async counterpart of :meth:`ExternalRunsAPI.append_steps`."""
         ns = namespace or self._namespace
-        resp = await self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps", json={"steps": steps})
+        resp = await self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps",
+            json={"steps": steps},
+        )
         return resp.json()
 
-    async def finish_run(self, run_id: str, status: str, *, summary: str = "", namespace: Optional[str] = None) -> dict[str, Any]:
+    async def append_steps_at_revision(
+        self,
+        run_id: str,
+        revision: int,
+        steps: list[dict[str, Any]],
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Fenced async counterpart of
+        :meth:`ExternalRunsAPI.append_steps_at_revision`."""
+        ns = namespace or self._namespace
+        resp = await self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/steps",
+            json={"steps": steps},
+            headers=_revision_headers(revision),
+        )
+        return resp.json()
+
+    async def upload_attachment(
+        self, run_id: str, name: str, data: bytes, *, namespace: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Async upload through the legacy unfenced lane."""
+        return await self._upload_attachment(run_id, 0, name, data, namespace=namespace)
+
+    async def upload_attachment_at_revision(
+        self,
+        run_id: str,
+        revision: int,
+        name: str,
+        data: bytes,
+        *,
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Async fenced attachment upload."""
+        _revision_headers(revision)
+        return await self._upload_attachment(
+            run_id, revision, name, data, namespace=namespace
+        )
+
+    async def _upload_attachment(
+        self,
+        run_id: str,
+        revision: int,
+        name: str,
+        data: bytes,
+        *,
+        namespace: Optional[str],
+    ) -> dict[str, Any]:
+        ns = namespace or self._namespace
+        content, content_type = _multipart_attachment(name, data)
+        headers = {"Content-Type": content_type}
+        if revision > 0:
+            headers.update(_revision_headers(revision))
+        resp = await self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/attachments",
+            content=content,
+            headers=headers,
+        )
+        return resp.json()
+
+    async def finish_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        summary: str = "",
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Async counterpart of :meth:`ExternalRunsAPI.finish_run`."""
         ns = namespace or self._namespace
         body: dict[str, Any] = {"status": status}
         if summary:
             body["summary"] = summary
-        resp = await self._request("POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish", json=body)
+        resp = await self._request(
+            "POST", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish", json=body
+        )
         return resp.json()
 
-    async def get_run(self, run_id: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+    async def finish_run_at_revision(
+        self,
+        run_id: str,
+        revision: int,
+        status: str,
+        *,
+        summary: str = "",
+        namespace: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Fenced async counterpart of
+        :meth:`ExternalRunsAPI.finish_run_at_revision`."""
+        ns = namespace or self._namespace
+        body: dict[str, Any] = {"status": status}
+        if summary:
+            body["summary"] = summary
+        resp = await self._request(
+            "POST",
+            f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}/finish",
+            json=body,
+            headers=_revision_headers(revision),
+        )
+        return resp.json()
+
+    async def get_run(
+        self, run_id: str, *, namespace: Optional[str] = None
+    ) -> dict[str, Any]:
         """Async counterpart of :meth:`ExternalRunsAPI.get_run`."""
         ns = namespace or self._namespace
-        resp = await self._request("GET", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}")
+        resp = await self._request(
+            "GET", f"{_lifecycle_path(ns)}/{quote(run_id, safe='')}"
+        )
         return resp.json()
 
-    async def list_runs(self, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
+    async def list_runs(
+        self, *, namespace: Optional[str] = None
+    ) -> list[dict[str, Any]]:
         """Async counterpart of :meth:`ExternalRunsAPI.list_runs`."""
         ns = namespace or self._namespace
         resp = await self._request("GET", _lifecycle_path(ns))
@@ -688,9 +929,7 @@ def allure_result_to_external_payload(
     }
 
 
-def _resolve_test_case_id(
-    doc: dict[str, Any], labels: dict[str, str]
-) -> Optional[str]:
+def _resolve_test_case_id(doc: dict[str, Any], labels: dict[str, str]) -> Optional[str]:
     """Resolve the author-pinned identity of an Allure result.
 
     Allure's own field is ``testCaseId``. Allure TestOps adapters express
