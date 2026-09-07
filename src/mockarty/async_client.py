@@ -30,6 +30,7 @@ from mockarty.api.cloud_entitlements import AsyncCloudEntitlementsAPI
 from mockarty.api.cloud_shared_projects import AsyncCloudSharedProjectsAPI
 from mockarty.api.cloud_customer_operations import AsyncCloudCustomerAPI, AsyncCloudOperationsAPI
 from mockarty.api.coder_delivery import AsyncCoderDeliveryAPI
+from mockarty.api.connection_authority import AsyncConnectionAuthorityAPI
 from mockarty.api.ci_triggers import AsyncCITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI
 from mockarty.api.contracts import AsyncContractAPI
@@ -105,7 +106,7 @@ class AsyncMockartyClient:
         "_stats", "_agent_tasks", "_autonomous_missions", "_coder_delivery", "_mcp", "_issue_tracker", "_tcm",
         "_namespace_settings", "_proxy", "_environments", "_entity_search",
         "_experience", "_economics", "_llm_security", "_external_runs", "_discovery",
-        "_workflow_definitions", "_secrets", "_prompts", "_me",
+        "_workflow_definitions", "_connections", "_secrets", "_prompts", "_me",
     )
 
     def __init__(
@@ -567,3 +568,10 @@ class AsyncMockartyClient:
                 self._http, self._namespace
             )
         return self._workflow_definitions
+
+    @property
+    def connections(self) -> AsyncConnectionAuthorityAPI:
+        """Namespace-scoped immutable Connection Authority lifecycle."""
+        if self._connections is None:
+            self._connections = AsyncConnectionAuthorityAPI(self._http, self._namespace)
+        return self._connections

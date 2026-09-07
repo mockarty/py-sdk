@@ -30,6 +30,7 @@ from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
 from mockarty.api.cloud_shared_projects import CloudSharedProjectsAPI
 from mockarty.api.cloud_customer_operations import CloudCustomerAPI, CloudOperationsAPI
 from mockarty.api.coder_delivery import CoderDeliveryAPI
+from mockarty.api.connection_authority import ConnectionAuthorityAPI
 from mockarty.api.ci_triggers import CITriggerAPI
 from mockarty.api.collections import CollectionAPI
 from mockarty.api.contracts import ContractAPI
@@ -123,6 +124,7 @@ class MockartyClient:
         "_cloud_customer",
         "_cloud_operations",
         "_coder_delivery",
+        "_connections",
         "_delivery_policy",
         "_media_delivery",
         "_effect_reconciliation",
@@ -332,6 +334,13 @@ class MockartyClient:
         if self._delivery_policy is None:
             self._delivery_policy = DeliveryPolicyAPI(self._http, self._namespace)
         return self._delivery_policy
+
+    @property
+    def connections(self) -> ConnectionAuthorityAPI:
+        """Namespace-scoped immutable Connection Authority lifecycle."""
+        if self._connections is None:
+            self._connections = ConnectionAuthorityAPI(self._http, self._namespace)
+        return self._connections
 
     @property
     def media_delivery(self) -> MediaDeliveryAPI:
