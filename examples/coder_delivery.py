@@ -10,6 +10,7 @@ with MockartyClient(namespace=os.environ["MOCKARTY_NAMESPACE"]) as client:
         "deployTarget": "staging",
     })
     print(mission["id"], mission["status"])
+    print("independent AQC receipts", len(mission.get("aqcEvidence", [])), "merge status", mission.get("mrMergeStatus"), "repair attempts", mission.get("deployRepairAttempts", 0))
     if os.getenv("CODER_ADD_GO_CHECK") == "1":
         mission = client.coder_delivery.add_to_mission(mission["id"], {
             "tasks": [{
