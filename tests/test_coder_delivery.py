@@ -18,6 +18,9 @@ def test_coder_delivery_routes_and_approval():
             assert json.loads(request.content) == {"approve": True}
         if request.url.path.endswith("/deploy-outcome"):
             assert json.loads(request.content) == {"outcome": "not_applied"}
+        if request.url.path.endswith("/add"):
+            body = json.loads(request.content)
+            assert body["tasks"][0]["requiredChecks"][0]["args"] == ["go", "test", "./..."]
         return httpx.Response(200, json={"id": "m1", "missions": []})
 
     client = MockartyClient(base_url="https://mockarty.test", api_key="mk_test", namespace="team-a")
@@ -30,8 +33,9 @@ def test_coder_delivery_routes_and_approval():
     api.list_missions()
     api.get_mission("m1")
     api.approve_mission("m1", True)
+    api.add_to_mission("m1", {"tasks": [{"prompt": "add tests", "requiredChecks": [{"name": "unit", "args": ["go", "test", "./..."]}]}]})
     api.reconcile_deploy("m1", "not_applied")
-    assert len(seen) == 8
+    assert len(seen) == 9
 
 
 @respx.mock
@@ -42,15 +46,20 @@ def test_async_coder_delivery_preserves_product_and_explicit_denial():
     deny = respx.post("https://mockarty.test/api/v1/coder/missions/m1/approve").mock(
         return_value=httpx.Response(200, json={"id": "m1", "approval": "denied"})
     )
+    add = respx.post("https://mockarty.test/api/v1/coder/missions/m1/add").mock(
+        return_value=httpx.Response(200, json={"id": "m1"})
+    )
 
     async def run():
         async with AsyncMockartyClient(base_url="https://mockarty.test", api_key="mk_test", namespace="team-a") as client:
             await client.coder_delivery.start_mission({"goal": "ship", "repoUrl": "https://git.test/app.git", "productId": "p1"})
             await client.coder_delivery.approve_mission("m1", False)
+            await client.coder_delivery.add_to_mission("m1", {"prompts": ["add tests"]})
 
     asyncio.run(run())
     assert json.loads(start.calls.last.request.content)["productId"] == "p1"
     assert json.loads(deny.calls.last.request.content) == {"approve": False}
+    assert json.loads(add.calls.last.request.content) == {"prompts": ["add tests"]}
 
 
 def test_coder_deploy_reconciliation_requires_explicit_outcome():

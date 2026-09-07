@@ -55,6 +55,11 @@ class CoderDeliveryAPI(SyncAPIBase):
     def approve_mission(self, mission_id: str, approve: bool) -> dict:
         return self._request("POST", _mission_path(mission_id) + "/approve", params={"namespace": self._namespace}, json={"approve": approve}).json()
 
+    def add_to_mission(self, mission_id: str, request: dict) -> dict:
+        if not request.get("tasks") and not request.get("prompts"):
+            raise ValueError("at least one task or prompt is required")
+        return self._request("POST", _mission_path(mission_id) + "/add", params={"namespace": self._namespace}, json=request).json()
+
     def reconcile_deploy(self, mission_id: str, outcome: str) -> dict:
         return self._request("POST", _mission_path(mission_id) + "/deploy-outcome", params={"namespace": self._namespace}, json=_deploy_reconciliation(outcome)).json()
 
@@ -89,6 +94,11 @@ class AsyncCoderDeliveryAPI(AsyncAPIBase):
 
     async def approve_mission(self, mission_id: str, approve: bool) -> dict:
         return (await self._request("POST", _mission_path(mission_id) + "/approve", params={"namespace": self._namespace}, json={"approve": approve})).json()
+
+    async def add_to_mission(self, mission_id: str, request: dict) -> dict:
+        if not request.get("tasks") and not request.get("prompts"):
+            raise ValueError("at least one task or prompt is required")
+        return (await self._request("POST", _mission_path(mission_id) + "/add", params={"namespace": self._namespace}, json=request)).json()
 
     async def reconcile_deploy(self, mission_id: str, outcome: str) -> dict:
         return (await self._request("POST", _mission_path(mission_id) + "/deploy-outcome", params={"namespace": self._namespace}, json=_deploy_reconciliation(outcome))).json()
