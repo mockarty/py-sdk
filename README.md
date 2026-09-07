@@ -57,6 +57,10 @@ page = client.mocks.list(namespace="sandbox", limit=10)
 for m in page.items:
     print(f"  {m.id}")
 
+# Discover active plugin wire codecs and their Socket routing name.
+protocols = client.mocks.list_plugin_protocols(namespace="sandbox")
+print([item.server_name for item in protocols.protocols])
+
 # Health check
 health = client.health.check()
 print(f"Status: {health.status}")

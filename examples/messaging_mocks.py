@@ -192,6 +192,8 @@ def smtp_basic(client: MockartyClient) -> None:
 
 def main() -> None:
     with MockartyClient(base_url=MOCKARTY_URL, api_key=API_KEY) as client:
+        protocols = client.mocks.list_plugin_protocols(namespace="sandbox")
+        print("Active plugin protocols:", [p.server_name for p in protocols.protocols])
         kafka_topic_mock(client)
         kafka_with_conditions(client)
         kafka_with_output_routing(client)

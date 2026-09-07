@@ -9,7 +9,12 @@ from typing import Any, Optional
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 from mockarty.models.common import MockLogs, Page, RequestLog
-from mockarty.models.mock import Mock, MockVersion, SaveMockResponse
+from mockarty.models.mock import (
+    Mock,
+    MockVersion,
+    PluginProtocolCatalogue,
+    SaveMockResponse,
+)
 
 
 # Mapping of ``_meta`` keys → top-level Mock field aliases. The admin
@@ -171,6 +176,14 @@ class MockAPI(SyncAPIBase):
 
         resp = self._request("GET", "/api/v1/mocks", params=params)
         return _decode_mock_list(resp.json(), offset, limit)
+
+    def list_plugin_protocols(
+        self, *, namespace: str | None = None
+    ) -> PluginProtocolCatalogue:
+        """List plugin protocol codecs active in a namespace."""
+        params = {"namespace": namespace} if namespace is not None else None
+        resp = self._request("GET", "/api/v1/plugin-protocols", params=params)
+        return PluginProtocolCatalogue.model_validate(resp.json())
 
     def update(self, mock_id: str, mock: Mock | dict[str, Any]) -> Mock:
         """Update a mock by re-creating it (full replacement)."""
@@ -382,6 +395,16 @@ class AsyncMockAPI(AsyncAPIBase):
 
         resp = await self._request("GET", "/api/v1/mocks", params=params)
         return _decode_mock_list(resp.json(), offset, limit)
+
+    async def list_plugin_protocols(
+        self, *, namespace: str | None = None
+    ) -> PluginProtocolCatalogue:
+        """List plugin protocol codecs active in a namespace."""
+        params = {"namespace": namespace} if namespace is not None else None
+        resp = await self._request(
+            "GET", "/api/v1/plugin-protocols", params=params
+        )
+        return PluginProtocolCatalogue.model_validate(resp.json())
 
     async def update(self, mock_id: str, mock: Mock | dict[str, Any]) -> Mock:
         """Update a mock by re-creating it."""

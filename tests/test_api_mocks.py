@@ -15,6 +15,45 @@ from mockarty.models.common import HealthResponse
 from mockarty.models.mock import Mock, SaveMockResponse
 
 
+class TestPluginProtocolCatalogue:
+    """Plugin wire codecs are discoverable through the mock resource."""
+
+    @respx.mock
+    def test_list_is_namespace_scoped_and_typed(
+        self, client: MockartyClient
+    ) -> None:
+        route = respx.get(
+            "http://localhost:5770/api/v1/plugin-protocols"
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "protocols": [
+                        {
+                            "key": "acme-line",
+                            "name": "ACME Line",
+                            "transport": "tcp-line",
+                            "magic": "ACME ",
+                            "pluginId": "acme.codec",
+                            "mockProtocol": "socket",
+                            "serverName": "plugin:acme-line",
+                        }
+                    ],
+                    "count": 1,
+                    "listener": "enabled",
+                    "usage": "socket mock",
+                },
+            )
+        )
+
+        catalogue = client.mocks.list_plugin_protocols(namespace="team a")
+
+        assert route.calls[0].request.url.params["namespace"] == "team a"
+        assert catalogue.count == 1
+        assert catalogue.protocols[0].plugin_id == "acme.codec"
+        assert catalogue.protocols[0].server_name == "plugin:acme-line"
+
+
 # ── MockAPI CRUD ──────────────────────────────────────────────────────
 
 

@@ -248,6 +248,8 @@ from mockarty.models.mock import (
     Mock,
     MockVersion,
     OneOf,
+    PluginProtocol,
+    PluginProtocolCatalogue,
     Proxy,
     ResponseScript,
     SaveMockResponse,
@@ -337,6 +339,8 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     # Core models
     "Mock",
     "MockVersion",
+    "PluginProtocol",
+    "PluginProtocolCatalogue",
     "ContentResponse",
     "ResponseScript",
     "OneOf",

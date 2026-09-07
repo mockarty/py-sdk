@@ -258,6 +258,30 @@ class MockVersion(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class PluginProtocol(BaseModel):
+    """One active plugin-supplied codec served by the unified listener."""
+
+    key: str
+    name: str
+    description: Optional[str] = None
+    transport: str
+    magic: str
+    plugin_id: str = Field(alias="pluginId")
+    mock_protocol: str = Field(alias="mockProtocol")
+    server_name: str = Field(alias="serverName")
+
+    model_config = {"populate_by_name": True}
+
+
+class PluginProtocolCatalogue(BaseModel):
+    """Namespace-scoped catalogue returned by ``list_plugin_protocols``."""
+
+    protocols: list[PluginProtocol] = Field(default_factory=list)
+    listener: str = ""
+    usage: str = ""
+    count: int = 0
+
+
 class SaveMockResponse(BaseModel):
     """Response returned by the mock create/update endpoint.
 
