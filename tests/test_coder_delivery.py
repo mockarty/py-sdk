@@ -35,7 +35,11 @@ def test_coder_delivery_routes_and_approval():
     api.approve_mission("m1", True)
     api.add_to_mission("m1", {"tasks": [{"prompt": "add tests", "requiredChecks": [{"name": "unit", "args": ["go", "test", "./..."]}]}]})
     api.reconcile_deploy("m1", "not_applied")
-    assert len(seen) == 9
+    api.observability_sources()
+    api.query_observability({"source": "prometheus", "expression": "up", "correlation": {"missionId": "m1"}})
+    assert len(seen) == 11
+    assert seen[-2] == ("GET", "/api/v1/observability/sources", {"namespace": "team-a"})
+    assert seen[-1] == ("POST", "/api/v1/observability/query", {"namespace": "team-a"})
 
 
 @respx.mock
@@ -49,17 +53,22 @@ def test_async_coder_delivery_preserves_product_and_explicit_denial():
     add = respx.post("https://mockarty.test/api/v1/coder/missions/m1/add").mock(
         return_value=httpx.Response(200, json={"id": "m1"})
     )
+    sources = respx.get("https://mockarty.test/api/v1/observability/sources").mock(
+        return_value=httpx.Response(200, json={"contractVersion": "mockarty.observability-query/v1", "sources": []})
+    )
 
     async def run():
         async with AsyncMockartyClient(base_url="https://mockarty.test", api_key="mk_test", namespace="team-a") as client:
             await client.coder_delivery.start_mission({"goal": "ship", "repoUrl": "https://git.test/app.git", "productId": "p1"})
             await client.coder_delivery.approve_mission("m1", False)
             await client.coder_delivery.add_to_mission("m1", {"prompts": ["add tests"]})
+            await client.coder_delivery.observability_sources()
 
     asyncio.run(run())
     assert json.loads(start.calls.last.request.content)["productId"] == "p1"
     assert json.loads(deny.calls.last.request.content) == {"approve": False}
     assert json.loads(add.calls.last.request.content) == {"prompts": ["add tests"]}
+    assert sources.calls.last.request.url.params["namespace"] == "team-a"
 
 
 def test_coder_deploy_reconciliation_requires_explicit_outcome():
@@ -67,5 +76,7 @@ def test_coder_deploy_reconciliation_requires_explicit_outcome():
     try:
         with pytest.raises(ValueError, match="applied or not_applied"):
             client.coder_delivery.reconcile_deploy("m1", "")
+        with pytest.raises(ValueError, match="source and expression"):
+            client.coder_delivery.query_observability({"source": "prometheus"})
     finally:
         client.close()

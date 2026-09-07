@@ -25,6 +25,15 @@ def _deploy_reconciliation(outcome: str) -> dict[str, str]:
 
 
 class CoderDeliveryAPI(SyncAPIBase):
+    def observability_sources(self) -> dict:
+        """List deployed-system observation sources bound to this namespace."""
+        return self._request("GET", "/api/v1/observability/sources", params={"namespace": self._namespace}).json()
+
+    def query_observability(self, query: dict) -> dict:
+        if not str(query.get("source", "")).strip() or not str(query.get("expression", "")).strip():
+            raise ValueError("source and expression are required")
+        return self._request("POST", "/api/v1/observability/query", params={"namespace": self._namespace}, json=query).json()
+
     def get_config(self, *, product_id: str = "") -> dict:
         params = {"namespace": self._namespace}
         if product_id := product_id.strip():
@@ -65,6 +74,15 @@ class CoderDeliveryAPI(SyncAPIBase):
 
 
 class AsyncCoderDeliveryAPI(AsyncAPIBase):
+    async def observability_sources(self) -> dict:
+        """List deployed-system observation sources bound to this namespace."""
+        return (await self._request("GET", "/api/v1/observability/sources", params={"namespace": self._namespace})).json()
+
+    async def query_observability(self, query: dict) -> dict:
+        if not str(query.get("source", "")).strip() or not str(query.get("expression", "")).strip():
+            raise ValueError("source and expression are required")
+        return (await self._request("POST", "/api/v1/observability/query", params={"namespace": self._namespace}, json=query)).json()
+
     async def get_config(self, *, product_id: str = "") -> dict:
         params = {"namespace": self._namespace}
         if product_id := product_id.strip():

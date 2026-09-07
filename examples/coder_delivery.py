@@ -20,3 +20,5 @@ with MockartyClient(namespace=os.environ["MOCKARTY_NAMESPACE"]) as client:
     if outcome := os.getenv("CODER_DEPLOY_RECONCILIATION"):
         mission = client.coder_delivery.reconcile_deploy(mission["id"], outcome)
         print("reconciled", mission.get("deployStopState"))
+    if os.getenv("CODER_OBSERVE") == "1":
+        print("observability sources", len(client.coder_delivery.observability_sources().get("sources", [])))
