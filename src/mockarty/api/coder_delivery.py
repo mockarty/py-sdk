@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from urllib.parse import quote
+import httpx
+import mimetypes
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 
@@ -17,6 +19,23 @@ def _mission_path(mission_id: str) -> str:
     return "/api/v1/coder/missions/" + quote(mission_id, safe="")
 
 
+def _mission_material_body(product_id: str, filename: str, content: bytes, media_type: str) -> tuple[bytes, str]:
+    if not product_id.strip() or not filename.strip() or not content or len(content) > 16 * 1024 * 1024:
+        raise ValueError("product, filename and a nonempty material up to 16 MiB are required")
+    if not media_type or media_type == "application/octet-stream":
+        extension = filename.rsplit(".", 1)[-1].lower()
+        media_type = {"md": "text/markdown", "yaml": "application/yaml", "yml": "application/yaml", "js": "text/javascript"}.get(extension) or mimetypes.guess_type(filename)[0]
+        if not media_type:
+            raise ValueError("unknown material type; specify media_type")
+    if "\r" in media_type or "\n" in media_type:
+        raise ValueError("invalid media type")
+    media_base = media_type.split(";", 1)[0].strip().lower()
+    if not media_base.startswith("image/") and media_base != "application/pdf" and len(content) > 64 * 1024:
+        raise ValueError("text mission materials must be at most 64 KiB combined")
+    request = httpx.Request("POST", "http://127.0.0.1", files={"file": (filename, content, media_type)})
+    return request.read(), request.headers["Content-Type"]
+
+
 def _deploy_reconciliation(outcome: str) -> dict[str, str]:
     outcome = (outcome or "").strip()
     if outcome not in {"applied", "not_applied"}:
@@ -25,6 +44,11 @@ def _deploy_reconciliation(outcome: str) -> dict[str, str]:
 
 
 class CoderDeliveryAPI(SyncAPIBase):
+    def upload_mission_material(self, product_id: str, filename: str, content: bytes, media_type: str = "application/octet-stream") -> dict:
+        """Upload an original; pass the returned reference in mission artifacts."""
+        body, content_type = _mission_material_body(product_id, filename, content, media_type)
+        return self._request("POST", "/api/v1/missions/materials", params={"namespace": self._namespace, "productId": product_id}, content=body, headers={"Content-Type": content_type}).json()
+
     def observability_sources(self) -> dict:
         """List deployed-system observation sources bound to this namespace."""
         return self._request("GET", "/api/v1/observability/sources", params={"namespace": self._namespace}).json()
@@ -74,6 +98,11 @@ class CoderDeliveryAPI(SyncAPIBase):
 
 
 class AsyncCoderDeliveryAPI(AsyncAPIBase):
+    async def upload_mission_material(self, product_id: str, filename: str, content: bytes, media_type: str = "application/octet-stream") -> dict:
+        """Upload an original; pass the returned reference in mission artifacts."""
+        body, content_type = _mission_material_body(product_id, filename, content, media_type)
+        return (await self._request("POST", "/api/v1/missions/materials", params={"namespace": self._namespace, "productId": product_id}, content=body, headers={"Content-Type": content_type})).json()
+
     async def observability_sources(self) -> dict:
         """List deployed-system observation sources bound to this namespace."""
         return (await self._request("GET", "/api/v1/observability/sources", params={"namespace": self._namespace})).json()

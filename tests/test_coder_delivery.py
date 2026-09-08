@@ -9,6 +9,24 @@ import respx
 from mockarty import AsyncMockartyClient, MockartyClient
 
 
+def test_upload_mission_material_multipart():
+    def handler(request):
+        assert request.url.path == "/api/v1/missions/materials"
+        assert request.url.params["productId"] == "p & one"
+        assert request.url.params["namespace"] == "team"
+        assert request.headers["content-type"].startswith("multipart/form-data;")
+        assert b'filename="design.txt"' in request.content
+        assert b"navy palette" in request.content
+        return httpx.Response(201, json={"reference": {"kind": "mission_material", "id": "mat1"}})
+    with MockartyClient(base_url="https://mockarty.test", api_key="mk_test", namespace="team") as client:
+        client._http._transport = httpx.MockTransport(handler)
+        assert client.coder_delivery.upload_mission_material("p & one", "design.txt", b"navy palette")["reference"]["id"] == "mat1"
+        with pytest.raises(ValueError):
+            client.coder_delivery.upload_mission_material("", "design.txt", b"content")
+        with pytest.raises(ValueError, match="64 KiB"):
+            client.coder_delivery.upload_mission_material("p", "design.txt", b"a" * (64 * 1024 + 1), "text/plain")
+
+
 def test_coder_delivery_routes_and_approval():
     seen = []
 
