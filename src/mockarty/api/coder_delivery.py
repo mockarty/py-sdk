@@ -8,6 +8,7 @@ from __future__ import annotations
 from urllib.parse import quote
 import httpx
 import mimetypes
+import unicodedata
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 
@@ -20,7 +21,11 @@ def _mission_path(mission_id: str) -> str:
 
 
 def _mission_material_body(product_id: str, filename: str, content: bytes, media_type: str) -> tuple[bytes, str]:
-    if not product_id.strip() or not filename.strip() or not content or len(content) > 16 * 1024 * 1024:
+    if (not product_id.strip() or not filename or filename != filename.strip()
+            or len(filename.encode("utf-8")) > 128 or filename in {".", ".."}
+            or "/" in filename or "\\" in filename
+            or any(unicodedata.category(char) == "Cc" for char in filename)
+            or not content or len(content) > 16 * 1024 * 1024):
         raise ValueError("product, filename and a nonempty material up to 16 MiB are required")
     if not media_type or media_type == "application/octet-stream":
         extension = filename.rsplit(".", 1)[-1].lower()
@@ -30,7 +35,11 @@ def _mission_material_body(product_id: str, filename: str, content: bytes, media
     if "\r" in media_type or "\n" in media_type:
         raise ValueError("invalid media type")
     media_base = media_type.split(";", 1)[0].strip().lower()
-    if not media_base.startswith("image/") and media_base != "application/pdf" and len(content) > 64 * 1024:
+    binary_types = {"image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"}
+    text_types = {"text/plain", "text/markdown", "text/css", "text/javascript", "application/json", "application/yaml", "application/xml", "text/html"}
+    if media_base not in binary_types | text_types:
+        raise ValueError("unsupported mission material media type")
+    if media_base in text_types and len(content) > 64 * 1024:
         raise ValueError("text mission materials must be at most 64 KiB combined")
     request = httpx.Request("POST", "http://127.0.0.1", files={"file": (filename, content, media_type)})
     return request.read(), request.headers["Content-Type"]

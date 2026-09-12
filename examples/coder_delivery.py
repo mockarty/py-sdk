@@ -6,6 +6,8 @@ from mockarty import MockartyClient
 with MockartyClient(namespace=os.environ["MOCKARTY_NAMESPACE"]) as client:
     if os.getenv("MISSION_PRODUCT_ID"):
         # Text originals in one mission must total at most 64 KiB.
+        # Use a leaf filename (no path), at most 128 UTF-8 bytes. Supported
+        # binary formats are PNG, JPEG, WebP, GIF and PDF; SVG is not accepted.
         material = client.coder_delivery.upload_mission_material(os.environ["MISSION_PRODUCT_ID"], "design.txt", b"Palette: navy and cream. Keep accessible contrast.", "text/plain")
         print("Use in POST /api/v1/missions artifacts:", material["reference"])
     mission = client.coder_delivery.start_mission({

@@ -9,6 +9,25 @@ import respx
 from mockarty import AsyncMockartyClient, MockartyClient
 
 
+@pytest.mark.parametrize("filename,media", [
+    ("a.svg", "image/svg+xml"), ("a.bmp", "image/bmp"), ("a.zip", "application/zip"),
+    ("../a.txt", "text/plain"), ("dir\\a.txt", "text/plain"), (" a.txt", "text/plain"),
+    ("a\x00.txt", "text/plain"), ("a\u0085.txt", "text/plain"), ("..", "text/plain"),
+    ("я" * 65, "text/plain"),
+])
+def test_material_rejects_invalid_name_and_type_before_transport(filename, media):
+    from mockarty.api.coder_delivery import _mission_material_body
+    with pytest.raises(ValueError):
+        _mission_material_body("p", filename, b"content", media)
+
+
+def test_material_accepts_utf8_name_boundary_and_media_parameters():
+    from mockarty.api.coder_delivery import _mission_material_body
+    body, content_type = _mission_material_body("p", "я" * 64, b"a" * (64 * 1024), "text/plain; charset=utf-8")
+    assert b"a" * (64 * 1024) in body
+    assert content_type.startswith("multipart/form-data;")
+
+
 def test_upload_mission_material_multipart():
     def handler(request):
         assert request.url.path == "/api/v1/missions/materials"
