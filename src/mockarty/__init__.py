@@ -227,6 +227,15 @@ from mockarty.models.generator import (
     GeneratorResponse,
 )
 from mockarty.models.imports import ImportResult
+from mockarty.models.delegated_credentials import (
+    DELEGATED_ACTION_VOCABULARY,
+    DELEGATED_MAX_TTL,
+    DELEGATED_TOKEN_PREFIX,
+    DelegatedCredential,
+    DelegatedCredentialCreateRequest,
+    DelegatedCredentialList,
+    DelegatedCredentialWithToken,
+)
 from mockarty.models.llm_security import (
     LLMSecurityDelegation,
     LLMSecurityEvent,
@@ -292,6 +301,13 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "LLMSecurityFinding",
     "LLMSecurityPolicy",
     "LLMSecurityPolicyDocument",
+    "DELEGATED_ACTION_VOCABULARY",
+    "DELEGATED_MAX_TTL",
+    "DELEGATED_TOKEN_PREFIX",
+    "DelegatedCredential",
+    "DelegatedCredentialCreateRequest",
+    "DelegatedCredentialList",
+    "DelegatedCredentialWithToken",
     "LLMSecurityPolicyRequest",
     "LLMSecurityPolicyResponse",
     "LLMSecurityRestrictions",

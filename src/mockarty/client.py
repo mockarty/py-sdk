@@ -74,6 +74,7 @@ from mockarty.api.testruns import TestRunAPI
 from mockarty.api.uitests import UITestAPI
 from mockarty.api.undefined import UndefinedAPI
 from mockarty.api.workflow_definitions import WorkflowDefinitionsAPI
+from mockarty.api.delegated_credentials import DelegatedCredentialsAPI
 
 
 class MockartyClient:
@@ -166,6 +167,7 @@ class MockartyClient:
         "_discovery",
         "_flow_runs",
         "_workflow_definitions",
+        "_delegated_credentials",
         "_secrets",
         "_security",
         "_prompts",
@@ -679,3 +681,15 @@ class MockartyClient:
         if self._workflow_definitions is None:
             self._workflow_definitions = WorkflowDefinitionsAPI(self._http, self._namespace)
         return self._workflow_definitions
+
+    @property
+    def delegated_credentials(self) -> DelegatedCredentialsAPI:
+        """Project-scoped delegated credentials: create, list, get, rotate, revoke.
+
+        Issue one for work shared with a contractor, a CI job or an MCP client
+        instead of handing over an API key — the namespace set, action set and
+        expiry are frozen, and the holder cannot widen them.
+        """
+        if self._delegated_credentials is None:
+            self._delegated_credentials = DelegatedCredentialsAPI(self._http, self._namespace)
+        return self._delegated_credentials

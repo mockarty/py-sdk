@@ -91,6 +91,16 @@ from mockarty.models.contract import (
     PactVerifyRequest,
     ValidatePayloadRequest,
 )
+from mockarty.models.delegated_credentials import (
+    DELEGATED_ACTION_VOCABULARY,
+    DELEGATED_MAX_TTL,
+    DELEGATED_TOKEN_PREFIX,
+    DelegatedCredential,
+    DelegatedCredentialCreateRequest,
+    DelegatedCredentialList,
+    DelegatedCredentialWithToken,
+)
+
 from mockarty.models.economics import (
     LLMBudget,
     LLMBudgetList,
@@ -356,4 +366,12 @@ __all__ = [  # noqa: RUF022 - grouped by model domain for discoverability
     "TestRun",
     # Undefined request models
     "UndefinedRequest",
+    # Delegated credential models
+    "DELEGATED_ACTION_VOCABULARY",
+    "DELEGATED_MAX_TTL",
+    "DELEGATED_TOKEN_PREFIX",
+    "DelegatedCredential",
+    "DelegatedCredentialCreateRequest",
+    "DelegatedCredentialList",
+    "DelegatedCredentialWithToken",
 ]

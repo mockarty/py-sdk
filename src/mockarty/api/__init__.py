@@ -13,6 +13,7 @@ from mockarty.api.ci_triggers import AsyncCITriggerAPI, CITriggerAPI
 from mockarty.api.collections import AsyncCollectionAPI, CollectionAPI
 from mockarty.api.contracts import AsyncContractAPI, ContractAPI
 from mockarty.api.economics import AsyncEconomicsAPI, EconomicsAPI
+from mockarty.api.delegated_credentials import AsyncDelegatedCredentialsAPI, DelegatedCredentialsAPI
 from mockarty.api.delivery_policy import AsyncDeliveryPolicyAPI, DeliveryPolicyAPI
 from mockarty.api.entity_search import AsyncEntitySearchAPI, EntitySearchAPI
 from mockarty.api.environments import AsyncEnvironmentAPI, EnvironmentAPI

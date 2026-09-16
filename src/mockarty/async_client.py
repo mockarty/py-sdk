@@ -72,6 +72,7 @@ from mockarty.api.testruns import AsyncTestRunAPI
 from mockarty.api.uitests import AsyncUITestAPI
 from mockarty.api.undefined import AsyncUndefinedAPI
 from mockarty.api.workflow_definitions import AsyncWorkflowDefinitionsAPI
+from mockarty.api.delegated_credentials import AsyncDelegatedCredentialsAPI
 
 
 class AsyncMockartyClient:
@@ -107,6 +108,7 @@ class AsyncMockartyClient:
         "_namespace_settings", "_proxy", "_environments", "_entity_search",
         "_experience", "_economics", "_llm_security", "_external_runs", "_discovery",
         "_workflow_definitions", "_connections", "_secrets", "_prompts", "_me",
+        "_delegated_credentials",
     )
 
     def __init__(
@@ -575,3 +577,17 @@ class AsyncMockartyClient:
         if self._connections is None:
             self._connections = AsyncConnectionAuthorityAPI(self._http, self._namespace)
         return self._connections
+
+    @property
+    def delegated_credentials(self) -> AsyncDelegatedCredentialsAPI:
+        """Project-scoped delegated credentials: create, list, get, rotate, revoke.
+
+        Issue one for work shared with a contractor, a CI job or an MCP client
+        instead of handing over an API key — the namespace set, action set and
+        expiry are frozen, and the holder cannot widen them.
+        """
+        if self._delegated_credentials is None:
+            self._delegated_credentials = AsyncDelegatedCredentialsAPI(
+                self._http, self._namespace
+            )
+        return self._delegated_credentials
