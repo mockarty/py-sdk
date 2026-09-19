@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
@@ -11,7 +13,12 @@ import respx
 from mockarty import MockartyClient
 from mockarty.models.contract import ContractConfig, ContractValidationResult
 from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun, QuarantineEntry
-from mockarty.models.generator import GeneratorPreview, GeneratorRequest, GeneratorResponse
+from mockarty.models.generator import (
+    GeneratorPreview,
+    GeneratorRequest,
+    GeneratorResponse,
+    SpecExportRequest,
+)
 from mockarty.models.imports import ImportResult
 from mockarty.models.mock import Mock
 from mockarty.models.recorder import RecorderEntry, RecorderSession
@@ -1239,3 +1246,45 @@ class TestAdvancedClientProperties:
         assert client.generator is not gen1
         assert client.fuzzing is not fuzz1
         assert client.tags is not tags1
+
+
+class TestSpecExport:
+    """The reverse direction: mocks → document.
+
+    The two things a caller gets wrong from the signature alone are pinned here —
+    that the format and filters reach the wire, and that warnings arrive instead
+    of being folded away.
+    """
+
+    @respx.mock
+    def test_export_spec(self, client: MockartyClient) -> None:
+        route = respx.post("http://localhost:5770/api/v1/generators/spec").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "format": "openapi",
+                    "spec": {"openapi": "3.0.3", "paths": {"/api/pets": {}}},
+                    "warnings": [
+                        {"mockId": "scripted", "route": "/api/x", "reason": "built by a script"}
+                    ],
+                    "stats": {"considered": 2, "exported": 2, "skipped": 0, "paths": 1},
+                },
+            )
+        )
+
+        result = client.generator.export_spec(
+            SpecExportRequest(format="openapi", tags=["orders"])
+        )
+
+        assert result.format == "openapi"
+        assert result.spec["openapi"] == "3.0.3"
+        assert len(result.warnings) == 1
+        assert result.warnings[0].mock_id == "scripted"
+        assert result.warnings[0].reason
+        assert result.stats.exported == 2
+        assert result.stats.paths == 1
+
+        sent = route.calls.last.request
+        body = json.loads(sent.content)
+        assert body["format"] == "openapi"
+        assert body["tags"] == ["orders"]

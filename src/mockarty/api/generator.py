@@ -12,6 +12,8 @@ from mockarty.models.generator import (
     GeneratorPreview,
     GeneratorRequest,
     GeneratorResponse,
+    SpecExportRequest,
+    SpecExportResponse,
 )
 from mockarty.models.mock import Mock
 
@@ -37,6 +39,15 @@ class GeneratorAPI(SyncAPIBase):
             mocks = [Mock.model_validate(m) for m in mocks_raw]
             return GeneratorPreview(mocks=mocks, count=data.get("count", len(mocks)))
         return GeneratorPreview()
+
+    def export_spec(self, request: SpecExportRequest | dict[str, Any]) -> SpecExportResponse:
+        """Build an OpenAPI/AsyncAPI specification FROM the namespace's mocks.
+
+        The reverse of :meth:`from_openapi`. Read ``warnings`` before trusting
+        the document: the mocks it could not express are named there.
+        """
+        resp = self._request("POST", "/api/v1/generators/spec", json=request)
+        return SpecExportResponse.model_validate(resp.json())
 
     def from_graphql(
         self, request: GeneratorRequest | dict[str, Any]
@@ -156,6 +167,13 @@ class AsyncGeneratorAPI(AsyncAPIBase):
             mocks = [Mock.model_validate(m) for m in mocks_raw]
             return GeneratorPreview(mocks=mocks, count=data.get("count", len(mocks)))
         return GeneratorPreview()
+
+    async def export_spec(
+        self, request: SpecExportRequest | dict[str, Any]
+    ) -> SpecExportResponse:
+        """Build an OpenAPI/AsyncAPI specification FROM the namespace's mocks."""
+        resp = await self._request("POST", "/api/v1/generators/spec", json=request)
+        return SpecExportResponse.model_validate(resp.json())
 
     async def from_graphql(
         self, request: GeneratorRequest | dict[str, Any]
