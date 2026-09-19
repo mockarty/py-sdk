@@ -345,6 +345,7 @@ it = client.issue_tracker
 issue = it.create_issue({"projectId": pid, "type": "bug", "title": "500 on /pay"})
 it.add_comment(issue["id"], "repro attached")
 it.move_issue(issue["id"], "in_progress")
+it.update_issue(issue["id"], {"type": "task"})  # filed as the wrong type? change it
 nxt = it.next_issue(assigneeId=me)
 ```
 
