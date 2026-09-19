@@ -224,6 +224,10 @@ from mockarty.models.fuzzing import FuzzingConfig, FuzzingResult, FuzzingRun
 from mockarty.models.generator import (
     GeneratorPreview,
     GeneratorRequest,
+    SpecExportRequest,
+    SpecExportResponse,
+    SpecExportStats,
+    SpecExportWarning,
     GeneratorResponse,
 )
 from mockarty.models.imports import ImportResult
@@ -396,6 +400,10 @@ __all__ = [  # noqa: RUF022 - grouped by public API domain for discoverability
     "DeleteFromStoreRequest",
     # Generator models
     "GeneratorRequest",
+    "SpecExportRequest",
+    "SpecExportResponse",
+    "SpecExportStats",
+    "SpecExportWarning",
     "GeneratorPreview",
     "GeneratorResponse",
     # Chaos models

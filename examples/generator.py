@@ -8,7 +8,7 @@ Demonstrates:
   - Generate from WSDL (SOAP)
 """
 
-from mockarty import GeneratorRequest, MockartyClient
+from mockarty import GeneratorRequest, MockartyClient, SpecExportRequest
 
 MOCKARTY_URL = "http://localhost:5770"
 API_KEY = "your-api-key"
@@ -194,6 +194,26 @@ def generate_with_server_name(client: MockartyClient) -> None:
     print(f"Generated {result.created} mocks under server 'petstore-staging'")
 
 
+def export_specification(client: MockartyClient) -> None:
+    """Build a specification FROM the mocks — the reverse of every call above.
+
+    Reads the mocks the namespace already has and writes a document other tools
+    consume. Read ``warnings`` before trusting it: the mocks the document could
+    not express (a response built by a script, a oneOf rotation, a proxy, a
+    template file) are named there with their reasons instead of being turned
+    into examples the product never returns.
+    """
+    export = client.generator.export_spec(
+        SpecExportRequest(format="openapi", title="Checkout contour")
+    )
+    print(
+        f"Exported {export.stats.exported} mock(s) into {export.stats.paths} path(s)"
+    )
+    for warning in export.warnings:
+        print(f"  ! {warning.mock_id} ({warning.route}): {warning.reason}")
+    print(f"  document version: {export.spec.get('openapi')}")
+
+
 def main() -> None:
     with MockartyClient(base_url=MOCKARTY_URL, api_key=API_KEY) as client:
         # Preview first (non-destructive)
@@ -210,6 +230,10 @@ def main() -> None:
         # generate_from_grpc(client)
         # generate_from_soap(client)
         # generate_with_server_name(client)
+
+        # …and the other direction: the mocks → a specification
+        export_specification(client)
+        print()
 
         print("Generator example complete.")
 
