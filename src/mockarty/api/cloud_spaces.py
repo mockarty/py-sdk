@@ -44,6 +44,14 @@ class CloudSpacesAPI(SyncAPIBase):
         _space_path(space_id)
         return self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id}).json()
 
+    def revoke_team_invite(self, space_id: str, invite_id: str, idempotency_key: str) -> None:
+        """Release one pending Team Seat; reuse the key after an uncertain response."""
+        _space_path(space_id)
+        if not invite_id or not invite_id.strip() or not idempotency_key or not idempotency_key.strip():
+            raise ValueError("Team invite id and idempotency_key are required")
+        self._request("DELETE", "/api/v1/cloud/team/invites/" + quote(invite_id, safe=""),
+                      params={"space_id": space_id}, headers={"Idempotency-Key": idempotency_key})
+
     def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
         if not name or not name.strip():
             raise ValueError("Space name is required")
@@ -98,6 +106,14 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
         """Read the selected Space's billing account as its owner."""
         _space_path(space_id)
         return (await self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id})).json()
+
+    async def revoke_team_invite(self, space_id: str, invite_id: str, idempotency_key: str) -> None:
+        """Release one pending Team Seat; reuse the key after an uncertain response."""
+        _space_path(space_id)
+        if not invite_id or not invite_id.strip() or not idempotency_key or not idempotency_key.strip():
+            raise ValueError("Team invite id and idempotency_key are required")
+        await self._request("DELETE", "/api/v1/cloud/team/invites/" + quote(invite_id, safe=""),
+                            params={"space_id": space_id}, headers={"Idempotency-Key": idempotency_key})
 
     async def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
         if not name or not name.strip():

@@ -19,6 +19,8 @@ def test_cloud_spaces_routes_and_preconditions(client: MockartyClient) -> None:
     organization = respx.get("http://localhost:5770/api/v1/cloud/organization", params={"space_id": "s1"}).mock(
         return_value=httpx.Response(200, json={"organization": {"account_kind": "team", "seats_reserved": 1}})
     )
+    team_revoke = respx.delete("http://localhost:5770/api/v1/cloud/team/invites/ti1",
+                               params={"space_id": "s1"}).mock(return_value=httpx.Response(204))
     members = respx.get(f"{base}/s1/members", params={"cursor": "members-next", "limit": 25}).mock(
         return_value=httpx.Response(200, json={"items": []})
     )
@@ -47,6 +49,8 @@ def test_cloud_spaces_routes_and_preconditions(client: MockartyClient) -> None:
     assert client.cloud_spaces.list("next", 25)["items"][0]["id"] == "s1"
     assert client.cloud_spaces.get("s1")["space"]["revision"] == 7
     assert client.cloud_spaces.organization("s1")["organization"]["seats_reserved"] == 1
+    client.cloud_spaces.revoke_team_invite("s1", "ti1", "team-retry")
+    assert team_revoke.calls.last.request.headers["Idempotency-Key"] == "team-retry"
     client.cloud_spaces.list_members("s1", "members-next", 25)
     client.cloud_spaces.list_invites("s1", "invites-next", 25)
     assert client.cloud_spaces.preview_invite("token/one")["etag"] == '"space-s1-r7"'
@@ -68,6 +72,8 @@ def test_cloud_spaces_mutation_requires_explicit_revision_and_key(client: Mockar
         assert "etag" in str(exc).lower()
     else:
         raise AssertionError("mutation without ETag/key was accepted")
+    with pytest.raises(ValueError):
+        client.cloud_spaces.revoke_team_invite("s1", "ti1", "")
 
 
 @respx.mock
@@ -94,6 +100,8 @@ async def test_async_cloud_spaces_exact_surface(base_url: str, api_key: str) -> 
     organization = respx.get(f"{base_url}/api/v1/cloud/organization", params={"space_id": "s1"}).mock(
         return_value=httpx.Response(200, json={"organization": {"account_kind": "team"}})
     )
+    team_revoke = respx.delete(f"{base_url}/api/v1/cloud/team/invites/ti1",
+                               params={"space_id": "s1"}).mock(return_value=httpx.Response(204))
     respx.get(f"{base}/s1/members").mock(return_value=httpx.Response(200, json={"items": []}))
     respx.get(f"{base}/s1/invites").mock(return_value=httpx.Response(200, json={"items": []}))
     preview = respx.get(f"{base_url}/api/v1/cloud/invites/token%2Fone").mock(
@@ -113,6 +121,7 @@ async def test_async_cloud_spaces_exact_surface(base_url: str, api_key: str) -> 
         await client.cloud_spaces.list()
         await client.cloud_spaces.get("s1")
         assert (await client.cloud_spaces.organization("s1"))["organization"]["account_kind"] == "team"
+        await client.cloud_spaces.revoke_team_invite("s1", "ti1", "async-team-retry")
         await client.cloud_spaces.list_members("s1")
         await client.cloud_spaces.list_invites("s1")
         assert (await client.cloud_spaces.preview_invite("token/one"))["etag"] == '"space-s1-r7"'
@@ -126,3 +135,4 @@ async def test_async_cloud_spaces_exact_surface(base_url: str, api_key: str) -> 
         assert route.calls.last.request.headers["If-Match"] == '"space-s1-r7"'
         assert route.calls.last.request.headers["Idempotency-Key"] == "async-1"
     assert preview.called and organization.called
+    assert team_revoke.calls.last.request.headers["Idempotency-Key"] == "async-team-retry"

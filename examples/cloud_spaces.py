@@ -25,6 +25,12 @@ with MockartyClient(
         if selected.get("owned"):
             organization = client.cloud_spaces.organization(selected["id"])["organization"]
             print(f"account={organization['account_id']} occupied={organization['seats_used']}/{organization['seats_total']}")
+            team_invite_id = os.getenv("MOCKARTY_TEAM_INVITE_ID")
+            if team_invite_id:
+                client.cloud_spaces.revoke_team_invite(
+                    selected["id"], team_invite_id, os.environ["MOCKARTY_IDEMPOTENCY_KEY"]
+                )
+                print("Team invitation revoked")
         members = client.cloud_spaces.list_members(selected["id"], limit=25)["items"]
         invites = client.cloud_spaces.list_invites(selected["id"], limit=25)["items"]
         print(f"selected={selected['id']} members={len(members)} invites={len(invites)}")
