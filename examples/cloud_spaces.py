@@ -19,6 +19,16 @@ with MockartyClient(
             f"members={usage['accepted_humans']}",
             f"pending={usage['pending_invites']}",
         )
+    team_audit_space_id = os.getenv("MOCKARTY_TEAM_AUDIT_SPACE_ID")
+    if team_audit_space_id:
+        audit = client.cloud_spaces.list_team_audit(
+            team_audit_space_id, os.getenv("MOCKARTY_TEAM_AUDIT_BEFORE_ID", ""), limit=50
+        )
+        print(
+            f"team={audit['team_id']} events={len(audit['records'])} "
+            f"chain_ok={audit['chain_ok']} has_more={audit['has_more']} "
+            f"next_before_id={audit['next_before_id']}"
+        )
     if spaces:
         selected = client.cloud_spaces.get(spaces[0]["id"])["space"]
         # Account owners can inspect the Team-wide seat count for this Space.

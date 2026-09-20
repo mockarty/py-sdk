@@ -55,6 +55,23 @@ def _team_invite_body(space_id: str, email: str, role: str) -> dict[str, str]:
     return {"space_id": space_id, "email": email, "role": role}
 
 
+def _team_audit_params(space_id: str, before_id: str, limit: int) -> dict[str, Any]:
+    _space_path(space_id)
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0 or limit > 200:
+        raise ValueError("Team audit limit must be 1..200, or zero for the server default")
+    params: dict[str, Any] = {"space_id": space_id}
+    if not isinstance(before_id, str):
+        raise ValueError("before_id must be a positive decimal event id")
+    if before_id:
+        if (len(before_id) > 19 or not before_id.isascii() or
+                not before_id.isdecimal() or int(before_id) < 1 or int(before_id) > 2**63 - 1):
+            raise ValueError("before_id must be a positive decimal event id")
+        params["before_id"] = before_id
+    if limit:
+        params["limit"] = limit
+    return params
+
+
 class CloudSpacesAPI(SyncAPIBase):
     def list(self, cursor: str = "", limit: int = 25) -> dict[str, Any]:
         return self._request("GET", "/api/v1/cloud/spaces", params=_page_params(cursor, limit)).json()
@@ -66,6 +83,15 @@ class CloudSpacesAPI(SyncAPIBase):
         """Read the selected Space's billing account as its owner."""
         _space_path(space_id)
         return self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id}).json()
+
+    def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
+        """Read redacted Team and Space events as a seated owner or billing manager.
+
+        Pass next_before_id unchanged to read older events. Zero limit uses the
+        server default of 50.
+        """
+        return self._request("GET", "/api/v1/cloud/team/audit",
+                             params=_team_audit_params(space_id, before_id, limit)).json()
 
     def create_team_space(self, team_id: str, name: str, audience: str,
                           idempotency_key: str, slug: str = "") -> dict[str, Any]:
@@ -143,6 +169,11 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
         """Read the selected Space's billing account as its owner."""
         _space_path(space_id)
         return (await self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id})).json()
+
+    async def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
+        """Read redacted Team and Space events as a seated owner or billing manager."""
+        return (await self._request("GET", "/api/v1/cloud/team/audit",
+                                    params=_team_audit_params(space_id, before_id, limit))).json()
 
     async def create_team_space(self, team_id: str, name: str, audience: str,
                                 idempotency_key: str, slug: str = "") -> dict[str, Any]:
