@@ -16,9 +16,11 @@ class CloudWebhooksAPI(SyncAPIBase):
         data = self._request("GET", "/api/v1/cloud/webhooks", params={"workspace_id": workspace_id}).json()
         return data.get("webhooks", []) if isinstance(data, dict) else []
 
-    def create(self, workspace_id: str, name: str, url: str, events: list[str]) -> dict[str, Any]:
+    def create(self, workspace_id: str, name: str, url: str, events: list[str],
+               idempotency_key: str | None = None) -> dict[str, Any]:
         return self._request("POST", "/api/v1/cloud/webhooks", params={"workspace_id": workspace_id},
-                             json={"name": name, "url": url, "events": events}).json()
+                             json={"name": name, "url": url, "events": events},
+                             headers={"Idempotency-Key": idempotency_key} if idempotency_key else None).json()
 
     def deactivate(self, workspace_id: str, webhook_id: str) -> None:
         self._request("DELETE", f"/api/v1/cloud/webhooks/{quote(webhook_id, safe='')}",
@@ -48,9 +50,11 @@ class AsyncCloudWebhooksAPI(AsyncAPIBase):
         data = (await self._request("GET", "/api/v1/cloud/webhooks", params={"workspace_id": workspace_id})).json()
         return data.get("webhooks", []) if isinstance(data, dict) else []
 
-    async def create(self, workspace_id: str, name: str, url: str, events: list[str]) -> dict[str, Any]:
+    async def create(self, workspace_id: str, name: str, url: str, events: list[str],
+                     idempotency_key: str | None = None) -> dict[str, Any]:
         return (await self._request("POST", "/api/v1/cloud/webhooks", params={"workspace_id": workspace_id},
-                                    json={"name": name, "url": url, "events": events})).json()
+                                    json={"name": name, "url": url, "events": events},
+                                    headers={"Idempotency-Key": idempotency_key} if idempotency_key else None)).json()
 
     async def deactivate(self, workspace_id: str, webhook_id: str) -> None:
         await self._request("DELETE", f"/api/v1/cloud/webhooks/{quote(webhook_id, safe='')}",

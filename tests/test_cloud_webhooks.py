@@ -29,9 +29,10 @@ def test_cloud_webhooks_lifecycle_and_one_time_rotation(client: MockartyClient) 
     )
 
     assert client.cloud_webhooks.list("space-a")[0]["id"] == "hook-1"
-    created = client.cloud_webhooks.create("space-a", "Build events", "https://hooks.example/events", ["instance.created"])
+    created = client.cloud_webhooks.create("space-a", "Build events", "https://hooks.example/events", ["instance.created"], "create-retry-1")
     assert created["secret"] == "whsec_once"
     assert create.calls.last.request.content
+    assert create.calls.last.request.headers["Idempotency-Key"] == "create-retry-1"
     assert client.cloud_webhooks.rotate_secret("space-a", "hook-1", "retry-1")["secret"] == "whsec_rotated"
     assert rotate.calls.last.request.headers["Idempotency-Key"] == "retry-1"
     client.cloud_webhooks.test("space-a", "hook-1")
