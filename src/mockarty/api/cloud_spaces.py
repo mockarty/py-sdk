@@ -39,6 +39,11 @@ class CloudSpacesAPI(SyncAPIBase):
     def get(self, space_id: str) -> dict[str, Any]:
         return self._request("GET", _space_path(space_id)).json()
 
+    def organization(self, space_id: str) -> dict[str, Any]:
+        """Read the selected Space's billing account as its owner."""
+        _space_path(space_id)
+        return self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id}).json()
+
     def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
         if not name or not name.strip():
             raise ValueError("Space name is required")
@@ -88,6 +93,11 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
 
     async def get(self, space_id: str) -> dict[str, Any]:
         return (await self._request("GET", _space_path(space_id))).json()
+
+    async def organization(self, space_id: str) -> dict[str, Any]:
+        """Read the selected Space's billing account as its owner."""
+        _space_path(space_id)
+        return (await self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id})).json()
 
     async def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
         if not name or not name.strip():

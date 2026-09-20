@@ -21,6 +21,10 @@ with MockartyClient(
         )
     if spaces:
         selected = client.cloud_spaces.get(spaces[0]["id"])["space"]
+        # Account owners can inspect the Team-wide seat count for this Space.
+        if selected.get("owned"):
+            organization = client.cloud_spaces.organization(selected["id"])["organization"]
+            print(f"account={organization['account_id']} occupied={organization['seats_used']}/{organization['seats_total']}")
         members = client.cloud_spaces.list_members(selected["id"], limit=25)["items"]
         invites = client.cloud_spaces.list_invites(selected["id"], limit=25)["items"]
         print(f"selected={selected['id']} members={len(members)} invites={len(invites)}")
