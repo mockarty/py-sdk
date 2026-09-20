@@ -25,6 +25,20 @@ with MockartyClient(
         if selected.get("owned"):
             organization = client.cloud_spaces.organization(selected["id"])["organization"]
             print(f"account={organization['account_id']} occupied={organization['seats_used']}/{organization['seats_total']}")
+            if organization["account_kind"] == "team":
+                team_space_name = os.getenv("MOCKARTY_TEAM_SPACE_NAME")
+                if team_space_name:
+                    created = client.cloud_spaces.create_team_space(
+                        organization["account_id"], team_space_name, "team",
+                        os.environ["MOCKARTY_TEAM_SPACE_KEY"],
+                    )
+                    print(f"created_team_space={created['space_id']}")
+                team_email = os.getenv("MOCKARTY_TEAM_MEMBER_EMAIL")
+                if team_email:
+                    client.cloud_spaces.invite_team_member(
+                        selected["id"], team_email, "member", os.environ["MOCKARTY_TEAM_INVITE_KEY"]
+                    )
+                    print("Team invitation queued")
             team_invite_id = os.getenv("MOCKARTY_TEAM_INVITE_ID")
             if team_invite_id:
                 client.cloud_spaces.revoke_team_invite(

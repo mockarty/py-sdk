@@ -32,6 +32,29 @@ def _page_params(cursor: str, limit: int) -> dict[str, Any]:
     return params
 
 
+def _team_key(idempotency_key: str) -> dict[str, str]:
+    if not idempotency_key or not idempotency_key.strip():
+        raise ValueError("idempotency_key is required for a Team mutation")
+    return {"Idempotency-Key": idempotency_key}
+
+
+def _team_space_body(team_id: str, name: str, audience: str, slug: str) -> dict[str, str]:
+    if not team_id or not team_id.strip() or not name or not name.strip():
+        raise ValueError("Team id and Space name are required")
+    if audience not in ("team", "restricted"):
+        raise ValueError("audience must be team or restricted")
+    return {"team_id": team_id, "name": name, "audience": audience, "slug": slug}
+
+
+def _team_invite_body(space_id: str, email: str, role: str) -> dict[str, str]:
+    _space_path(space_id)
+    if not email or not email.strip():
+        raise ValueError("recipient email is required")
+    if role not in ("member", "admin", "billing_manager"):
+        raise ValueError("Team role must be member, admin or billing_manager")
+    return {"space_id": space_id, "email": email, "role": role}
+
+
 class CloudSpacesAPI(SyncAPIBase):
     def list(self, cursor: str = "", limit: int = 25) -> dict[str, Any]:
         return self._request("GET", "/api/v1/cloud/spaces", params=_page_params(cursor, limit)).json()
@@ -43,6 +66,20 @@ class CloudSpacesAPI(SyncAPIBase):
         """Read the selected Space's billing account as its owner."""
         _space_path(space_id)
         return self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id}).json()
+
+    def create_team_space(self, team_id: str, name: str, audience: str,
+                          idempotency_key: str, slug: str = "") -> dict[str, Any]:
+        """Add a Space to an active paid Team; reuse the key for an exact retry."""
+        return self._request("POST", "/api/v1/cloud/team/spaces",
+                             json=_team_space_body(team_id, name, audience, slug),
+                             headers=_team_key(idempotency_key)).json()
+
+    def invite_team_member(self, space_id: str, email: str, role: str,
+                           idempotency_key: str) -> None:
+        """Reserve a paid Seat and send an invitation without returning its token."""
+        self._request("POST", "/api/v1/cloud/team/invites",
+                      json=_team_invite_body(space_id, email, role),
+                      headers=_team_key(idempotency_key))
 
     def revoke_team_invite(self, space_id: str, invite_id: str, idempotency_key: str) -> None:
         """Release one pending Team Seat; reuse the key after an uncertain response."""
@@ -106,6 +143,20 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
         """Read the selected Space's billing account as its owner."""
         _space_path(space_id)
         return (await self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id})).json()
+
+    async def create_team_space(self, team_id: str, name: str, audience: str,
+                                idempotency_key: str, slug: str = "") -> dict[str, Any]:
+        """Add a Space to an active paid Team; reuse the key for an exact retry."""
+        return (await self._request("POST", "/api/v1/cloud/team/spaces",
+                                    json=_team_space_body(team_id, name, audience, slug),
+                                    headers=_team_key(idempotency_key))).json()
+
+    async def invite_team_member(self, space_id: str, email: str, role: str,
+                                 idempotency_key: str) -> None:
+        """Reserve a paid Seat and send an invitation without returning its token."""
+        await self._request("POST", "/api/v1/cloud/team/invites",
+                            json=_team_invite_body(space_id, email, role),
+                            headers=_team_key(idempotency_key))
 
     async def revoke_team_invite(self, space_id: str, invite_id: str, idempotency_key: str) -> None:
         """Release one pending Team Seat; reuse the key after an uncertain response."""
