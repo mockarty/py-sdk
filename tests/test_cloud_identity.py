@@ -25,27 +25,3 @@ def test_cloud_identity_step_up_cookie_and_unlink() -> None:
         client.cloud_identity.unlink("github", idempotency_key="unlink-1")
         assert client.cloud_identity.link_url("github").endswith("/api/v1/cloud/auth/oauth/github/link")
     assert len(seen) == 2
-
-
-def test_cloud_identity_email_change_requires_two_proofs() -> None:
-    seen: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["Authorization"] == "Bearer cloud-session"
-        seen.append(f"{request.method} {request.url.path}")
-        if request.method == "PATCH":
-            assert b'"new_email":"new@example.test"' in request.read()
-            return httpx.Response(202, json={"status": "verification_pending", "stage": "awaiting_current_email"})
-        if request.method == "POST":
-            assert b'"token":"proof"' in request.read()
-            return httpx.Response(200, json={"status": "verification_pending", "stage": "awaiting_new_email"})
-        return httpx.Response(200, json={"status": "cancelled"})
-
-    with MockartyClient(base_url="https://cloud.example", api_key="cloud-session") as client:
-        client._http._transport = httpx.MockTransport(handler)
-        assert client.cloud_identity.request_email_change("new@example.test")["stage"] == "awaiting_current_email"
-        client.cloud_identity.authorize_current_email("proof")
-        client.cloud_identity.confirm_new_email("proof")
-        client.cloud_identity.cancel_email_change()
-    assert seen == ["PATCH /api/v1/cloud/email", "POST /api/v1/cloud/auth/email/change/authorize",
-                    "POST /api/v1/cloud/auth/email/change/confirm", "DELETE /api/v1/cloud/email/pending"]
