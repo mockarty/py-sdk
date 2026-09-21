@@ -84,6 +84,18 @@ class CloudSpacesAPI(SyncAPIBase):
         _space_path(space_id)
         return self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id}).json()
 
+    def list_team_packages(self, personal_space_id: str) -> list[dict[str, Any]]:
+        """Read expiring Team quotes as the owner of an explicit Personal Space."""
+        _space_path(personal_space_id)
+        return self._request("GET", "/api/v1/cloud/team/packages",
+                             params={"space_id": personal_space_id}).json()["packages"]
+
+    def get_team_billing(self, team_space_id: str) -> dict[str, Any]:
+        """Read Team billing as its current owner or billing manager."""
+        _space_path(team_space_id)
+        return self._request("GET", "/api/v1/cloud/team/billing",
+                             params={"space_id": team_space_id}).json()["billing"]
+
     def preview_team_transition(self, token: str) -> dict[str, Any]:
         """Estimate the signed-in recipient's Personal Pro credit before joining."""
         if not token or not token.strip():
@@ -202,6 +214,18 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
         """Read the account as its owner, or the Team roster as an active admin."""
         _space_path(space_id)
         return (await self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id})).json()
+
+    async def list_team_packages(self, personal_space_id: str) -> list[dict[str, Any]]:
+        """Read expiring Team quotes as the owner of an explicit Personal Space."""
+        _space_path(personal_space_id)
+        return (await self._request("GET", "/api/v1/cloud/team/packages",
+                                    params={"space_id": personal_space_id})).json()["packages"]
+
+    async def get_team_billing(self, team_space_id: str) -> dict[str, Any]:
+        """Read Team billing as its current owner or billing manager."""
+        _space_path(team_space_id)
+        return (await self._request("GET", "/api/v1/cloud/team/billing",
+                                    params={"space_id": team_space_id})).json()["billing"]
 
     async def preview_team_transition(self, token: str) -> dict[str, Any]:
         """Estimate the signed-in recipient's Personal Pro credit before joining."""

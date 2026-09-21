@@ -19,6 +19,18 @@ with MockartyClient(
             f"members={usage['accepted_humans']}",
             f"pending={usage['pending_invites']}",
         )
+    personal_space_id = os.getenv("MOCKARTY_PERSONAL_SPACE_ID")
+    if personal_space_id:
+        quotes = client.cloud_spaces.list_team_packages(personal_space_id)
+        print(f"published_team_packages={len(quotes)}")
+    team_billing_space_id = os.getenv("MOCKARTY_TEAM_BILLING_SPACE_ID")
+    if team_billing_space_id:
+        billing = client.cloud_spaces.get_team_billing(team_billing_space_id)
+        print(
+            f"team_billing={billing['team_id']} package_seats={billing['package_seats']} "
+            f"assigned={billing['assigned_seats']} reserved={billing['reserved_seats']} "
+            f"invoices={len(billing['invoices'])}"
+        )
     team_audit_space_id = os.getenv("MOCKARTY_TEAM_AUDIT_SPACE_ID")
     if team_audit_space_id:
         audit = client.cloud_spaces.list_team_audit(
