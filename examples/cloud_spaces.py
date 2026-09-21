@@ -29,6 +29,14 @@ with MockartyClient(
             f"chain_ok={audit['chain_ok']} has_more={audit['has_more']} "
             f"next_before_id={audit['next_before_id']}"
         )
+    team_invite_token = os.getenv("MOCKARTY_TEAM_INVITE_TOKEN")
+    if team_invite_token:
+        transition = client.cloud_spaces.preview_team_transition(team_invite_token)
+        print(
+            f"team_transition={transition['status']} "
+            f"estimated_credit_minor={transition.get('estimated_credit_minor', 0)} "
+            f"currency={transition.get('currency', '')}"
+        )
     if spaces:
         selected = client.cloud_spaces.get(spaces[0]["id"])["space"]
         # Account owners can inspect the Team-wide seat count for this Space.

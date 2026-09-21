@@ -80,9 +80,16 @@ class CloudSpacesAPI(SyncAPIBase):
         return self._request("GET", _space_path(space_id)).json()
 
     def organization(self, space_id: str) -> dict[str, Any]:
-        """Read the selected Space's billing account as its owner."""
+        """Read the account as its owner, or the Team roster as an active admin."""
         _space_path(space_id)
         return self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id}).json()
+
+    def preview_team_transition(self, token: str) -> dict[str, Any]:
+        """Estimate the signed-in recipient's Personal Pro credit before joining."""
+        if not token or not token.strip():
+            raise ValueError("Team invite token is required")
+        return self._request("GET", "/api/v1/cloud/team/invite-links/" + quote(token, safe="") +
+                             "/transition").json()["transition"]
 
     def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
         """Read redacted Team and Space events as a seated owner or billing manager.
@@ -183,9 +190,17 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
         return (await self._request("GET", _space_path(space_id))).json()
 
     async def organization(self, space_id: str) -> dict[str, Any]:
-        """Read the selected Space's billing account as its owner."""
+        """Read the account as its owner, or the Team roster as an active admin."""
         _space_path(space_id)
         return (await self._request("GET", "/api/v1/cloud/organization", params={"space_id": space_id})).json()
+
+    async def preview_team_transition(self, token: str) -> dict[str, Any]:
+        """Estimate the signed-in recipient's Personal Pro credit before joining."""
+        if not token or not token.strip():
+            raise ValueError("Team invite token is required")
+        response = await self._request("GET", "/api/v1/cloud/team/invite-links/" + quote(token, safe="") +
+                                       "/transition")
+        return response.json()["transition"]
 
     async def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
         """Read redacted Team and Space events as a seated owner or billing manager."""
