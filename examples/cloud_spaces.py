@@ -63,6 +63,14 @@ with MockartyClient(
             organization = client.cloud_spaces.organization(selected["id"])["organization"]
             print(f"account={organization['account_id']} occupied={organization['seats_used']}/{organization['seats_total']}")
             if organization["account_kind"] == "team":
+                status_member_id = os.getenv("MOCKARTY_TEAM_STATUS_MEMBER_ID")
+                if status_member_id:
+                    client.cloud_spaces.set_team_member_status(
+                        selected["id"], status_member_id,
+                        os.environ["MOCKARTY_TEAM_MEMBER_STATUS"],
+                        os.environ["MOCKARTY_TEAM_MEMBER_STATUS_KEY"],
+                    )
+                    print("Team member status updated")
                 member_id = os.getenv("MOCKARTY_TEAM_REMOVE_MEMBER_ID")
                 if member_id:
                     client.cloud_spaces.remove_team_member(

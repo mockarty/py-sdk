@@ -151,6 +151,19 @@ class CloudSpacesAPI(SyncAPIBase):
         self._request("DELETE", "/api/v1/cloud/team/members/" + quote(member_id, safe=""),
                       params={"space_id": space_id}, headers=_team_key(idempotency_key))
 
+    def set_team_member_status(self, space_id: str, member_id: str, status: str,
+                               idempotency_key: str) -> None:
+        """Suspend or resume a Team member while keeping their paid Seat assigned."""
+        _space_path(space_id)
+        normalized = status.strip().lower() if status else ""
+        if not member_id or not member_id.strip():
+            raise ValueError("Team member id is required")
+        if normalized not in {"active", "suspended"}:
+            raise ValueError("Team member status must be active or suspended")
+        self._request("PATCH", "/api/v1/cloud/team/members/" + quote(member_id, safe="") + "/status",
+                      params={"space_id": space_id}, json={"status": normalized},
+                      headers=_team_key(idempotency_key))
+
     def transfer_team_owner(self, space_id: str, successor_user_id: str, idempotency_key: str) -> None:
         """Appoint an active Team member without changing the payer or Space owners."""
         _space_path(space_id)
@@ -278,6 +291,19 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
             raise ValueError("Team member id is required")
         await self._request("DELETE", "/api/v1/cloud/team/members/" + quote(member_id, safe=""),
                             params={"space_id": space_id}, headers=_team_key(idempotency_key))
+
+    async def set_team_member_status(self, space_id: str, member_id: str, status: str,
+                                     idempotency_key: str) -> None:
+        """Suspend or resume a Team member while keeping their paid Seat assigned."""
+        _space_path(space_id)
+        normalized = status.strip().lower() if status else ""
+        if not member_id or not member_id.strip():
+            raise ValueError("Team member id is required")
+        if normalized not in {"active", "suspended"}:
+            raise ValueError("Team member status must be active or suspended")
+        await self._request("PATCH", "/api/v1/cloud/team/members/" + quote(member_id, safe="") + "/status",
+                            params={"space_id": space_id}, json={"status": normalized},
+                            headers=_team_key(idempotency_key))
 
     async def transfer_team_owner(self, space_id: str, successor_user_id: str, idempotency_key: str) -> None:
         """Appoint an active Team member without changing the payer or Space owners."""
