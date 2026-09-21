@@ -113,7 +113,7 @@ class CloudSpacesAPI(SyncAPIBase):
                       headers=_team_key(idempotency_key))
 
     def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
-        """Read redacted Team and Space events as a seated owner or billing manager.
+        """Read redacted Team and Space events as the seated Team owner.
 
         Pass next_before_id unchanged to read older events. Zero limit uses the
         server default of 50.
@@ -245,7 +245,7 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
                             headers=_team_key(idempotency_key))
 
     async def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
-        """Read redacted Team and Space events as a seated owner or billing manager."""
+        """Read redacted Team and Space events as the seated Team owner."""
         return (await self._request("GET", "/api/v1/cloud/team/audit",
                                     params=_team_audit_params(space_id, before_id, limit))).json()
 

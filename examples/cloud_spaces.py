@@ -29,7 +29,7 @@ with MockartyClient(
         print(
             f"team_billing={billing['team_id']} package_seats={billing['package_seats']} "
             f"assigned={billing['assigned_seats']} reserved={billing['reserved_seats']} "
-            f"invoices={len(billing['invoices'])}"
+            f"payer={billing.get('payer_name', billing['payer_kind'])} invoices={len(billing['invoices'])}"
         )
     team_audit_space_id = os.getenv("MOCKARTY_TEAM_AUDIT_SPACE_ID")
     if team_audit_space_id:
