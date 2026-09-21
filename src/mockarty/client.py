@@ -28,6 +28,7 @@ from mockarty.api.cloud_identity import CloudIdentityAPI
 from mockarty.api.cloud_spaces import CloudSpacesAPI
 from mockarty.api.cloud_entitlements import CloudEntitlementsAPI
 from mockarty.api.cloud_shared_projects import CloudSharedProjectsAPI
+from mockarty.api.cloud_service_accounts import CloudServiceAccountAPI, CloudServiceAccountsAPI
 from mockarty.api.cloud_customer_operations import CloudCustomerAPI, CloudOperationsAPI
 from mockarty.api.coder_delivery import CoderDeliveryAPI
 from mockarty.api.connection_authority import ConnectionAuthorityAPI
@@ -122,6 +123,8 @@ class MockartyClient:
         "_cloud_spaces",
         "_cloud_entitlements",
         "_cloud_shared_projects",
+        "_cloud_service_accounts",
+        "_cloud_service_account",
         "_cloud_customer",
         "_cloud_operations",
         "_coder_delivery",
@@ -329,6 +332,20 @@ class MockartyClient:
         if self._cloud_shared_projects is None:
             self._cloud_shared_projects = CloudSharedProjectsAPI(self._http, self._namespace)
         return self._cloud_shared_projects
+
+    @property
+    def cloud_service_accounts(self) -> CloudServiceAccountsAPI:
+        """Human management API for Cloud service accounts."""
+        if self._cloud_service_accounts is None:
+            self._cloud_service_accounts = CloudServiceAccountsAPI(self._http, self._namespace)
+        return self._cloud_service_accounts
+
+    @property
+    def cloud_service_account(self) -> CloudServiceAccountAPI:
+        """Identity and workload API authenticated by an msa_ credential."""
+        if self._cloud_service_account is None:
+            self._cloud_service_account = CloudServiceAccountAPI(self._http, self._namespace)
+        return self._cloud_service_account
 
     @property
     def delivery_policy(self) -> DeliveryPolicyAPI:
