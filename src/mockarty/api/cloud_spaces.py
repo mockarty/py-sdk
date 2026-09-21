@@ -91,6 +91,15 @@ class CloudSpacesAPI(SyncAPIBase):
         return self._request("GET", "/api/v1/cloud/team/invite-links/" + quote(token, safe="") +
                              "/transition").json()["transition"]
 
+    def accept_team_invite(self, token: str, idempotency_key: str, *, confirm_transition: bool) -> None:
+        """Join one paid Team after explicit review of the Personal Pro transition."""
+        if confirm_transition is not True:
+            raise ValueError("Team transition must be explicitly confirmed")
+        if not token or not token.strip():
+            raise ValueError("Team invite token is required")
+        self._request("POST", "/api/v1/cloud/team/invite-links/" + quote(token, safe="") + "/accept",
+                      headers=_team_key(idempotency_key))
+
     def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
         """Read redacted Team and Space events as a seated owner or billing manager.
 
@@ -201,6 +210,15 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
         response = await self._request("GET", "/api/v1/cloud/team/invite-links/" + quote(token, safe="") +
                                        "/transition")
         return response.json()["transition"]
+
+    async def accept_team_invite(self, token: str, idempotency_key: str, *, confirm_transition: bool) -> None:
+        """Join one paid Team after explicit review of the Personal Pro transition."""
+        if confirm_transition is not True:
+            raise ValueError("Team transition must be explicitly confirmed")
+        if not token or not token.strip():
+            raise ValueError("Team invite token is required")
+        await self._request("POST", "/api/v1/cloud/team/invite-links/" + quote(token, safe="") + "/accept",
+                            headers=_team_key(idempotency_key))
 
     async def list_team_audit(self, space_id: str, before_id: str = "", limit: int = 0) -> dict[str, Any]:
         """Read redacted Team and Space events as a seated owner or billing manager."""

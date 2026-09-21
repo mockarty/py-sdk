@@ -37,6 +37,13 @@ with MockartyClient(
             f"estimated_credit_minor={transition.get('estimated_credit_minor', 0)} "
             f"currency={transition.get('currency', '')}"
         )
+        if os.getenv("MOCKARTY_TEAM_CONFIRM_TRANSITION") == "1":
+            if transition["status"] not in {"ready_free", "ready_credit"}:
+                raise RuntimeError("Team transition is currently blocked")
+            client.cloud_spaces.accept_team_invite(
+                team_invite_token, os.environ["MOCKARTY_IDEMPOTENCY_KEY"], confirm_transition=True
+            )
+            print("Team invitation accepted")
     if spaces:
         selected = client.cloud_spaces.get(spaces[0]["id"])["space"]
         # Account owners can inspect the Team-wide seat count for this Space.
