@@ -115,6 +115,23 @@ class CloudSpacesAPI(SyncAPIBase):
         self._request("DELETE", "/api/v1/cloud/team/invites/" + quote(invite_id, safe=""),
                       params={"space_id": space_id}, headers={"Idempotency-Key": idempotency_key})
 
+    def remove_team_member(self, space_id: str, member_id: str, idempotency_key: str) -> None:
+        """Release a Team Seat and Team access, retaining the member's Personal Spaces."""
+        _space_path(space_id)
+        if not member_id or not member_id.strip():
+            raise ValueError("Team member id is required")
+        self._request("DELETE", "/api/v1/cloud/team/members/" + quote(member_id, safe=""),
+                      params={"space_id": space_id}, headers=_team_key(idempotency_key))
+
+    def transfer_team_owner(self, space_id: str, successor_user_id: str, idempotency_key: str) -> None:
+        """Appoint an active Team member without changing the payer or Space owners."""
+        _space_path(space_id)
+        if not successor_user_id or not successor_user_id.strip():
+            raise ValueError("successor_user_id is required")
+        self._request("POST", "/api/v1/cloud/team/owner-transfer",
+                      json={"space_id": space_id, "successor_user_id": successor_user_id},
+                      headers=_team_key(idempotency_key))
+
     def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
         if not name or not name.strip():
             raise ValueError("Space name is required")
@@ -196,6 +213,23 @@ class AsyncCloudSpacesAPI(AsyncAPIBase):
             raise ValueError("Team invite id and idempotency_key are required")
         await self._request("DELETE", "/api/v1/cloud/team/invites/" + quote(invite_id, safe=""),
                             params={"space_id": space_id}, headers={"Idempotency-Key": idempotency_key})
+
+    async def remove_team_member(self, space_id: str, member_id: str, idempotency_key: str) -> None:
+        """Release a Team Seat and Team access, retaining the member's Personal Spaces."""
+        _space_path(space_id)
+        if not member_id or not member_id.strip():
+            raise ValueError("Team member id is required")
+        await self._request("DELETE", "/api/v1/cloud/team/members/" + quote(member_id, safe=""),
+                            params={"space_id": space_id}, headers=_team_key(idempotency_key))
+
+    async def transfer_team_owner(self, space_id: str, successor_user_id: str, idempotency_key: str) -> None:
+        """Appoint an active Team member without changing the payer or Space owners."""
+        _space_path(space_id)
+        if not successor_user_id or not successor_user_id.strip():
+            raise ValueError("successor_user_id is required")
+        await self._request("POST", "/api/v1/cloud/team/owner-transfer",
+                            json={"space_id": space_id, "successor_user_id": successor_user_id},
+                            headers=_team_key(idempotency_key))
 
     async def rename(self, space_id: str, name: str, etag: str, idempotency_key: str) -> dict[str, Any]:
         if not name or not name.strip():

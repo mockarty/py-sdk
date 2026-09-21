@@ -36,6 +36,18 @@ with MockartyClient(
             organization = client.cloud_spaces.organization(selected["id"])["organization"]
             print(f"account={organization['account_id']} occupied={organization['seats_used']}/{organization['seats_total']}")
             if organization["account_kind"] == "team":
+                member_id = os.getenv("MOCKARTY_TEAM_REMOVE_MEMBER_ID")
+                if member_id:
+                    client.cloud_spaces.remove_team_member(
+                        selected["id"], member_id, os.environ["MOCKARTY_TEAM_MEMBER_REMOVE_KEY"]
+                    )
+                    print("Team member removed")
+                successor_id = os.getenv("MOCKARTY_TEAM_SUCCESSOR_ID")
+                if successor_id:
+                    client.cloud_spaces.transfer_team_owner(
+                        selected["id"], successor_id, os.environ["MOCKARTY_TEAM_OWNER_TRANSFER_KEY"]
+                    )
+                    print("Team ownership transferred")
                 team_space_name = os.getenv("MOCKARTY_TEAM_SPACE_NAME")
                 if team_space_name:
                     created = client.cloud_spaces.create_team_space(
