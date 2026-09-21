@@ -26,6 +26,19 @@ def _workload_path(space_id: str, project_id: str = "") -> str:
     return path + (f"/{quote(project_id, safe='')}" if project_id else "")
 
 
+def _run_path(space_id: str, run_id: str = "", *, cancel: bool = False) -> str:
+    if not space_id or not space_id.strip():
+        raise ValueError("space_id is required")
+    path = f"/api/v1/cloud/service-account/spaces/{quote(space_id, safe='')}/shared/runs"
+    if run_id:
+        path += f"/{quote(run_id, safe='')}"
+    if cancel:
+        if not run_id:
+            raise ValueError("run_id is required")
+        path += "/cancel"
+    return path
+
+
 def _idempotency_headers(key: str) -> dict[str, str]:
     value = key.strip() if key else ""
     if not value:
@@ -113,6 +126,23 @@ class CloudServiceAccountAPI(SyncAPIBase):
         self._request("DELETE", _workload_path(space_id, project_id), params={"revision": revision},
                       headers=_idempotency_headers(idempotency_key))
 
+    def dispatch_run(self, space_id: str, *, deadline: str, capability: str, run_class: str,
+                     project_id: str, idempotency_key: str, payload: Any = None) -> dict[str, Any]:
+        body = {"deadline": deadline, "capability": capability, "class": run_class, "project_id": project_id}
+        if payload is not None:
+            body["payload"] = payload
+        return self._request("POST", _run_path(space_id), json=body,
+                             headers=_idempotency_headers(idempotency_key)).json()
+
+    def get_run(self, space_id: str, run_id: str) -> dict[str, Any]:
+        return self._request("GET", _run_path(space_id, run_id)).json()
+
+    def cancel_run(self, space_id: str, run_id: str, revision: int, idempotency_key: str) -> dict[str, Any]:
+        if revision < 1:
+            raise ValueError("revision must be positive")
+        return self._request("POST", _run_path(space_id, run_id, cancel=True), json={"revision": revision},
+                             headers=_idempotency_headers(idempotency_key)).json()
+
 
 class AsyncCloudServiceAccountsAPI(AsyncAPIBase):
     async def list(self, space_id: str) -> dict[str, Any]:
@@ -189,3 +219,20 @@ class AsyncCloudServiceAccountAPI(AsyncAPIBase):
             raise ValueError("revision must be positive")
         await self._request("DELETE", _workload_path(space_id, project_id), params={"revision": revision},
                             headers=_idempotency_headers(idempotency_key))
+
+    async def dispatch_run(self, space_id: str, *, deadline: str, capability: str, run_class: str,
+                           project_id: str, idempotency_key: str, payload: Any = None) -> dict[str, Any]:
+        body = {"deadline": deadline, "capability": capability, "class": run_class, "project_id": project_id}
+        if payload is not None:
+            body["payload"] = payload
+        return (await self._request("POST", _run_path(space_id), json=body,
+                                    headers=_idempotency_headers(idempotency_key))).json()
+
+    async def get_run(self, space_id: str, run_id: str) -> dict[str, Any]:
+        return (await self._request("GET", _run_path(space_id, run_id))).json()
+
+    async def cancel_run(self, space_id: str, run_id: str, revision: int, idempotency_key: str) -> dict[str, Any]:
+        if revision < 1:
+            raise ValueError("revision must be positive")
+        return (await self._request("POST", _run_path(space_id, run_id, cancel=True), json={"revision": revision},
+                                    headers=_idempotency_headers(idempotency_key))).json()
