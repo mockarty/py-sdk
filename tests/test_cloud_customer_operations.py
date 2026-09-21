@@ -60,6 +60,20 @@ def test_cloud_product_analytics_rejects_unsupported_window(client: MockartyClie
             client.cloud_operations.product_analytics(days)
 
 
+@respx.mock
+def test_cloud_customer_quota_personal_and_selected_space(client: MockartyClient) -> None:
+    route = respx.get("http://localhost:5770/api/v1/cloud/quota").mock(
+        return_value=httpx.Response(200, json={"metrics": []}))
+    assert client.cloud_customer.get_quota() == {"metrics": []}
+    assert client.cloud_customer.get_quota("space/1") == {"metrics": []}
+    assert [str(call.request.url) for call in route.calls] == [
+        "http://localhost:5770/api/v1/cloud/quota",
+        "http://localhost:5770/api/v1/cloud/quota?space_id=space%2F1",
+    ]
+    with pytest.raises(ValueError, match="space_id"):
+        client.cloud_customer.get_quota(" ")
+
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_cloud_customer_and_operations_canonical_routes() -> None:
@@ -114,3 +128,19 @@ async def test_async_cloud_product_analytics_rejects_unsupported_window() -> Non
         for days in (0, 91):
             with pytest.raises(ValueError, match="between 1 and 90"):
                 await client.cloud_operations.product_analytics(days)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_cloud_customer_quota_personal_and_selected_space() -> None:
+    route = respx.get("http://localhost:5770/api/v1/cloud/quota").mock(
+        return_value=httpx.Response(200, json={"metrics": []}))
+    async with AsyncMockartyClient(base_url="http://localhost:5770", api_key="cloud-token", max_retries=0) as client:
+        assert await client.cloud_customer.get_quota() == {"metrics": []}
+        assert await client.cloud_customer.get_quota("space/1") == {"metrics": []}
+        with pytest.raises(ValueError, match="space_id"):
+            await client.cloud_customer.get_quota(" ")
+    assert [str(call.request.url) for call in route.calls] == [
+        "http://localhost:5770/api/v1/cloud/quota",
+        "http://localhost:5770/api/v1/cloud/quota?space_id=space%2F1",
+    ]

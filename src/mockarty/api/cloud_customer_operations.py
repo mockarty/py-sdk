@@ -37,6 +37,13 @@ def _page(status: str = "", cursor: str = "", limit: int = 0) -> dict[str, Any]:
 
 
 class CloudCustomerAPI(SyncAPIBase):
+    def get_quota(self, space_id: str = "") -> dict[str, Any]:
+        """Read the Personal quota or the selected Space's host-account flow allowance."""
+        if space_id is None or (space_id and not space_id.strip()):
+            raise ValueError("space_id is required when provided")
+        params = {"space_id": space_id} if space_id else None
+        return self._request("GET", "/api/v1/cloud/quota", params=params).json()
+
     def list_loyalty_redemptions(self, space_id: str, cursor: str = "", limit: int = 25) -> dict[str, Any]:
         return self._request("GET", _space_product_path(space_id, "/loyalty/redemptions"), params=_page(cursor=cursor, limit=limit)).json()
 
@@ -100,6 +107,13 @@ class CloudOperationsAPI(SyncAPIBase):
 
 
 class AsyncCloudCustomerAPI(AsyncAPIBase):
+    async def get_quota(self, space_id: str = "") -> dict[str, Any]:
+        """Read the Personal quota or the selected Space's host-account flow allowance."""
+        if space_id is None or (space_id and not space_id.strip()):
+            raise ValueError("space_id is required when provided")
+        params = {"space_id": space_id} if space_id else None
+        return (await self._request("GET", "/api/v1/cloud/quota", params=params)).json()
+
     async def list_loyalty_redemptions(self, space_id: str, cursor: str = "", limit: int = 25) -> dict[str, Any]:
         return (await self._request("GET", _space_product_path(space_id, "/loyalty/redemptions"), params=_page(cursor=cursor, limit=limit))).json()
 
