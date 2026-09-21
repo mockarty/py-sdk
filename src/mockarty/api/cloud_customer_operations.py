@@ -38,7 +38,7 @@ def _page(status: str = "", cursor: str = "", limit: int = 0) -> dict[str, Any]:
 
 class CloudCustomerAPI(SyncAPIBase):
     def get_quota(self, space_id: str = "") -> dict[str, Any]:
-        """Read the Personal quota or the selected Space's host-account flow allowance."""
+        """Read Personal capacity and the selected host's mock, flow and daily allowance."""
         if space_id is None or (space_id and not space_id.strip()):
             raise ValueError("space_id is required when provided")
         params = {"space_id": space_id} if space_id else None
@@ -108,7 +108,7 @@ class CloudOperationsAPI(SyncAPIBase):
 
 class AsyncCloudCustomerAPI(AsyncAPIBase):
     async def get_quota(self, space_id: str = "") -> dict[str, Any]:
-        """Read the Personal quota or the selected Space's host-account flow allowance."""
+        """Read Personal capacity and the selected host's mock, flow and daily allowance."""
         if space_id is None or (space_id and not space_id.strip()):
             raise ValueError("space_id is required when provided")
         params = {"space_id": space_id} if space_id else None

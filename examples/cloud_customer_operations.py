@@ -10,6 +10,7 @@ with MockartyClient(
     api_key=os.environ["MOCKARTY_API_KEY"],
 ) as client:
     space_id = os.environ["MOCKARTY_CLOUD_SPACE_ID"]
+    # Mock stock and run allowances belong to this Space's host BillingAccount.
     print(client.cloud_customer.get_quota(space_id))
     print(client.cloud_customer.list_loyalty_redemptions(space_id, limit=25))
     print(client.cloud_operations.list_support_cases(status="open", limit=50))
