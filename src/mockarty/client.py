@@ -19,7 +19,6 @@ from mockarty.api.agent_tasks import AgentTaskAPI
 from mockarty.api.autonomous_missions import AutonomousMissionsAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
-from mockarty.api.cloud_instances import CloudInstancesAPI
 from mockarty.api.cloud_connectors import CloudConnectorsAPI
 from mockarty.api.cloud_oauth_providers import CloudOAuthProvidersAPI
 from mockarty.api.cloud_risk import CloudRiskAPI
@@ -114,7 +113,6 @@ class MockartyClient:
     _API_RESOURCE_ATTRS: tuple[str, ...] = (
         "_chaos",
         "_cloud_webhooks",
-        "_cloud_instances",
         "_cloud_connectors",
         "_cloud_oauth_providers",
         "_cloud_risk",
@@ -255,13 +253,6 @@ class MockartyClient:
         if self._cloud_webhooks is None:
             self._cloud_webhooks = CloudWebhooksAPI(self._http, self._namespace)
         return self._cloud_webhooks
-
-    @property
-    def cloud_instances(self) -> CloudInstancesAPI:
-        """Dedicated Mockarty Cloud instance lifecycle API."""
-        if self._cloud_instances is None:
-            self._cloud_instances = CloudInstancesAPI(self._http, self._namespace)
-        return self._cloud_instances
 
     @property
     def cloud_connectors(self) -> CloudConnectorsAPI:
