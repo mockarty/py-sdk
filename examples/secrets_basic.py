@@ -11,7 +11,7 @@ def main() -> None:
         store = client.secrets.create_store(
             name="payments",
             description="API keys for payment providers",
-            backend="software",
+            backend="inline",
         )
         print(f"[1] store {store['name']} id={store['id']}")
 
