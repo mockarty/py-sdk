@@ -36,7 +36,7 @@ def main() -> None:
     it.move_issue(issue["id"], "in_progress")
 
     tcm = client.tcm
-    case = tcm.create_case({"title": "Checkout smoke"})
+    case = tcm.create_case({"name": "Checkout smoke"})
     run = tcm.run_case(case["id"])
     print(f"case run started: {run.get('runId')}")
 

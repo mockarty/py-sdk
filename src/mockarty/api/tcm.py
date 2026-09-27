@@ -50,7 +50,7 @@ class TCMAPI(SyncAPIBase):
 
     # -- cases --
     def create_case(self, test_case: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
-        """Create a test case (fields: ``title``, ``folderId``, ``steps``, …)."""
+        """Create a test case (fields: ``name``, ``folderId``, ``steps``, …)."""
         ns = namespace or self._namespace
         return self._request("POST", _cases(ns), json=test_case).json()
 
@@ -64,8 +64,29 @@ class TCMAPI(SyncAPIBase):
         return _array(data, "test_cases", "cases", "items")
 
     def update_case(self, case_id: str, fields: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Update metadata. Use save_case_steps to publish edited steps."""
         ns = namespace or self._namespace
         return self._request("PUT", f"{_cases(ns)}/{quote(case_id, safe='')}", json=fields).json()
+
+    def list_case_versions(self, case_id: str, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
+        """List saved versions. Get a version to read its steps."""
+        ns = namespace or self._namespace
+        data = (self._request("GET", f"{_cases(ns)}/{quote(case_id, safe='')}/versions")).json()
+        return _array(data, "versions")
+
+    def get_case_version(self, case_id: str, version_id: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Read a saved version including steps and stable stepUid values."""
+        ns = namespace or self._namespace
+        return (self._request("GET", f"{_cases(ns)}/{quote(case_id, safe='')}/versions/{quote(version_id, safe='')}")).json()
+
+    def save_case_steps(self, case_id: str, steps: list[dict[str, Any]], notes: str = "", *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Save a complete step list. Keep stepUid when editing. An explicit []
+        clears steps. Identical content returns dedupSkipped=true and the
+        existing version; None is rejected to prevent accidental clearing."""
+        if not isinstance(steps, list):
+            raise ValueError("steps must be an explicit list")
+        ns = namespace or self._namespace
+        return (self._request("POST", f"{_cases(ns)}/{quote(case_id, safe='')}/versions", json={"steps": steps, "notes": notes})).json()
 
     def delete_case(self, case_id: str, *, namespace: Optional[str] = None) -> None:
         ns = namespace or self._namespace
@@ -178,6 +199,26 @@ class AsyncTCMAPI(AsyncAPIBase):
     async def update_case(self, case_id: str, fields: dict[str, Any], *, namespace: Optional[str] = None) -> dict[str, Any]:
         ns = namespace or self._namespace
         return (await self._request("PUT", f"{_cases(ns)}/{quote(case_id, safe='')}", json=fields)).json()
+
+    async def list_case_versions(self, case_id: str, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
+        """List saved versions. Get a version to read its steps."""
+        ns = namespace or self._namespace
+        data = (await self._request("GET", f"{_cases(ns)}/{quote(case_id, safe='')}/versions")).json()
+        return _array(data, "versions")
+
+    async def get_case_version(self, case_id: str, version_id: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Read a saved version including steps and stable stepUid values."""
+        ns = namespace or self._namespace
+        return (await self._request("GET", f"{_cases(ns)}/{quote(case_id, safe='')}/versions/{quote(version_id, safe='')}")).json()
+
+    async def save_case_steps(self, case_id: str, steps: list[dict[str, Any]], notes: str = "", *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Save a complete step list. Keep stepUid when editing. An explicit []
+        clears steps. Identical content returns dedupSkipped=true and the
+        existing version; None is rejected to prevent accidental clearing."""
+        if not isinstance(steps, list):
+            raise ValueError("steps must be an explicit list")
+        ns = namespace or self._namespace
+        return (await self._request("POST", f"{_cases(ns)}/{quote(case_id, safe='')}/versions", json={"steps": steps, "notes": notes})).json()
 
     async def delete_case(self, case_id: str, *, namespace: Optional[str] = None) -> None:
         ns = namespace or self._namespace
