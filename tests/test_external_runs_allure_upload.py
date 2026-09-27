@@ -185,3 +185,47 @@ class TestUploadAllureDir:
         empty.mkdir()
         with pytest.raises(AllureUploadEmptyError):
             client.external_runs.upload_allure_dir(str(empty))
+
+
+def test_nested_media_and_preflight(tmp_path, client):
+    (tmp_path / "image.png").write_bytes(b"synthetic image")
+    doc = {"uuid": "a", "name": "a", "status": "passed", "steps": [{"name": "outer", "status": "passed", "steps": [{"name": "inner", "status": "passed", "attachments": [{"source": "image.png", "name": "screen", "type": "image/png"}]}]}]}
+    (tmp_path / "a-result.json").write_text(json.dumps(doc))
+    with respx.mock(base_url="http://test") as router:
+        route = router.post("/api/v1/namespaces/default/tcm/external-runs").mock(return_value=httpx.Response(200, json={"runId": "r"}))
+        client.external_runs.upload_allure_dir(str(tmp_path))
+        payload = json.loads(route.calls[0].request.content)
+        assert len(payload["steps"]) == 2
+        assert base64.b64decode(payload["attachments"][0]["bodyB64"]) == b"synthetic image"
+    (tmp_path / "b-result.json").write_text(json.dumps({"uuid": "b", "name": "b", "status": "passed", "attachments": [{"source": "missing.png"}]}))
+    with respx.mock(base_url="http://test", assert_all_called=False) as router:
+        route = router.post("/api/v1/namespaces/default/tcm/external-runs").mock(return_value=httpx.Response(200, json={"runId": "r"}))
+        with pytest.raises((ValueError, OSError)):
+            client.external_runs.upload_allure_dir(str(tmp_path))
+        assert route.call_count == 0
+
+
+@pytest.mark.parametrize("kind", ["parent", "absolute", "symlink", "empty", "large", "count", "total", "deep"])
+def test_rejects_unsafe_and_oversized_media(tmp_path, kind):
+    from mockarty.api._allure_media import collect_media
+    source, size, count = "artifact", 1, 1
+    if kind == "parent": source = "../outside"
+    if kind == "absolute": source = "/outside"
+    if kind == "empty": size = 0
+    if kind == "large": size = (256 << 10) + 1
+    if kind == "count": count = 33
+    if kind == "total": size, count = 256 << 10, 5
+    refs = []
+    for index in range(count):
+        name = source if count == 1 else f"artifact-{index}"
+        if kind not in ("parent", "absolute", "symlink"):
+            (tmp_path / name).write_bytes(b"x" * size)
+        refs.append({"source": name})
+    if kind == "symlink":
+        (tmp_path / "target").write_bytes(b"x")
+        (tmp_path / source).symlink_to(tmp_path / "target")
+    doc = {"attachments": refs}
+    if kind == "deep":
+        for _ in range(66): doc = {"steps": [doc]}
+    with pytest.raises((ValueError, OSError)):
+        collect_media(doc, str(tmp_path))

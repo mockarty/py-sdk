@@ -23,6 +23,7 @@ from typing import Any, Iterable, Optional
 from urllib.parse import quote
 
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
+from mockarty.api._allure_media import collect_media, read_source
 
 # Schema version this build of the SDK speaks. Server validates and
 # returns 400 on mismatch — bumping it is a coordinated change with
@@ -82,9 +83,9 @@ def _build_attachments(
 ) -> list[dict[str, Any]]:
     """Normalise attachments into the wire shape (``bodyB64`` + name + content type).
 
-    Accepts either a list of dicts that already match the wire shape, or
-    dicts with a ``body`` (bytes/str) field which we base64-encode here so
-    callers don't have to think about encoding.
+    Accepts inline ``bodyB64`` or ``body`` (bytes/str), or a server-issued
+    ``blobUri`` from a prior upload. References are passed to the server for
+    namespace validation; the SDK never downloads them.
     """
     if not attachments:
         return []
@@ -92,7 +93,18 @@ def _build_attachments(
     for a in attachments:
         if not isinstance(a, dict) or not a.get("name"):
             raise ValueError("attachment requires a non-empty name")
-        if "bodyB64" in a:
+        if "blobUri" in a:
+            uri = a["blobUri"]
+            if not isinstance(uri, str) or not uri.strip():
+                raise ValueError("blobUri must be a non-empty server-issued reference")
+            if "body" in a or "bodyB64" in a:
+                raise ValueError("blobUri and inline attachment bodies are mutually exclusive")
+            entry = {
+                "name": a["name"],
+                "contentType": a.get("contentType", "application/octet-stream"),
+                "blobUri": uri,
+            }
+        elif "bodyB64" in a:
             entry = {
                 "name": a["name"],
                 "contentType": a.get("contentType", "application/octet-stream"),
@@ -120,6 +132,7 @@ def _build_payload(
     case_name: Optional[str],
     plan_id: Optional[str],
     auto_create: bool,
+    plan_run_id: Optional[str] = None,
     test_case_id: Optional[str] = None,
     framework: Optional[str],
     framework_version: Optional[str],
@@ -162,6 +175,8 @@ def _build_payload(
         payload["caseName"] = case_name
     if plan_id:
         payload["planId"] = plan_id
+    if plan_run_id:
+        payload["planRunId"] = plan_run_id
     if framework:
         payload["framework"] = framework
     if framework_version:
@@ -217,6 +232,7 @@ class ExternalRunsAPI(SyncAPIBase):
         test_case_id: Optional[str] = None,
         case_name: Optional[str] = None,
         plan_id: Optional[str] = None,
+        plan_run_id: Optional[str] = None,
         auto_create: bool = False,
         framework: Optional[str] = None,
         framework_version: Optional[str] = None,
@@ -273,6 +289,7 @@ class ExternalRunsAPI(SyncAPIBase):
             test_case_id=test_case_id,
             case_name=case_name,
             plan_id=plan_id,
+            plan_run_id=plan_run_id,
             auto_create=auto_create,
             framework=framework,
             framework_version=framework_version,
@@ -346,7 +363,11 @@ class ExternalRunsAPI(SyncAPIBase):
         Reads every ``*-result.json`` file produced by either
         ``allure-pytest`` or our :class:`mockarty.allure_writer.AllureResultsWriter`,
         translates it into an external-run payload, and posts to TCM.
-        Returns the list of server responses (one per result).
+        Returns the list of server responses (one per result). Nested step
+        media is included; container fixtures are not imported. Media is
+        validated before any POST: 256 KiB/file, 1 MiB and 32 sources/result,
+        32 MiB/batch, 64 levels and 5000 steps/result. Missing/unsafe media
+        always raises, including when ``on_error="warn"``.
 
         Args:
             directory: filesystem path to the ``allure-results`` dir.
@@ -530,6 +551,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         test_case_id: Optional[str] = None,
         case_name: Optional[str] = None,
         plan_id: Optional[str] = None,
+        plan_run_id: Optional[str] = None,
         auto_create: bool = False,
         framework: Optional[str] = None,
         framework_version: Optional[str] = None,
@@ -560,6 +582,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
             test_case_id=test_case_id,
             case_name=case_name,
             plan_id=plan_id,
+            plan_run_id=plan_run_id,
             auto_create=auto_create,
             framework=framework,
             framework_version=framework_version,
@@ -776,10 +799,11 @@ def _upload_allure_dir_impl(
     skipped: list[str] = []
     pattern = os.path.join(directory, "*-result.json")
     paths = sorted(glob.glob(pattern))
+    prepared = []
+    media_bytes = 0
     for path in paths:
         try:
-            with open(path, "r", encoding="utf-8") as fh:
-                doc = json.load(fh)
+            doc = json.loads(read_source(directory, os.path.basename(path), 10 << 20))
         except Exception as exc:
             if on_error == "raise":
                 raise
@@ -797,8 +821,13 @@ def _upload_allure_dir_impl(
             framework=framework,
             auto_create=auto_create,
         )
+        media_bytes += sum(len(a["body"]) for a in kwargs.get("attachments") or [])
+        if media_bytes > 32 << 20:
+            raise ValueError("allure: batch attachments exceed 32 MiB")
         if namespace:
             kwargs["namespace"] = namespace
+        prepared.append((path, kwargs))
+    for path, kwargs in prepared:
         try:
             out.append(api.report(**kwargs))
         except Exception as exc:
@@ -833,8 +862,8 @@ def allure_result_to_external_payload(
     """Translate an Allure-2 TestResult dict into kwargs for ``report()``.
 
     Reads attachment sources off the filesystem (Allure attachments live
-    in the same dir under ``<uuid>-attachment.<ext>``). Skips an
-    attachment whose source is missing rather than failing the upload.
+    in the same dir under ``<uuid>-attachment.<ext>``). Recursive step media
+    is retained with source paths. Missing or unsafe media fails preflight.
     """
     name = doc.get("name") or doc.get("fullName") or "unnamed"
     full_name = doc.get("fullName")
@@ -865,42 +894,10 @@ def allure_result_to_external_payload(
             labels[str(lab["name"])] = str(lab["value"])
         except Exception:
             continue
-    # Steps → wire shape (name + status + error).
-    steps: list[dict[str, Any]] = []
-    for s in doc.get("steps") or []:
-        s_status = (s.get("status") or "").strip().lower()
-        if s_status == "error":
-            s_status = "broken"
-        if s_status not in ("passed", "failed", "skipped", "broken"):
-            # A step with no recorded status has not been observed to pass.
-            s_status = "broken"
-        sd_s = s.get("statusDetails") or {}
-        steps.append(
-            {
-                "name": s.get("name", ""),
-                "status": s_status,
-                "error": sd_s.get("message"),
-            }
-        )
-    # Attachments → load body bytes from filesystem.
-    attachments: list[dict[str, Any]] = []
-    for a in doc.get("attachments") or []:
-        src = a.get("source")
-        if not src:
-            continue
-        path = os.path.join(directory, src)
-        try:
-            with open(path, "rb") as fh:
-                body = fh.read()
-        except OSError:
-            continue
-        attachments.append(
-            {
-                "name": a.get("name") or src,
-                "body": body,
-                "contentType": a.get("type") or "application/octet-stream",
-            }
-        )
+    steps, attachments, paths, _ = collect_media(doc, directory)
+    metadata = {"allureFullName": full_name} if full_name else {}
+    if paths:
+        metadata["allureAttachmentPaths"] = paths
     return {
         "status": wire_status,
         # Allure's testCaseId (@allure.id) is the author-pinned identity, NOT
@@ -923,7 +920,7 @@ def allure_result_to_external_payload(
         # fullName is a first-class resolution key (migration 321), not just
         # display metadata — send it as full_name AND keep the metadata mirror.
         "full_name": full_name,
-        "metadata": {"allureFullName": full_name} if full_name else None,
+        "metadata": metadata or None,
         "steps": steps or None,
         "attachments": attachments or None,
     }

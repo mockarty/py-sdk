@@ -275,3 +275,34 @@ def test_external_runs_report_batch_namespace_override():
             namespace="team-b",
         )
     assert route.called
+
+
+def test_report_preserves_plan_run_and_blob_reference():
+    import json
+    with respx.mock(base_url="http://test") as router:
+        route = router.post("/api/v1/namespaces/qa/tcm/external-runs").mock(return_value=httpx.Response(200, json={"runId": "r"}))
+        with MockartyClient(base_url="http://test", namespace="qa") as client:
+            client.external_runs.report(status="passed", case_name="case", plan_run_id="11111111-1111-1111-1111-111111111111", attachments=[{"name":"video", "blobUri":"fs://qa/upload/video", "contentType":"video/webm"}])
+        body = json.loads(route.calls[0].request.content)
+        assert body["planRunId"] == "11111111-1111-1111-1111-111111111111"
+        assert body["attachments"] == [{"name":"video", "blobUri":"fs://qa/upload/video", "contentType":"video/webm"}]
+
+
+@pytest.mark.asyncio
+async def test_async_report_preserves_plan_run_and_blob_reference():
+    import json
+    from mockarty import AsyncMockartyClient
+    with respx.mock(base_url="http://test") as router:
+        route = router.post("/api/v1/namespaces/qa/tcm/external-runs").mock(return_value=httpx.Response(200, json={"runId": "r"}))
+        async with AsyncMockartyClient(base_url="http://test", namespace="qa") as client:
+            await client.external_runs.report(status="passed", case_name="case", plan_run_id="11111111-1111-1111-1111-111111111111", attachments=[{"name":"video", "blobUri":"fs://qa/upload/video"}])
+        body = json.loads(route.calls[0].request.content)
+        assert body["planRunId"] == "11111111-1111-1111-1111-111111111111"
+        assert body["attachments"][0]["blobUri"] == "fs://qa/upload/video"
+        assert "bodyB64" not in body["attachments"][0]
+
+
+@pytest.mark.parametrize("attachment", [{"name":"x", "blobUri":"fs://qa/x", "body":b"x"}, {"name":"x", "blobUri":"fs://qa/x", "bodyB64":"eA=="}, {"name":"x", "blobUri":""}])
+def test_blob_reference_rejects_ambiguous_or_empty_body(attachment):
+    with pytest.raises(ValueError):
+        _build_attachments([attachment])
