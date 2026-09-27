@@ -7,7 +7,8 @@ Files a bug in the issue tracker, then creates a test case and runs it — the
 kind of end-to-end automation a CI agent does.
 
 Run:
-    MOCKARTY_SERVER=http://localhost:5770 MOCKARTY_API_KEY=mk_... python task_automation.py
+    Set MOCKARTY_SERVER, MOCKARTY_API_KEY and MOCKARTY_NAMESPACE.
+    From the SDK repository root: python -m examples.task_automation
 """
 
 from __future__ import annotations

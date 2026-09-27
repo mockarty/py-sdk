@@ -2,7 +2,7 @@
 
 Missing files fail preflight. Limits: 256 KiB/file, 1 MiB and 32 unique files
 per result, 32 MiB/batch. Container fixtures are not imported by this helper.
-Run: python examples/allure_upload.py ./allure-results
+From the SDK repository root: python -m examples.allure_upload ./allure-results
 """
 import os
 import sys

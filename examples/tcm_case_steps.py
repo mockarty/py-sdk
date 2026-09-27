@@ -1,4 +1,8 @@
-"""Create a manual case, read/edit its steps, and save an idempotent version."""
+"""Create a manual case, read/edit its steps, and save an idempotent version.
+
+From the SDK repository root: python -m examples.tcm_case_steps
+Set MOCKARTY_SERVER, MOCKARTY_API_KEY and MOCKARTY_NAMESPACE first.
+"""
 import os
 from mockarty import MockartyClient
 

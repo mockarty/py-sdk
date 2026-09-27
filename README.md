@@ -356,7 +356,7 @@ attachments:
 
 ```python
 tcm = client.tcm
-case = tcm.create_case({"folderId": fid, "title": "Checkout smoke"})
+case = tcm.create_case({"folderId": fid, "name": "Checkout smoke"})
 run = tcm.run_case(case["id"])
 cr = tcm.get_case_run(run["runId"])
 if cr["status"] == "failed":
@@ -386,6 +386,11 @@ def test_create_mock(mock_cleanup):
 ```
 
 ## Examples
+
+Run standalone examples from the SDK repository root as modules, for example
+`python -m examples.tcm_case_steps` or
+`python -m examples.allure_upload ./allure-results`. Set `MOCKARTY_SERVER`,
+`MOCKARTY_API_KEY` and `MOCKARTY_NAMESPACE` for these examples.
 
 The [`examples/`](./examples/) directory has 25+ runnable scripts
 covering every facet of the SDK. The two most useful starting points:
