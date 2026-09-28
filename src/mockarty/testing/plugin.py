@@ -58,6 +58,16 @@ __all__ = ["mockarty_client", "mock_cleanup"]
 # case frame so the post-test hook can clean it up without confusing it
 # with an explicit ``@test_case``-bound frame.
 _IMPLICIT_CASE_FLAG = "_mockarty_implicit_allure_case"
+_TESTIT_COMPAT_FLAG = "_mockarty_testit_compat_case"
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--testit",
+        action="store_true",
+        default=False,
+        help="Report pytest results through the Mockarty Test IT compatibility adapter",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -252,7 +262,30 @@ def pytest_runtest_setup(item: pytest.Item):
 
     Mirror is best-effort: any failure here MUST NOT block the test.
     """
-    yield
+    setup_outcome = yield
+    if setup_outcome.excinfo is not None:
+        return
+    if isinstance(item, pytest.Function) and _ctx.current_case() is None:
+        from mockarty.testit import DISPLAY_NAME_ATTR, EXTERNAL_ID_ATTR
+
+        fn = item.obj
+        # A native @mockarty.test_case wrapper opens its own frame during
+        # call; an outer compatibility frame would hide its steps.
+        if not hasattr(fn, "__mockarty_case_id__") and (
+            item.config.getoption("--testit", default=False)
+            or hasattr(fn, EXTERNAL_ID_ATTR)
+            or hasattr(fn, DISPLAY_NAME_ATTR)
+        ):
+            display_name = getattr(fn, DISPLAY_NAME_ATTR, None) or item.name
+            external_id = getattr(fn, EXTERNAL_ID_ATTR, None) or item.nodeid
+            _ctx.push_case(
+                _ctx.CaseFrame(
+                    case_name=display_name,
+                    auto_create=True,
+                    metadata={"testit_external_id": external_id, "testit_display_name": display_name},
+                )
+            )
+            setattr(item, _TESTIT_COMPAT_FLAG, True)
     if not _allure_mirror.is_allure_available():
         return
     if not _allure_mirror.is_mirror_active():  # listener opted out / not installed
@@ -341,17 +374,25 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     # Allure-touched test would surprise users who haven't opted into
     # ``@attach_report``. The frame existed solely so the mirror had a
     # place to write events.
-    if getattr(item, _IMPLICIT_CASE_FLAG, False):
+    if getattr(item, _IMPLICIT_CASE_FLAG, False) and not getattr(item, _TESTIT_COMPAT_FLAG, False):
         _ctx.reset_for_test()
         return
 
     # Only upload when explicitly requested.
-    if not _dec.is_attach_report(fn):
+    if not _dec.is_attach_report(fn) and not getattr(item, _TESTIT_COMPAT_FLAG, False):
         _ctx.reset_for_test()
         return
 
     client = _resolve_client(item)
     if client is None:
+        if getattr(item, _TESTIT_COMPAT_FLAG, False):
+            _fail_compat_report(
+                report,
+                "Mockarty Test IT compatibility reporting requires a Mockarty client "
+                "or MOCKARTY_BASE_URL and MOCKARTY_API_KEY",
+            )
+            _ctx.reset_for_test()
+            return
         # Fail-soft: no client available, skip upload silently. We emit a
         # one-time warning per session so users notice if they expected
         # uploads but configured something incorrectly.
@@ -362,13 +403,37 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     try:
         _upload_case_outcome(client, item, report, case)
     except Exception as exc:  # pragma: no cover — best-effort
-        warnings.warn(
-            f"mockarty: failed to upload test outcome for {item.nodeid}: {exc}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        if getattr(item, _TESTIT_COMPAT_FLAG, False):
+            _fail_compat_report(
+                report,
+                "Mockarty Test IT compatibility upload failed: " + type(exc).__name__,
+            )
+        else:
+            warnings.warn(
+                f"mockarty: failed to upload test outcome for {item.nodeid}: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
     finally:
         _ctx.reset_for_test()
+        if getattr(item, "funcargs", {}).get("mockarty_client") is not client:
+            close = getattr(client, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception as exc:  # pragma: no cover - transport cleanup
+                    warnings.warn(
+                        f"mockarty: failed to close pytest report client: {type(exc).__name__}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+
+
+def _fail_compat_report(report: pytest.TestReport, message: str) -> None:
+    """Keep a CI run red when a compatibility result did not reach Mockarty."""
+    previous = str(report.longrepr) if report.failed and report.longrepr else ""
+    report.outcome = "failed"
+    report.longrepr = previous + ("\n" if previous else "") + message
 
 
 def _resolve_client(item: pytest.Item) -> Optional[Any]:
@@ -387,7 +452,11 @@ def _resolve_client(item: pytest.Item) -> Optional[Any]:
     try:
         from mockarty.client import MockartyClient
 
-        return MockartyClient(base_url=base_url, api_key=api_key)
+        return MockartyClient(
+            base_url=base_url,
+            api_key=api_key,
+            namespace=os.environ.get("MOCKARTY_NAMESPACE", "sandbox"),
+        )
     except Exception:  # pragma: no cover
         return None
 
@@ -459,9 +528,9 @@ def _upload_case_outcome(
         auto_create=case.auto_create,
         framework="pytest",
         framework_version=pytest.__version__,
-        external_id=item.nodeid,
+        external_id=case.metadata.get("testit_external_id") or item.nodeid,
         full_name=full_name,
-        test_display_name=item.name,
+        test_display_name=case.metadata.get("testit_display_name") or item.name,
         duration_ms=int(report.duration * 1000) if report.duration else 0,
         error=report.longreprtext if report.longreprtext else None,
         stdout=getattr(report, "capstdout", "") or None,

@@ -31,10 +31,12 @@ def mockarty_client() -> Generator[MockartyClient, None, None]:
 
     - ``MOCKARTY_BASE_URL`` (default: ``http://localhost:5770``)
     - ``MOCKARTY_API_KEY`` (default: ``None``)
+    - ``MOCKARTY_NAMESPACE`` (default: ``sandbox``)
     """
     client = MockartyClient(
         base_url=os.environ.get("MOCKARTY_BASE_URL", "http://localhost:5770"),
         api_key=os.environ.get("MOCKARTY_API_KEY"),
+        namespace=os.environ.get("MOCKARTY_NAMESPACE", "sandbox"),
     )
     yield client
     client.close()

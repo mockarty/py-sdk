@@ -391,6 +391,39 @@ def test_create_mock(mock_cleanup):
     assert created.id is not None
 ```
 
+### Move a Test IT style pytest case to Mockarty
+
+Replace the Test IT pytest adapter dependency with `mockarty[test]`, set
+`MOCKARTY_BASE_URL`, `MOCKARTY_API_KEY` and `MOCKARTY_NAMESPACE`, and change
+the import in the test:
+
+```python
+import mockarty.testit as testit
+
+@testit.displayName("Login smoke")
+@testit.externalId("login-smoke")
+def test_login():
+    with testit.step("Check response"):
+        testit.addAttachments("OK", is_text=True, name="response.txt")
+        assert True
+```
+
+Run `pytest --testit -q`. The familiar flag reports collected tests to
+Mockarty TCM through its external-run API; the supported Test IT style
+annotations also activate reporting when the flag is omitted. `externalId`,
+`displayName`, simple steps, text attachments and file-path attachments are
+supported. A missing Mockarty destination or rejected upload makes the pytest
+run fail, so CI cannot report green while losing results. File bytes and media
+type are retained up to 256 KiB per file, 1 MiB and 32 files per result.
+Attachments added inside a step appear at the
+**result** level; nested test-body steps are flattened, and fixture/setup
+steps are outside this subset. This adapter does not reuse
+`TMS_PRIVATE_TOKEN`, `TMS_PROJECT_ID`, `TMS_CONFIGURATION_ID` or
+`TMS_TEST_RUN_ID`; use a Mockarty API key and namespace. Remove the vendor
+pytest adapter from the environment so its `--testit` option and vendor
+reporter cannot load alongside Mockarty's. See the runnable
+[transition example](./examples/testit_pytest_transition.py).
+
 ## Examples
 
 Run standalone examples from the SDK repository root as modules, for example
