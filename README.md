@@ -358,10 +358,16 @@ attachments:
 tcm = client.tcm
 case = tcm.create_case({"folderId": fid, "name": "Checkout smoke"})
 run = tcm.run_case(case["id"])
-cr = tcm.get_case_run(run["runId"])
+cr = tcm.get_case_run(run["id"])
 if cr["status"] == "failed":
-    tcm.create_defect({"title": "checkout broke", "caseRunId": run["runId"]})
+    tcm.create_defect({"title": "checkout broke", "caseRunId": run["id"]})
 ```
+
+The [TCM case workflow](./examples/tcm_case_steps.py) also saves structured
+steps and custom fields, verifies PNG attachment bytes, and starts a manual run.
+Set `MOCKARTY_SOURCE_CASE_ID` to a stable source identity so later creates
+resolve to the same case; wait for an active run to finish before editing its
+steps. Use a unique `MOCKARTY_CASE_NAME` if source cases share a title.
 
 ## pytest Integration
 

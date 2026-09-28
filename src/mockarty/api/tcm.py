@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 from urllib.parse import quote
+from uuid import uuid4
 
 from mockarty._base_client import raise_for_status, wrap_transport_error
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
@@ -43,6 +44,27 @@ def _array(data: Any, *keys: str) -> list[dict[str, Any]]:
             if isinstance(data.get(k), list):
                 return data[k]
     return []
+
+
+def _multipart_file(filename: str, content: bytes, media_type: str) -> tuple[bytes, str]:
+    """Build one file part with an RFC-quoted filename, preserving its name.
+
+    httpx's browser-style multipart encoding replaces quotes with ``%22``;
+    Go's FormFile parser then returns that altered name. TCM stores attachment
+    names for users, so the SDK must retain the original filename.
+    """
+    if not filename or any(ord(c) < 32 or ord(c) == 127 for c in filename):
+        raise ValueError("attachment requires a safe filename")
+    if not isinstance(content, bytes):
+        raise TypeError("attachment content must be bytes")
+    if not media_type or any(ord(c) < 32 or ord(c) == 127 for c in media_type):
+        raise ValueError("attachment media type is invalid")
+    boundary = "MockartySdk" + uuid4().hex
+    escaped = filename.replace("\\", "\\\\").replace('"', '\\"')
+    head = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
+            f'filename="{escaped}"\r\nContent-Type: {media_type}\r\n\r\n').encode("utf-8")
+    body = head + content + f"\r\n--{boundary}--\r\n".encode("ascii")
+    return body, f"multipart/form-data; boundary={boundary}"
 
 
 class TCMAPI(SyncAPIBase):
@@ -158,9 +180,10 @@ class TCMAPI(SyncAPIBase):
         screenshot, log or report attached to a case/run/step."""
         ns = namespace or self._namespace
         url = f"{_tcm(ns)}/attachments/upload"
+        body, content_type = _multipart_file(filename, content, media_type)
         try:
             resp = self._client.request("POST", url, params={"parentKind": parent_kind, "parentId": parent_id},
-                                        files={"file": (filename, content, media_type)})
+                                        content=body, headers={"Content-Type": content_type})
         except Exception as exc:  # noqa: BLE001 — normalised below
             wrap_transport_error(exc)
         raise_for_status(resp)
@@ -284,9 +307,10 @@ class AsyncTCMAPI(AsyncAPIBase):
                                 *, media_type: str = "application/octet-stream", namespace: Optional[str] = None) -> dict[str, Any]:
         ns = namespace or self._namespace
         url = f"{_tcm(ns)}/attachments/upload"
+        body, content_type = _multipart_file(filename, content, media_type)
         try:
             resp = await self._client.request("POST", url, params={"parentKind": parent_kind, "parentId": parent_id},
-                                              files={"file": (filename, content, media_type)})
+                                              content=body, headers={"Content-Type": content_type})
         except Exception as exc:  # noqa: BLE001 — normalised below
             wrap_transport_error(exc)
         raise_for_status(resp)
