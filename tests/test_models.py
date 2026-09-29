@@ -816,3 +816,10 @@ class TestFuzzingModels:
         assert result.config_id == "cfg-1"
         assert result.started_at == "2023-11-14T22:13:20Z"
         assert result.total_requests == 5000
+
+
+def test_collection_assertion_retains_skipped() -> None:
+    result = TestRunResult.model_validate({"results": [{"assertions": [{"name": "optional", "passed": False, "skipped": True}]}]})
+    assert result.results is not None
+    assert result.results[0]["assertions"][0]["skipped"] is True
+    assert result.model_dump()["results"][0]["assertions"][0]["skipped"] is True
