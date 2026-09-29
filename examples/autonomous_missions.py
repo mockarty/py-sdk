@@ -24,10 +24,14 @@ with MockartyClient(
     request = MissionStartRequest(
         goal="Take the checkout release to production quality and provide evidence",
         product_id=product_id,
-        autonomy="auto",
+        autonomy=os.environ.get("MOCKARTY_EXAMPLE_AUTONOMY", "auto"),
         budget_tokens_total=100_000,
         expected_settings_digest=settings.settings_digest,
     )
+    # full preapproves testing of this declared product; chaos and paid effects
+    # still need approval. Select it explicitly through the environment above.
+    if target_url := os.environ.get("MOCKARTY_PRODUCT_URL"):
+        request.data = {"contextRefs": [{"kind": "product_url", "value": target_url}]}
     if target_digest := os.environ.get("MOCKARTY_TARGET_DIGEST"):
         request.targets = [MissionRevisionReference(
             kind="repo",

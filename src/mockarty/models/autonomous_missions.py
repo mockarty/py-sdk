@@ -55,8 +55,8 @@ class AutonomousMissionSubmitRequest(BaseModel):
     @field_validator("autonomy")
     @classmethod
     def validate_autonomy(cls, value: str) -> str:
-        if value not in {"", "recon", "propose", "auto"}:
-            raise ValueError("autonomy must be recon, propose, or auto")
+        if value not in {"", "recon", "propose", "auto", "full"}:
+            raise ValueError("autonomy must be recon, propose, auto, or full")
         return value
 
 

@@ -22,7 +22,8 @@ from mockarty import (
 
 
 @respx.mock
-def test_autonomous_missions_submit_and_supervise(client: MockartyClient) -> None:
+@pytest.mark.parametrize("autonomy", ["auto", "full"])
+def test_autonomous_missions_submit_and_supervise(client: MockartyClient, autonomy: str) -> None:
     base = "http://localhost:5770/api/v1/autotester"
     submit = respx.post(f"{base}/intents").mock(
         return_value=httpx.Response(202, json={"missionId": "m-1", "status": "accepted"})
@@ -60,13 +61,14 @@ def test_autonomous_missions_submit_and_supervise(client: MockartyClient) -> Non
         AutonomousMissionSubmitRequest(
             goal=" verify checkout ",
             product_url="https://shop.example",
-            autonomy="auto",
+            autonomy=autonomy,
             budget=AutonomousMissionBudgetHint(tokens_total=12000),
         )
     )
     assert accepted.mission_id == "m-1"
     payload = submit.calls.last.request.read().decode()
     assert '"productUrl":"https://shop.example"' in payload
+    assert json.loads(payload)["autonomy"] == autonomy
     assert '"tokens_total":12000' in payload
     assert client.autonomous_missions.list(status="active", limit=25).total == 1
     assert client.autonomous_missions.get("m-1").id == "m-1"
