@@ -17,6 +17,7 @@ from urllib.parse import quote
 from uuid import uuid4
 
 from mockarty._base_client import raise_for_status, wrap_transport_error
+from mockarty.errors import MockartyError
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 
 
@@ -65,6 +66,29 @@ def _multipart_file(filename: str, content: bytes, media_type: str) -> tuple[byt
             f'filename="{escaped}"\r\nContent-Type: {media_type}\r\n\r\n').encode("utf-8")
     body = head + content + f"\r\n--{boundary}--\r\n".encode("ascii")
     return body, f"multipart/form-data; boundary={boundary}"
+
+
+def _launch_attachment_page(payload: Any, offset: int, total: Optional[int], snapshot: Optional[str], namespace: str, parent_id: str, seen: set[str]) -> tuple[list[dict[str, Any]], int, bool, str]:
+    error = "TCM: inconsistent launch file pagination; retry the report listing"
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise MockartyError(error)
+    items = payload["items"]
+    count, start, limit, more = (payload.get(k) for k in ("total", "offset", "limit", "hasMore"))
+    if (type(count) is not int or not 0 <= count <= 10000 or type(start) is not int or start != offset
+            or type(limit) is not int or not 1 <= limit <= 500 or len(items) > limit
+            or type(more) is not bool or (total is not None and total != count)
+            or offset + len(items) > count or more != (offset + len(items) < count) or (more and not items)):
+        raise MockartyError(error)
+    revision = payload.get("snapshot")
+    if (not isinstance(revision, str) or len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision)
+            or (snapshot is not None and snapshot != revision)):
+        raise MockartyError("TCM: launch files changed or snapshot is missing; retry the report listing")
+    for item in items:
+        if (not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"] or item["id"] in seen
+                or item.get("namespace") != namespace or item.get("parentKind") != "test_plan_run" or item.get("parentId") != parent_id):
+            raise MockartyError("TCM: duplicate or foreign launch file metadata; retry the report listing")
+        seen.add(item["id"])
+    return items, count, more, revision
 
 
 class TCMAPI(SyncAPIBase):
@@ -191,8 +215,21 @@ class TCMAPI(SyncAPIBase):
 
     def list_attachments(self, parent_kind: str, parent_id: str, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
         ns = namespace or self._namespace
-        resp = self._request("GET", f"{_tcm(ns)}/attachments", params={"parentKind": parent_kind, "parentId": parent_id})
-        return _array(resp.json(), "items", "attachments")
+        params = {"parentKind": parent_kind, "parentId": parent_id}
+        if parent_kind != "test_plan_run":
+            resp = self._request("GET", f"{_tcm(ns)}/attachments", params=params)
+            return _array(resp.json(), "items", "attachments")
+        rows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        total: Optional[int] = None
+        snapshot: Optional[str] = None
+        for _ in range(100):
+            resp = self._request("GET", f"{_tcm(ns)}/attachments", params={**params, "limit": 500, "offset": len(rows), **({"snapshot": snapshot} if snapshot else {})})
+            items, total, more, snapshot = _launch_attachment_page(resp.json(), len(rows), total, snapshot, ns, parent_id, seen)
+            rows.extend(items)
+            if not more:
+                return rows
+        raise MockartyError("TCM: launch file pagination exceeded 100 requests; retry the report listing")
 
     def download_attachment(self, attachment_id: str, *, namespace: Optional[str] = None) -> bytes:
         ns = namespace or self._namespace
@@ -318,8 +355,21 @@ class AsyncTCMAPI(AsyncAPIBase):
 
     async def list_attachments(self, parent_kind: str, parent_id: str, *, namespace: Optional[str] = None) -> list[dict[str, Any]]:
         ns = namespace or self._namespace
-        resp = await self._request("GET", f"{_tcm(ns)}/attachments", params={"parentKind": parent_kind, "parentId": parent_id})
-        return _array(resp.json(), "items", "attachments")
+        params = {"parentKind": parent_kind, "parentId": parent_id}
+        if parent_kind != "test_plan_run":
+            resp = await self._request("GET", f"{_tcm(ns)}/attachments", params=params)
+            return _array(resp.json(), "items", "attachments")
+        rows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        total: Optional[int] = None
+        snapshot: Optional[str] = None
+        for _ in range(100):
+            resp = await self._request("GET", f"{_tcm(ns)}/attachments", params={**params, "limit": 500, "offset": len(rows), **({"snapshot": snapshot} if snapshot else {})})
+            items, total, more, snapshot = _launch_attachment_page(resp.json(), len(rows), total, snapshot, ns, parent_id, seen)
+            rows.extend(items)
+            if not more:
+                return rows
+        raise MockartyError("TCM: launch file pagination exceeded 100 requests; retry the report listing")
 
     async def download_attachment(self, attachment_id: str, *, namespace: Optional[str] = None) -> bytes:
         ns = namespace or self._namespace

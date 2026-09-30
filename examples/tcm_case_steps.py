@@ -27,6 +27,7 @@ def main():
         png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=")
         filename = os.getenv("MOCKARTY_ATTACHMENT_NAME", "login.png")
         attachment = api.upload_attachment("tcm_case", case["id"], filename, png, media_type="image/png")
+        # Imported launch files: list_attachments("test_plan_run", run_id) reads all pages (up to 10,000), keeping report ownership.
         media = api.list_attachments("tcm_case", case["id"])
         if not any(item["id"] == attachment["id"] and item["originalName"] == filename for item in media):
             raise RuntimeError("attachment name changed")
