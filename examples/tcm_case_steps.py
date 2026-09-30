@@ -18,6 +18,7 @@ def main():
         api.list_cases()
         version = api.get_case_version(case["id"], case["currentVersionId"])
         steps = version["steps"]
+        # Edit the loaded dictionary to retain expectedAttachmentId and executorConfig.
         steps[0]["expectedResult"] = "Dashboard displays the signed-in user"
         saved = api.save_case_steps(case["id"], steps, notes="Clarify expected result")
         repeated = api.save_case_steps(case["id"], steps, notes="Clarify expected result")

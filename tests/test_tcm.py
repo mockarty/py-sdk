@@ -51,7 +51,7 @@ def test_tcm_flow(client: MockartyClient, mock_api: respx.MockRouter) -> None:
 def test_case_steps_read_edit_save(client, mock_api):
     base = C + "/case-1/versions"
     mock_api.get(base).mock(return_value=httpx.Response(200, json={"versions":[{"id":"version-1"}]}))
-    mock_api.get(base + "/version-1").mock(return_value=httpx.Response(200, json={"id":"version-1","steps":[{"stepUid":"login","mode":"manual","executorType":"manual","action":"Login","expectedResult":"Home"}]}))
+    mock_api.get(base + "/version-1").mock(return_value=httpx.Response(200, json={"id":"version-1","steps":[{"stepUid":"login","mode":"manual","executorType":"manual","action":"Login","expectedResult":"Home","expectedAttachmentId":"3b41b6d0-7f0b-49cb-9b69-f7007e00c2b4","executorConfig":{"kind":"inline_copy","sourceSharedCopyInstanceId":"captured-instance"}}]}))
     route = mock_api.post(base).mock(side_effect=[httpx.Response(201, json={"id":"version-2","version":2}),httpx.Response(200,json={"id":"version-2","version":2,"dedupSkipped":True})])
     assert client.tcm.list_case_versions("case-1")[0]["id"] == "version-1"
     version = client.tcm.get_case_version("case-1", "version-1")
@@ -60,6 +60,8 @@ def test_case_steps_read_edit_save(client, mock_api):
     second = client.tcm.save_case_steps("case-1", version["steps"], notes="updated expectation")
     assert second["id"] == first["id"] and second["dedupSkipped"]
     assert json.loads(route.calls[0].request.content) == {"steps":version["steps"],"notes":"updated expectation"}
+    assert version["steps"][0]["expectedAttachmentId"] == "3b41b6d0-7f0b-49cb-9b69-f7007e00c2b4"
+    assert version["steps"][0]["executorConfig"]["sourceSharedCopyInstanceId"] == "captured-instance"
 
 
 def test_tcm_workflow_preserves_custom_fields_png_and_run(client, mock_api):
