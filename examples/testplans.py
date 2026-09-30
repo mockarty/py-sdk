@@ -25,6 +25,8 @@ from __future__ import annotations
 import os
 import sys
 
+from mockarty.errors import MockartyAPIError
+
 from mockarty import (
     MockartyClient,
     RunCancelledError,
@@ -106,7 +108,15 @@ def scenario_ci() -> int:
         except Exception as err:  # noqa: BLE001 -- example code
             print(f"attach webhook: {err} (continuing)")
 
-        run = client.test_plans.run(plan_id)
+        try:
+            run = client.test_plans.run(plan_id)
+        except MockartyAPIError as error:
+            if error.run_id:
+                print(
+                    f"Saved launch {error.run_id} (reason={error.reason}): "
+                    "inspect it and its CI job before launching again"
+                )
+            raise
         print(f"Triggered run {run.id}")
 
         exit_code = 0

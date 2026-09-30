@@ -29,6 +29,8 @@ class MockartyAPIError(MockartyError):
         code: Stable machine-readable error identifier (e.g. ``"not_found"``).
             Empty when talking to an older server without the code field.
         request_id: Server-side correlation ID. Include it in bug reports.
+        reason: Specific operation failure identifier, when supplied.
+        run_id: Already saved launch ID. Inspect it before launching again.
     """
 
     def __init__(
@@ -37,11 +39,16 @@ class MockartyAPIError(MockartyError):
         message: str,
         request_id: str | None = None,
         code: str | None = None,
+        *,
+        reason: str | None = None,
+        run_id: str | None = None,
     ) -> None:
         self.status_code = status_code
         self.message = message
         self.request_id = request_id
         self.code = code
+        self.reason = reason
+        self.run_id = run_id
         parts = [f"HTTP {status_code}"]
         if code:
             parts.append(code)

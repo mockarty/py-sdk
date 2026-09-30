@@ -103,6 +103,8 @@ def raise_for_status(response: httpx.Response) -> None:
     status = response.status_code
     request_id: str | None = response.headers.get("X-Request-Id")
     code: str | None = None
+    reason: str | None = None
+    run_id: str | None = None
     message: str
 
     # Try to parse the JSON error envelope. Fall back to raw text if the body
@@ -111,6 +113,12 @@ def raise_for_status(response: httpx.Response) -> None:
         body = response.json()
         if isinstance(body, dict):
             message = body.get("error") or body.get("message") or response.text
+            raw_reason = body.get("reason")
+            if isinstance(raw_reason, str) and raw_reason:
+                reason = raw_reason
+            raw_run_id = body.get("runId")
+            if isinstance(raw_run_id, str) and raw_run_id:
+                run_id = raw_run_id
             raw_code = body.get("code")
             if isinstance(raw_code, str) and raw_code:
                 code = raw_code
@@ -131,6 +139,8 @@ def raise_for_status(response: httpx.Response) -> None:
                 message=message,
                 request_id=request_id,
                 code=code,
+                reason=reason,
+                run_id=run_id,
             )
 
     # Fallback: by HTTP status.
@@ -141,6 +151,8 @@ def raise_for_status(response: httpx.Response) -> None:
             message=message,
             request_id=request_id,
             code=code,
+            reason=reason,
+            run_id=run_id,
         )
 
     if status >= 500:
@@ -149,6 +161,8 @@ def raise_for_status(response: httpx.Response) -> None:
             message=message,
             request_id=request_id,
             code=code,
+            reason=reason,
+            run_id=run_id,
         )
 
     raise MockartyAPIError(
@@ -156,6 +170,8 @@ def raise_for_status(response: httpx.Response) -> None:
         message=message,
         request_id=request_id,
         code=code,
+        reason=reason,
+        run_id=run_id,
     )
 
 
