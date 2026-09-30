@@ -316,6 +316,11 @@ class TestRunResult(BaseModel):
     passed: Optional[int] = None
     failed: Optional[int] = None
     skipped: Optional[int] = None
+    passed_tests: Optional[int] = Field(None, alias="passedTests")
+    failed_tests: Optional[int] = Field(None, alias="failedTests")
+    skipped_tests: Optional[int] = Field(None, alias="skippedTests")
+    duration: Optional[int] = None  # nanoseconds in collection reports
+    report: Optional[dict[str, Any]] = None
     duration_ms: Optional[int] = Field(None, alias="durationMs")
     results: Optional[list[dict[str, Any]]] = None
 

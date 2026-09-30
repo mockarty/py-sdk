@@ -823,3 +823,18 @@ def test_collection_assertion_retains_skipped() -> None:
     assert result.results is not None
     assert result.results[0]["assertions"][0]["skipped"] is True
     assert result.model_dump()["results"][0]["assertions"][0]["skipped"] is True
+
+
+def test_collection_execution_retains_script_outcome() -> None:
+    payload = {"status": "skipped", "passedTests": 0, "failedTests": 0, "skippedTests": 1,
+               "report": {"skippedTests": 1, "requestReports": [{"status": "skipped", "skippedTests": 1,
+                   "preRequestResult": {"success": True, "skipRequest": True},
+                   "tests": [{"name": "optional", "passed": False, "skipped": True}]}]}}
+    result = TestRunResult.model_validate(payload)
+    output = result.model_dump(by_alias=True)
+    assert output.get("passedTests") == 0
+    assert output.get("failedTests") == 0
+    assert output.get("skippedTests") == 1
+    step = output["report"]["requestReports"][0]
+    assert step["preRequestResult"]["skipRequest"] is True
+    assert step["tests"][0]["skipped"] is True

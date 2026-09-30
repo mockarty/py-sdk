@@ -39,10 +39,14 @@ def execute_collection(client: MockartyClient, collection_id: str) -> None:
     result = client.collections.execute(collection_id)
     print(f"  Status:  {result.status}")
     print(f"  Total:   {result.total_tests}")
-    print(f"  Passed:  {result.passed}")
-    print(f"  Failed:  {result.failed}")
-    print(f"  Skipped: {result.skipped}")
-    print(f"  Duration: {result.duration_ms}ms")
+    print(f"  Passed:  {result.passed_tests}")
+    print(f"  Failed:  {result.failed_tests}")
+    print(f"  Skipped: {result.skipped_tests}")
+    print(f"  Duration: {(result.duration or 0) // 1_000_000}ms")
+    for step in (result.report or {}).get("requestReports", []):
+        print(f"  {step.get('requestName')}: {step.get('status')}")
+        if (step.get("preRequestResult") or {}).get("skipRequest"):
+            print("    Primary request skipped by pre-script")
 
 
 def execute_multiple_collections(
