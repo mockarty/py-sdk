@@ -22,6 +22,7 @@ import uuid
 from typing import Any, Iterable, Optional
 from urllib.parse import quote
 
+from mockarty.ci_job_context import CICallback, CI_CONTEXT_ENVIRONMENT, prepare_ci_report
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 from mockarty.api._allure_media import collect_media, read_source
 
@@ -155,9 +156,9 @@ def _build_payload(
     custom_fields: Optional[list[dict[str, Any]]] = None,
     claim_case_ownership: bool = False,
 ) -> dict[str, Any]:
-    if not case_id and not case_name:
+    if not case_id and not case_name and not os.environ.get(CI_CONTEXT_ENVIRONMENT):
         raise ValueError("one of case_id / case_name is required")
-    if auto_create and not case_name:
+    if auto_create and not case_name and not os.environ.get(CI_CONTEXT_ENVIRONMENT):
         raise ValueError("auto_create requires case_name")
     payload: dict[str, Any] = {
         "schemaVersion": EXTERNAL_RUN_SCHEMA_VERSION,
@@ -255,6 +256,7 @@ class ExternalRunsAPI(SyncAPIBase):
         case_expected_result: Optional[str] = None,
         custom_fields: Optional[list[dict[str, Any]]] = None,
         claim_case_ownership: bool = False,
+        ci_context: CICallback | None = None,
     ) -> dict[str, Any]:
         """Persist a synthetic case run from an external test framework.
 
@@ -312,7 +314,18 @@ class ExternalRunsAPI(SyncAPIBase):
             custom_fields=custom_fields,
             claim_case_ownership=claim_case_ownership,
         )
+        body = prepare_ci_report(ns, body, ci_context)
         resp = self._request("POST", _ns_path(ns), json=body)
+        return resp.json() if resp.content else {}
+
+    def complete_group(self, callback: CICallback, status: str, *, namespace: str | None = None) -> dict[str, Any]:
+        """Finish a selected job after uploads; the receiver checks all missing items."""
+        wire = callback.to_wire(completion=True)
+        if status not in ("passed", "failed", "cancelled"):
+            raise ValueError("invalid selected CI completion status")
+        ns = namespace or self._namespace
+        path = _ns_path(ns).removesuffix("/external-runs") + f"/ci-launches/{wire['launchId']}/groups/{wire['groupId']}/complete"
+        resp = self._request("POST", path, json={"callback": wire, "status": status})
         return resp.json() if resp.content else {}
 
     def report_batch(
@@ -343,7 +356,7 @@ class ExternalRunsAPI(SyncAPIBase):
         if not runs:
             raise ValueError("runs must be a non-empty list")
         ns = namespace or self._namespace
-        body = {"runs": list(runs)}
+        body = {"runs": [prepare_ci_report(ns, run) for run in runs]}
         path = _ns_path(ns) + "/batch"
         resp = self._request("POST", path, json=body)
         return resp.json() if resp.content else {}
@@ -574,6 +587,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         case_expected_result: Optional[str] = None,
         custom_fields: Optional[list[dict[str, Any]]] = None,
         claim_case_ownership: bool = False,
+        ci_context: CICallback | None = None,
     ) -> dict[str, Any]:
         ns = namespace or self._namespace
         body = _build_payload(
@@ -605,7 +619,18 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
             custom_fields=custom_fields,
             claim_case_ownership=claim_case_ownership,
         )
+        body = prepare_ci_report(ns, body, ci_context)
         resp = await self._request("POST", _ns_path(ns), json=body)
+        return resp.json() if resp.content else {}
+
+    async def complete_group(self, callback: CICallback, status: str, *, namespace: str | None = None) -> dict[str, Any]:
+        """Finish a selected job after uploads; the receiver checks all missing items."""
+        wire = callback.to_wire(completion=True)
+        if status not in ("passed", "failed", "cancelled"):
+            raise ValueError("invalid selected CI completion status")
+        ns = namespace or self._namespace
+        path = _ns_path(ns).removesuffix("/external-runs") + f"/ci-launches/{wire['launchId']}/groups/{wire['groupId']}/complete"
+        resp = await self._request("POST", path, json={"callback": wire, "status": status})
         return resp.json() if resp.content else {}
 
     async def report_batch(
@@ -618,7 +643,7 @@ class AsyncExternalRunsAPI(AsyncAPIBase):
         if not runs:
             raise ValueError("runs must be a non-empty list")
         ns = namespace or self._namespace
-        body = {"runs": list(runs)}
+        body = {"runs": [prepare_ci_report(ns, run) for run in runs]}
         path = _ns_path(ns) + "/batch"
         resp = await self._request("POST", path, json=body)
         return resp.json() if resp.content else {}

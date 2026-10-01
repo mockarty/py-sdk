@@ -292,6 +292,8 @@ class AllureResultsWriter:
     def write_environment(self, env: dict[str, str]) -> str:
         """Persist environment.properties (key=value lines, latin-1 safe)."""
         self._ensure()
+        from mockarty.ci_job_context import sanitize_ci_environment
+        env = sanitize_ci_environment(env)
         path = os.path.join(self._dir, "environment.properties")
         lines = []
         for k in sorted(env.keys()):
