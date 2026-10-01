@@ -107,7 +107,7 @@ def load_ci_job_context(raw: str) -> CIJobContext:
             if not isinstance(sel, dict) or set(sel) - {"id", "selector"} or not (sel.get("id") or sel.get("selector")):
                 raise ValueError(_ERROR)
             for k, size in (("id", 512), ("selector", 2048)):
-                if sel.get(k) and not _text(sel[k], size):
+                if k in sel and (not isinstance(sel[k], str) or (sel[k] != "" and not _text(sel[k], size))):
                     raise ValueError(_ERROR)
             seen.add(item["itemUid"])
         return CIJobContext(job["namespace"], cb, tuple(job["items"]), raw)

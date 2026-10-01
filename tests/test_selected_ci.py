@@ -55,3 +55,11 @@ def test_framework_environment_never_persists_capability(tmp_path):
     text=open(path).read()
     assert "private-envelope" not in text and "MOCKARTY_CI_CONTEXT" not in text and "safe=kept" in text
     assert env["alias"]=="prefix-private-envelope"
+
+@pytest.mark.parametrize("key",["id","selector"])
+@pytest.mark.parametrize("value",[0,False,None,[],{}])
+def test_selector_present_values_require_strings(key,value):
+    data=json.loads(base64.urlsafe_b64decode(envelope()+"="*((-len(envelope()))%4)))
+    data["items"][0]["selector"][key]=value
+    raw=base64.urlsafe_b64encode(json.dumps(data).encode()).decode().rstrip("=")
+    with pytest.raises(ValueError):load_ci_job_context(raw)
