@@ -22,7 +22,7 @@ import uuid
 from typing import Any, Iterable, Optional
 from urllib.parse import quote
 
-from mockarty.ci_job_context import CICallback, CI_CONTEXT_ENVIRONMENT, prepare_ci_report
+from mockarty.ci_job_context import CICallback, CI_CONTEXT_ENVIRONMENT, load_ci_job_context, prepare_ci_report
 from mockarty.api._base import AsyncAPIBase, SyncAPIBase
 from mockarty.api._allure_media import collect_media, read_source
 
@@ -818,6 +818,10 @@ def _upload_allure_dir_impl(
     """
     import warnings as _warnings
 
+    job=load_ci_job_context(os.environ[CI_CONTEXT_ENVIRONMENT]) if os.environ.get(CI_CONTEXT_ENVIRONMENT) else None
+    ns=namespace or api._namespace
+    if job is not None and job.namespace!=ns:
+        raise ValueError("invalid or unmatched selected CI context")
     if not os.path.isdir(directory):
         raise FileNotFoundError(f"allure-results directory not found: {directory}")
     out: list[dict[str, Any]] = []
@@ -826,6 +830,7 @@ def _upload_allure_dir_impl(
     paths = sorted(glob.glob(pattern))
     prepared = []
     media_bytes = 0
+    selected_items=set()
     for path in paths:
         try:
             doc = json.loads(read_source(directory, os.path.basename(path), 10 << 20))
@@ -839,6 +844,13 @@ def _upload_allure_dir_impl(
                 stacklevel=2,
             )
             continue
+        if job is not None:
+            labels={}
+            for label in doc.get("labels") or []:
+                if isinstance(label,dict) and "name" in label and "value" in label:
+                    labels[str(label["name"])]=str(label["value"])
+            if not job._matches_report({"externalId":doc.get("uuid"),"testCaseId":_resolve_test_case_id(doc,labels),"fullName":doc.get("fullName")}):
+                continue
         kwargs = allure_result_to_external_payload(
             doc,
             directory=directory,
@@ -851,7 +863,16 @@ def _upload_allure_dir_impl(
             raise ValueError("allure: batch attachments exceed 32 MiB")
         if namespace:
             kwargs["namespace"] = namespace
+        if job is not None:
+            wire=_build_payload(case_id=None,framework_version=None,stdout=None,stderr=None,started_at=None,finished_at=None,**{k:v for k,v in kwargs.items() if k!="namespace"})
+            pinned=prepare_ci_report(ns,wire)
+            uid=pinned["ciContext"]["itemUid"]
+            if uid in selected_items:
+                raise ValueError("invalid or unmatched selected CI context")
+            selected_items.add(uid)
         prepared.append((path, kwargs))
+    if job is not None and (not prepared or skipped):
+        raise ValueError("selected Allure preflight did not produce a complete result set")
     for path, kwargs in prepared:
         try:
             out.append(api.report(**kwargs))

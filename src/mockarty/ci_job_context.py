@@ -55,6 +55,14 @@ class CIJobContext:
     _items: tuple[dict[str, Any], ...] = field(repr=False)
     _raw: str = field(repr=False)
 
+    def _matches_report(self, payload: dict[str, Any]) -> bool:
+        matches = [i for i in self._items
+                   if (not i["selector"].get("id") or i["selector"]["id"] in (payload.get("externalId"), payload.get("testCaseId")))
+                   and (not i["selector"].get("selector") or i["selector"]["selector"] == payload.get("fullName"))]
+        if len(matches)>1:
+            raise ValueError(_ERROR)
+        return len(matches)==1
+
     def bind_report(self, payload: dict[str, Any]) -> dict[str, Any]:
         matches = [i for i in self._items
                    if (not i["selector"].get("id") or i["selector"]["id"] in (payload.get("externalId"), payload.get("testCaseId")))
@@ -115,7 +123,7 @@ def load_ci_job_context(raw: str) -> CIJobContext:
         raise ValueError(_ERROR) from None
 
 
-def _clean(value: Any, secrets: list[str], depth: int = 0) -> Any:
+def _clean(value: Any, secrets: list[str], depth: int = 0, attachment: bool = False) -> Any:
     if depth > 64:
         raise ValueError(_ERROR)
     if isinstance(value, dict):
@@ -125,17 +133,21 @@ def _clean(value: Any, secrets: list[str], depth: int = 0) -> Any:
         for key, item in value.items():
             if str(key).upper() == CI_CONTEXT_ENVIRONMENT:
                 continue
-            if key == "bodyB64":
+            if key == "bodyB64" and attachment and depth == 2:
                 try:
                     data = base64.b64decode(item, validate=True)
                 except (ValueError, TypeError):
                     raise ValueError("invalid attachment encoding") from None
                 if any(s.encode() in data for s in secrets):
                     raise ValueError("attachment contains private CI capability")
-            out[key] = _clean(item, secrets, depth + 1)
+                # Only the typed root attachment field is opaque file bytes.
+                if attachment and depth == 2:
+                    out[key] = item
+                    continue
+            out[key] = _clean(item, secrets, depth + 1, depth == 0 and key == "attachments")
         return out
     if isinstance(value, list):
-        return [result for item in value if (result := _clean(item, secrets, depth + 1)) is not None]
+        return [result for item in value if (result := _clean(item, secrets, depth + 1, attachment)) is not None]
     if isinstance(value, str):
         for secret in secrets:
             value = value.replace(secret, "[REDACTED]")
@@ -160,6 +172,7 @@ def prepare_ci_report(namespace: str, payload: dict[str, Any], callback: CICallb
     CICallback(ci["token"], ci["launchId"], ci["groupId"], ci["attemptId"], ci["invocationId"], ci["itemUid"]).to_wire()
     out = _clean(out, [ci["token"]] + ([raw] if raw else []))
     out["ciContext"] = ci
+    _validate_selected_report(out)
     return out
 
 
@@ -178,3 +191,34 @@ def sanitize_ci_environment(env: dict[str, str]) -> dict[str, str]:
         except (ValueError, TypeError, AttributeError, UnicodeError):
             pass
     return _clean({k: v for k, v in env.items() if k.upper() != CI_CONTEXT_ENVIRONMENT}, secrets)
+
+
+def _validate_selected_report(body: dict[str, Any]) -> None:
+    if type(body.get("schemaVersion", 0)) is not int or body.get("schemaVersion", 0) not in (0, 1) or body.get("status") not in ("passed", "failed", "skipped", "cancelled", "broken", "error"):
+        raise ValueError(_ERROR)
+    steps, attachments = body.get("steps"), body.get("attachments")
+    steps = [] if steps is None else steps
+    attachments = [] if attachments is None else attachments
+    if not isinstance(steps, list) or not isinstance(attachments, list) or len(steps) > 1000 or len(attachments) > 32:
+        raise ValueError(_ERROR)
+    for step in steps:
+        if not isinstance(step, dict) or not isinstance(step.get("name"), str) or not step["name"].strip() or step.get("status") not in ("passed", "failed", "skipped", "broken", "error"):
+            raise ValueError(_ERROR)
+    total = 0
+    for attachment in attachments:
+        if not isinstance(attachment, dict) or not isinstance(attachment.get("name"), str) or not attachment["name"].strip():
+            raise ValueError(_ERROR)
+        inline, ref = attachment.get("bodyB64", ""), attachment.get("blobUri", "")
+        if not isinstance(inline, str) or not isinstance(ref, str) or bool(inline.strip()) == bool(ref.strip()):
+            raise ValueError(_ERROR)
+        if ref.strip():
+            continue
+        if len(inline) > (256 << 10) * 4 // 3 + 4:
+            raise ValueError(_ERROR)
+        try:
+            data = base64.b64decode(inline, validate=True)
+        except (ValueError, TypeError):
+            raise ValueError(_ERROR) from None
+        total += len(data)
+        if len(data) > 256 << 10 or total > 1 << 20:
+            raise ValueError(_ERROR)
