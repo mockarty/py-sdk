@@ -31,6 +31,9 @@ class MockartyAPIError(MockartyError):
         request_id: Server-side correlation ID. Include it in bug reports.
         reason: Specific operation failure identifier, when supplied.
         run_id: Already saved launch ID. Inspect it before launching again.
+        operation_id: Exact comment capture handle for a validated unknown outcome.
+        capture_id: Companion capture handle; neither handle proves application.
+        state: ``unknown`` only for a validated comment capture error.
     """
 
     def __init__(
@@ -42,6 +45,9 @@ class MockartyAPIError(MockartyError):
         *,
         reason: str | None = None,
         run_id: str | None = None,
+        operation_id: str | None = None,
+        capture_id: str | None = None,
+        state: str | None = None,
     ) -> None:
         self.status_code = status_code
         self.message = message
@@ -49,6 +55,9 @@ class MockartyAPIError(MockartyError):
         self.code = code
         self.reason = reason
         self.run_id = run_id
+        self.operation_id = operation_id
+        self.capture_id = capture_id
+        self.state = state
         parts = [f"HTTP {status_code}"]
         if code:
             parts.append(code)

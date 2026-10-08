@@ -83,7 +83,11 @@ class IssueTrackerAPI(SyncAPIBase):
         self._request("DELETE", f"{_base(ns)}/issues/{quote(issue_id, safe='')}")
 
     def add_comment(self, issue_id: str, body: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
-        """Post a comment to an issue."""
+        """Post once; a pending result carries operation/capture IDs, not a saved comment.
+
+        After an unknown error keep any exception capture handles and do not
+        blindly call this method again. No operation lookup is exposed here.
+        """
         ns = namespace or self._namespace
         return self._request("POST", f"{_base(ns)}/issues/{quote(issue_id, safe='')}/comments", json={"body": body}).json()
 
@@ -165,6 +169,7 @@ class AsyncIssueTrackerAPI(AsyncAPIBase):
         await self._request("DELETE", f"{_base(ns)}/issues/{quote(issue_id, safe='')}")
 
     async def add_comment(self, issue_id: str, body: str, *, namespace: Optional[str] = None) -> dict[str, Any]:
+        """Post once; pending/unknown capture IDs do not prove the comment was saved."""
         ns = namespace or self._namespace
         return (await self._request("POST", f"{_base(ns)}/issues/{quote(issue_id, safe='')}/comments", json={"body": body})).json()
 

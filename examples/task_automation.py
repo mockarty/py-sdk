@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 
-from mockarty import MockartyClient
+from mockarty import MockartyAPIError, MockartyClient
 
 
 def main() -> None:
@@ -33,7 +33,16 @@ def main() -> None:
 
     issue = it.create_issue({"projectId": pid, "type": "bug", "title": "Checkout returns 500"})
     print(f"filed issue {issue.get('issueKey')}")
-    it.add_comment(issue["id"], "reproduced on staging")
+    try:
+        comment = it.add_comment(issue["id"], "reproduced on staging")
+    except MockartyAPIError as exc:
+        if exc.state == "unknown":
+            print("Comment outcome is unknown; keep handles without posting again:",
+                  exc.operation_id, exc.capture_id)
+        raise
+    if comment.get("state") == "pending":
+        print("Comment awaits confirmation; keep handles without posting again:",
+              comment["operation_id"], comment["capture_id"])
     it.move_issue(issue["id"], "in_progress")
 
     tcm = client.tcm

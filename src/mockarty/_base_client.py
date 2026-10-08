@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, NoReturn
+from uuid import UUID
 
 import httpx
 
@@ -85,6 +87,47 @@ def build_headers(api_key: str | None, namespace: str) -> dict[str, str]:
     return headers
 
 
+def _comment_capture_id(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 36:
+        return False
+    try:
+        parsed = UUID(value)
+        return parsed.int != 0 and str(parsed) == value
+    except ValueError:
+        return False
+
+
+def _comment_capture_metadata(response: httpx.Response) -> dict[str, str]:
+    """Retain opaque handles, never authority, only from the exact error shape."""
+    if response.status_code != 503 or len(response.content) > 2048:
+        return {}
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate capture error key")
+            result[key] = value
+        return result
+
+    try:
+        body = json.loads(response.content, object_pairs_hook=unique_object)
+    except (ValueError, UnicodeError, RecursionError):
+        return {}
+    required = {"error", "state", "operation_id", "capture_id"}
+    if not isinstance(body, dict) or set(body) not in (required, required | {"code"}):
+        return {}
+    if (
+        body["error"] != "collaboration_capture_outcome_unknown"
+        or body["state"] != "unknown"
+        or body.get("code", "") not in ("", "unavailable")
+        or not _comment_capture_id(body["operation_id"])
+        or not _comment_capture_id(body["capture_id"])
+    ):
+        return {}
+    return {"operation_id": body["operation_id"], "capture_id": body["capture_id"], "state": "unknown"}
+
+
 def raise_for_status(response: httpx.Response) -> None:
     """Inspect an httpx response and raise the appropriate SDK exception.
 
@@ -106,6 +149,7 @@ def raise_for_status(response: httpx.Response) -> None:
     reason: str | None = None
     run_id: str | None = None
     message: str
+    capture_metadata = _comment_capture_metadata(response)
 
     # Try to parse the JSON error envelope. Fall back to raw text if the body
     # is not JSON or is empty (old servers, transport-level errors).
@@ -141,6 +185,7 @@ def raise_for_status(response: httpx.Response) -> None:
                 code=code,
                 reason=reason,
                 run_id=run_id,
+                **capture_metadata,
             )
 
     # Fallback: by HTTP status.
@@ -153,6 +198,7 @@ def raise_for_status(response: httpx.Response) -> None:
             code=code,
             reason=reason,
             run_id=run_id,
+            **capture_metadata,
         )
 
     if status >= 500:
@@ -163,6 +209,7 @@ def raise_for_status(response: httpx.Response) -> None:
             code=code,
             reason=reason,
             run_id=run_id,
+            **capture_metadata,
         )
 
     raise MockartyAPIError(
@@ -172,6 +219,7 @@ def raise_for_status(response: httpx.Response) -> None:
         code=code,
         reason=reason,
         run_id=run_id,
+        **capture_metadata,
     )
 
 
