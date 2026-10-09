@@ -39,6 +39,8 @@ def main() -> None:
         # -- 5. Clean up ----------------------------------------------------
         client.mocks.delete("hello-world")
         print("Mock deleted.")
+        deleted = client.mocks.get("hello-world")
+        print(f"Soft-deleted mock closedAt: {deleted.closed_at}")
 
 
 if __name__ == "__main__":

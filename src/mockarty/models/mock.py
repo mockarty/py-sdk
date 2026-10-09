@@ -219,6 +219,16 @@ class Mock(BaseModel):
     last_use: Optional[int] = Field(None, alias="lastUse")
     expire_at: Optional[int] = Field(None, alias="expireAt")
     closed_at: Optional[int] = Field(None, alias="closedAt")
+    @model_validator(mode="before")
+    @classmethod
+    def read_lifecycle_metadata(cls, value: Any) -> Any:
+        """Read GET's audit envelope without changing caller-owned input."""
+        if isinstance(value, dict) and value.get("closedAt") is None and value.get("closed_at") is None:
+            meta = value.get("_meta")
+            if isinstance(meta, dict) and meta.get("closedAt") is not None:
+                value = {**value, "closedAt": meta["closedAt"]}
+        return value
+
     # Organization
     priority: Optional[int] = None
     tags: Optional[list[str]] = None
