@@ -17,6 +17,7 @@ from mockarty._base_client import (
 )
 from mockarty.api.agent_tasks import AgentTaskAPI
 from mockarty.api.autonomous_missions import AutonomousMissionsAPI
+from mockarty.api.device_mesh import DeviceMeshAPI
 from mockarty.api.chaos import ChaosAPI
 from mockarty.api.cloud_webhooks import CloudWebhooksAPI
 from mockarty.api.cloud_connectors import CloudConnectorsAPI
@@ -154,6 +155,7 @@ class MockartyClient:
         "_stats",
         "_agent_tasks",
         "_autonomous_missions",
+        "_device_mesh",
         "_mcp",
         "_issue_tracker",
         "_tcm",
@@ -622,6 +624,13 @@ class MockartyClient:
         if self._experience is None:
             self._experience = ExperienceAPI(self._http, self._namespace)
         return self._experience
+
+    @property
+    def device_mesh(self) -> DeviceMeshAPI:
+        """Lend machines and place work on them (the CI path to a receipt)."""
+        if self._device_mesh is None:
+            self._device_mesh = DeviceMeshAPI(self._http, self._namespace)
+        return self._device_mesh
 
     @property
     def autonomous_missions(self) -> AutonomousMissionsAPI:
