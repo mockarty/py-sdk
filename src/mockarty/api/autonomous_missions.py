@@ -110,6 +110,7 @@ class AutonomousMissionsAPI(SyncAPIBase):
         mission_id = (mission_id or "").strip()
         if not mission_id:
             raise ValueError("mission_id is required")
+        request = MissionAnswerRequest.model_validate(request.model_dump())
         resp = self._request(
             "POST", f"{_UNIFIED_MISSIONS_PATH}/{quote(mission_id, safe='')}/answer",
             json=request.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
@@ -181,6 +182,7 @@ class AsyncAutonomousMissionsAPI(AsyncAPIBase):
         mission_id = (mission_id or "").strip()
         if not mission_id:
             raise ValueError("mission_id is required")
+        request = MissionAnswerRequest.model_validate(request.model_dump())
         resp = await self._request(
             "POST", f"{_UNIFIED_MISSIONS_PATH}/{quote(mission_id, safe='')}/answer",
             json=request.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),

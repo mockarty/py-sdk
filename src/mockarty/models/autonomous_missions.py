@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
 
 
 class AutonomousMissionBudgetHint(BaseModel):
@@ -240,10 +240,32 @@ class MissionCancelRequest(BaseModel):
         return value.strip()
 
 
+class MissionAnswerEntity(BaseModel):
+    """Reference offered by the original question; never an authority grant."""
+
+    kind: str
+    id: str
+    namespace: str = ""
+
+    @model_validator(mode="after")
+    def validate_reference(self) -> MissionAnswerEntity:
+        for name, limit, required in (("kind", 64, True), ("id", 256, True), ("namespace", 256, False)):
+            value = getattr(self, name).strip()
+            if (required and not value) or len(value.encode("utf-8")) > limit:
+                raise ValueError("entity requires bounded kind/id and optional namespace")
+        return self
+
+
 class MissionAnswerRequest(BaseModel):
     """Durable human input accepted while a mission waits for an answer."""
 
-    answer: str
+    answer: str = ""
+    question_id: str = Field("", alias="questionId")
+    revision: StrictInt = Field(0, ge=0, le=9223372036854775807)
+    generation: StrictInt = Field(0, ge=0, le=9223372036854775807)
+    text: str = ""
+    selected: list[str] | None = None
+    entity: MissionAnswerEntity | None = None
     idempotency_key: str = Field("", alias="idempotencyKey")
 
     model_config = {"populate_by_name": True}
@@ -252,9 +274,29 @@ class MissionAnswerRequest(BaseModel):
     @classmethod
     def validate_answer(cls, value: str) -> str:
         value = value.strip()
-        if not value:
-            raise ValueError("answer must not be empty")
         return value
+
+    @model_validator(mode="after")
+    def validate_captured_answer(self) -> MissionAnswerRequest:
+        typed = bool(self.question_id or self.revision or self.generation or self.text or self.selected is not None or self.entity is not None)
+        if not typed:
+            if not self.answer:
+                raise ValueError("answer or captured typed question answer is required")
+            return self
+        if self.answer:
+            raise ValueError("do not mix legacy answer with typed fields")
+        if not self.question_id.strip() or len(self.question_id.strip().encode("utf-8")) > 128 or self.revision <= 0:
+            raise ValueError("captured questionId and positive revision are required")
+        if not self.text.strip() and not self.selected and self.entity is None:
+            raise ValueError("typed answer is empty")
+        if len(self.text) > 4000 or any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\r\t" for c in self.text):
+            raise ValueError("text exceeds 4000 characters or contains control characters")
+        self.text.encode("utf-8")
+        selected = self.selected or []
+        normalized = [value.strip() for value in selected]
+        if len(selected) > 32 or len(set(normalized)) != len(normalized) or any(not value or len(value.encode("utf-8")) > 128 for value in normalized):
+            raise ValueError("selections must be unique, nonempty and bounded")
+        return self
 
     @field_validator("idempotency_key")
     @classmethod
