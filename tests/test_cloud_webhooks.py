@@ -81,7 +81,7 @@ def test_cloud_webhooks_named_idempotent_create_matches_the_go_sdk(client: Mocka
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("key", [None, "", " ", "\t"])
+@pytest.mark.parametrize("key", [None, "", " ", "\t", "\u00a0", "\u0085"])
 def test_named_webhook_key_refuses_blank_sync_and_async(asynchronous, key) -> None:
     import asyncio
     from mockarty import AsyncMockartyClient
