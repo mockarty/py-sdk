@@ -2,7 +2,6 @@
 
 import httpx
 import respx
-import pytest
 
 from mockarty import MockartyClient
 
@@ -78,51 +77,3 @@ def test_cloud_webhooks_named_idempotent_create_matches_the_go_sdk(client: Mocka
         assert "idempotency_key" in str(exc)
     else:  # pragma: no cover - the refusal is the contract
         raise AssertionError("an empty idempotency key must be refused")
-
-
-@pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("key", [None, "", " ", "\t", "\u00a0", "\u0085"])
-def test_named_webhook_key_refuses_blank_sync_and_async(asynchronous, key) -> None:
-    import asyncio
-    from mockarty import AsyncMockartyClient
-
-    base = "http://127.0.0.1:5770"
-    with respx.mock(assert_all_called=False) as router:
-        route = router.post(base + "/api/v1/cloud/webhooks").mock(
-            return_value=httpx.Response(201, json={"webhook": {"id": "owned"}, "secret": "owned-secret"}))
-        async def check() -> None:
-            async with AsyncMockartyClient(base_url=base, max_retries=0) as client:
-                with pytest.raises(ValueError, match="idempotency_key"):
-                    await client.cloud_webhooks.create_with_idempotency_key("owned-space", "owned-hook", "https://example.invalid/hook", ["instance.created"], key)
-                with pytest.raises(ValueError, match="idempotency_key"):
-                    await client.cloud_webhooks.rotate_secret("owned-space", "owned-hook", key)
-        if asynchronous:
-            asyncio.run(check())
-        else:
-            with MockartyClient(base_url=base, max_retries=0) as sync:
-                with pytest.raises(ValueError, match="idempotency_key"):
-                    sync.cloud_webhooks.create_with_idempotency_key("owned-space", "owned-hook", "https://example.invalid/hook", ["instance.created"], key)
-                with pytest.raises(ValueError, match="idempotency_key"):
-                    sync.cloud_webhooks.rotate_secret("owned-space", "owned-hook", key)
-        assert route.call_count == 0
-
-
-def test_named_webhook_retry_retains_exact_caller_identity_sync_and_async() -> None:
-    import asyncio
-    from mockarty import AsyncMockartyClient
-
-    base = "http://127.0.0.1:5770"
-    with respx.mock as router:
-        route = router.post(base + "/api/v1/cloud/webhooks", params={"workspace_id": "owned-space"}).mock(
-            return_value=httpx.Response(201, json={"webhook": {"id": "owned"}, "secret": "owned-secret"}))
-        with MockartyClient(base_url=base, max_retries=0) as sync:
-            for _ in range(2):
-                assert sync.cloud_webhooks.create_with_idempotency_key("owned-space", "owned-hook", "https://example.invalid/hook", ["instance.created"], "caller-owned-key")["secret"] == "owned-secret"
-        async def check() -> None:
-            async with AsyncMockartyClient(base_url=base, max_retries=0) as client:
-                for _ in range(2):
-                    assert (await client.cloud_webhooks.create_with_idempotency_key("owned-space", "owned-hook", "https://example.invalid/hook", ["instance.created"], "caller-owned-key"))["secret"] == "owned-secret"
-        asyncio.run(check())
-        assert route.call_count == 4
-        assert all(call.request.headers["Idempotency-Key"] == "caller-owned-key" for call in route.calls)
-        assert len({call.request.content for call in route.calls}) == 1

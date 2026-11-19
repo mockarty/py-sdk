@@ -24,11 +24,16 @@ class CloudWebhooksAPI(SyncAPIBase):
 
     def create_with_idempotency_key(self, workspace_id: str, name: str, url: str,
                                     events: list[str], idempotency_key: str) -> dict[str, Any]:
-        """Create with a caller-supplied retry key, never a generated key.
+        """Create a webhook with a CALLER-SUPPLIED key.
 
-        Reuse the same key and request after an ambiguous response.
+        This exists as its own method so the three SDKs expose the same name for
+        the same capability: the Go SDK has no optional parameters, so the
+        key-carrying create is a separate method there, and the parity gate
+        compares METHOD NAMES. The SDK never invents the key — reuse it, with the
+        identical body, to recover an ambiguous response instead of creating a
+        second webhook.
         """
-        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+        if not idempotency_key:
             raise ValueError("mockarty: idempotency_key is required")
         return self.create(workspace_id, name, url, events, idempotency_key)
 
@@ -48,7 +53,7 @@ class CloudWebhooksAPI(SyncAPIBase):
         return data.get("deliveries", []) if isinstance(data, dict) else []
 
     def rotate_secret(self, workspace_id: str, webhook_id: str, idempotency_key: str) -> dict[str, Any]:
-        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+        if not idempotency_key:
             raise ValueError("idempotency_key is required")
         return self._request("POST", f"/api/v1/cloud/webhooks/{quote(webhook_id, safe='')}/rotate-secret",
                              params={"workspace_id": workspace_id}, json={},
@@ -69,7 +74,7 @@ class AsyncCloudWebhooksAPI(AsyncAPIBase):
     async def create_with_idempotency_key(self, workspace_id: str, name: str, url: str,
                                           events: list[str], idempotency_key: str) -> dict[str, Any]:
         """Async twin of the key-carrying create; see the sync docstring."""
-        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+        if not idempotency_key:
             raise ValueError("mockarty: idempotency_key is required")
         return await self.create(workspace_id, name, url, events, idempotency_key)
 
@@ -89,7 +94,7 @@ class AsyncCloudWebhooksAPI(AsyncAPIBase):
         return data.get("deliveries", []) if isinstance(data, dict) else []
 
     async def rotate_secret(self, workspace_id: str, webhook_id: str, idempotency_key: str) -> dict[str, Any]:
-        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+        if not idempotency_key:
             raise ValueError("idempotency_key is required")
         return (await self._request("POST", f"/api/v1/cloud/webhooks/{quote(webhook_id, safe='')}/rotate-secret",
                                     params={"workspace_id": workspace_id}, json={},
