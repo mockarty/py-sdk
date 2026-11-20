@@ -166,21 +166,6 @@ class TestTestPlansRuns:
         assert run.status == "pending"
 
     @respx.mock
-    def test_run_with_subset_and_mode(self, client: MockartyClient) -> None:
-        route = respx.post(
-            "http://localhost:5770/api/v1/test-plans/plan-1/run"
-        ).mock(
-            return_value=httpx.Response(
-                202, json={"runId": "r2", "planId": "plan-1", "status": "pending"}
-            )
-        )
-        client.test_plans.run("plan-1", items=[0, 2], mode="parallel")
-        import json as _json
-
-        body = _json.loads(route.calls[0].request.content)
-        assert body == {"items": [0, 2], "mode": "parallel"}
-
-    @respx.mock
     def test_get_run(self, client: MockartyClient) -> None:
         respx.get("http://localhost:5770/api/v1/test-plans/runs/run-1").mock(
             return_value=httpx.Response(

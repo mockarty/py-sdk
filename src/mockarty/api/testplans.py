@@ -246,20 +246,10 @@ class TestPlansAPI(SyncAPIBase):
 
     # ── Runs ──────────────────────────────────────────────────────────
 
-    def run(
-        self,
-        id_or_numeric: str,
-        items: Optional[list[int]] = None,
-        mode: Optional[str] = None,
-    ) -> TestPlanRun:
-        """Trigger a Plan run."""
+    def run(self, id_or_numeric: str) -> TestPlanRun:
+        """Trigger a Plan run with the plan's configured execution mode."""
         key = _normalize_id(id_or_numeric)
-        body: dict[str, Any] = {}
-        if items:
-            body["items"] = items
-        if mode:
-            body["mode"] = mode
-        resp = self._request("POST", f"{_BASE}/{key}/run", json=body or None)
+        resp = self._request("POST", f"{_BASE}/{key}/run", json=None)
         payload = resp.json()
         return TestPlanRun(
             id=payload.get("runId"),
@@ -438,8 +428,6 @@ class TestPlansAPI(SyncAPIBase):
         record_detailed: bool = False,
         notify_on_completion: bool = False,
         notify_emails: Optional[list[str]] = None,
-        items: Optional[list[int]] = None,
-        mode: Optional[str] = None,
     ) -> TestPlanRun:
         """Trigger a Plan run with the T6/T7/T8 manual-flow knobs.
 
@@ -452,8 +440,6 @@ class TestPlansAPI(SyncAPIBase):
             notify_on_completion: Fire a completion email at the end of the run.
             notify_emails: Recipients for the completion email. Empty falls back
                 to plan-scoped subscribers.
-            items: Subset of 1-based item orders to execute. ``None`` = all.
-            mode: Orchestration override (sequential / parallel / dag / timed).
         """
         if execution_mode_override not in (None, "", "manual", "auto"):
             raise ValueError(
@@ -469,10 +455,6 @@ class TestPlansAPI(SyncAPIBase):
             body["notifyOnCompletion"] = True
         if notify_emails:
             body["notifyEmails"] = list(notify_emails)
-        if items:
-            body["items"] = list(items)
-        if mode:
-            body["mode"] = mode
         resp = self._request("POST", f"{_BASE}/{key}/run", json=body or None)
         payload = resp.json()
         return TestPlanRun(
@@ -937,19 +919,9 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         items = body.get("items", []) if isinstance(body, dict) else body
         return [TestPlan.model_validate(p) for p in items]
 
-    async def run(
-        self,
-        id_or_numeric: str,
-        items: Optional[list[int]] = None,
-        mode: Optional[str] = None,
-    ) -> TestPlanRun:
+    async def run(self, id_or_numeric: str) -> TestPlanRun:
         key = _normalize_id(id_or_numeric)
-        body: dict[str, Any] = {}
-        if items:
-            body["items"] = items
-        if mode:
-            body["mode"] = mode
-        resp = await self._request("POST", f"{_BASE}/{key}/run", json=body or None)
+        resp = await self._request("POST", f"{_BASE}/{key}/run", json=None)
         payload = resp.json()
         return TestPlanRun(
             id=payload.get("runId"),
@@ -978,8 +950,6 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         record_detailed: bool = False,
         notify_on_completion: bool = False,
         notify_emails: Optional[list[str]] = None,
-        items: Optional[list[int]] = None,
-        mode: Optional[str] = None,
     ) -> TestPlanRun:
         """Async sibling of :py:meth:`TestPlansAPI.run_manual`."""
         if execution_mode_override not in (None, "", "manual", "auto"):
@@ -996,10 +966,6 @@ class AsyncTestPlansAPI(AsyncAPIBase):
             body["notifyOnCompletion"] = True
         if notify_emails:
             body["notifyEmails"] = list(notify_emails)
-        if items:
-            body["items"] = list(items)
-        if mode:
-            body["mode"] = mode
         resp = await self._request("POST", f"{_BASE}/{key}/run", json=body or None)
         payload = resp.json()
         return TestPlanRun(
