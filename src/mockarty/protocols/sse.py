@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
-# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
+# SPDX-License-Identifier: MIT
 """Server-Sent Events test client with auto-step capture.
 
 Subscribes to an SSE endpoint, parses the framed ``data:``/``event:``/

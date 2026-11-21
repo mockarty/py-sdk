@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
-# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
+# SPDX-License-Identifier: MIT
 
 """Import API resource for importing collections from external tools."""
 

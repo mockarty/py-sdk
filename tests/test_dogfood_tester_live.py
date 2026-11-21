@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
-# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
+# SPDX-License-Identifier: MIT
 
 """Dogfood of the Python Tester DSL (the framework we sell) against a LIVE
 Mockarty admin. Seeds real mocks via the admin REST, then points the fluent

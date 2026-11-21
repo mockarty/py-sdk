@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Mockarty. All rights reserved.
-# Licensed under the Mockarty SDK License Agreement. See LICENSE file for details.
+# SPDX-License-Identifier: MIT
 
 """Unit tests for the gRPC facet against an in-memory fake invoker (no real
 gRPC server / protobuf reflection needed). Mirrors the Go/Java port."""
