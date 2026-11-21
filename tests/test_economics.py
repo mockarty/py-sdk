@@ -1,7 +1,7 @@
 """LLM economics API parity tests."""
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -58,7 +58,7 @@ def test_economics_price_book_and_usage(client: MockartyClient) -> None:
         provider="openai",
         model="gpt",
         currency="USD",
-        effective_from=datetime(2026, 1, 1, tzinfo=UTC),
+        effective_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
         input_micros_per_million=100000,
     )
     assert client.economics.append_price(price).id == "price-1"
@@ -117,7 +117,7 @@ def test_economics_resource_price_rejects_invalid_kind_unit(
         resource="resource",
         unit=unit,
         currency="USD",
-        effective_from=datetime(2026, 8, 20, tzinfo=UTC),
+        effective_from=datetime(2026, 8, 20, tzinfo=timezone.utc),
     )
     with pytest.raises(ValueError, match="matching event kind/unit"):
         client.economics.append_resource_price(price)
@@ -153,7 +153,7 @@ async def test_async_economics_resource_prices(base_url: str, api_key: str) -> N
 
 @respx.mock
 def test_economics_budgets(client: MockartyClient) -> None:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     budget = LLMBudget(
         namespace="team-a",
         scope_type="workspace",

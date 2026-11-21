@@ -11,18 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # The Ruff baseline is an immutable source revision.
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ruff
-      - name: Ruff check (linting)
-        run: ruff check src/
-      - name: Ruff format check
-        run: ruff format --check src/
+      - run: pip install ruff==0.17.6
+      - name: Ruff correctness rules
+        run: ruff check --config pyproject.toml --target-version py39 --select E4,E7,E9,F src/
+      - name: Ruff lint and format regressions
+        run: python .github/check_ruff.py
 
   test:
-    runs-on: ubuntu-latest
+    # setup-python publishes Python 3.9 for Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:

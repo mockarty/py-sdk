@@ -22,7 +22,6 @@ import smtplib
 import time
 from dataclasses import dataclass, field
 from email.message import EmailMessage
-from typing import Optional
 
 
 @dataclass
