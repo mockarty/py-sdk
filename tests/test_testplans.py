@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 import httpx
 import pytest
@@ -164,6 +165,30 @@ class TestTestPlansRuns:
         assert isinstance(run, TestPlanRun)
         assert run.id == "run-1"
         assert run.status == "pending"
+
+    @respx.mock
+    def test_run_uses_per_run_options(self, client: MockartyClient) -> None:
+        route = respx.post("http://localhost:5770/api/v1/test-plans/plan-1/run").mock(
+            return_value=httpx.Response(
+                202,
+                json={"runId": "run-1", "runIds": ["run-1", "run-2"],
+                      "planId": "plan-1", "status": "pending"},
+            )
+        )
+        run = client.test_plans.run(
+            "plan-1", execution_mode_override="manual", record_detailed=True,
+            notify_on_completion=True, notify_emails=["qa@example.com"],
+            configuration_ids=["a", "b"],
+        )
+        assert json.loads(route.calls.last.request.content) == {
+            "executionModeOverride": "manual",
+            "recordDetailed": True,
+            "notifyOnCompletion": True,
+            "notifyEmails": ["qa@example.com"],
+            "configurationIds": ["a", "b"],
+        }
+        assert run.id == "run-1"
+        assert run.run_ids == ["run-1", "run-2"]
 
     @respx.mock
     def test_get_run(self, client: MockartyClient) -> None:

@@ -118,6 +118,7 @@ class TestPlanRun(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     id: Optional[str] = None
+    run_ids: list[str] = Field(default_factory=list, alias="runIds")
     plan_id: Optional[str] = Field(default=None, alias="planId")
     namespace: Optional[str] = None
     status: Optional[str] = None

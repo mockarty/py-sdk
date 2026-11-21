@@ -64,7 +64,7 @@ def scenario_basic() -> int:
         created = client.test_plans.create(plan)
         print(f"Plan created: {created.id} (#{created.numeric_id})")
 
-        run = client.test_plans.run(created.id)
+        run = client.test_plans.run(created.id, record_detailed=True)
         print(f"Triggered run: {run.id}")
 
         try:

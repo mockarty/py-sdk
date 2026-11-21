@@ -109,6 +109,32 @@ class PreconditionFailedError(TestPlanError):
         super().__init__(message)
 
 
+def _run_options(
+    execution_mode_override: str | None,
+    record_detailed: bool,
+    notify_on_completion: bool,
+    notify_emails: list[str] | None,
+    configuration_ids: list[str] | None,
+) -> dict[str, Any] | None:
+    options = {
+        "executionModeOverride": execution_mode_override,
+        "recordDetailed": record_detailed,
+        "notifyOnCompletion": notify_on_completion,
+        "notifyEmails": notify_emails,
+        "configurationIds": configuration_ids,
+    }
+    return {key: value for key, value in options.items() if value} or None
+
+
+def _run_result(payload: dict[str, Any]) -> TestPlanRun:
+    return TestPlanRun(
+        id=payload.get("runId"),
+        run_ids=payload.get("runIds", []),
+        plan_id=payload.get("planId"),
+        status=payload.get("status"),
+    )
+
+
 def _normalize_id(id_or_numeric: str) -> str:
     """Strip the ``#`` prefix used in UI copy-to-clipboard strings."""
     s = (id_or_numeric or "").strip()
@@ -246,16 +272,24 @@ class TestPlansAPI(SyncAPIBase):
 
     # ── Runs ──────────────────────────────────────────────────────────
 
-    def run(self, id_or_numeric: str) -> TestPlanRun:
-        """Trigger a Plan run with the plan's configured execution mode."""
+    def run(
+        self,
+        id_or_numeric: str,
+        *,
+        execution_mode_override: str | None = None,
+        record_detailed: bool = False,
+        notify_on_completion: bool = False,
+        notify_emails: list[str] | None = None,
+        configuration_ids: list[str] | None = None,
+    ) -> TestPlanRun:
+        """Start a plan; run_ids contains each run when configurations fan out."""
         key = _normalize_id(id_or_numeric)
-        resp = self._request("POST", f"{_BASE}/{key}/run", json=None)
-        payload = resp.json()
-        return TestPlanRun(
-            id=payload.get("runId"),
-            plan_id=payload.get("planId"),
-            status=payload.get("status"),
+        body = _run_options(
+            execution_mode_override, record_detailed, notify_on_completion,
+            notify_emails, configuration_ids,
         )
+        resp = self._request("POST", f"{_BASE}/{key}/run", json=body)
+        return _run_result(resp.json())
 
     def get_run(self, run_id: str) -> TestPlanRun:
         resp = self._request("GET", f"{_BASE}/runs/{run_id}")
@@ -919,15 +953,24 @@ class AsyncTestPlansAPI(AsyncAPIBase):
         items = body.get("items", []) if isinstance(body, dict) else body
         return [TestPlan.model_validate(p) for p in items]
 
-    async def run(self, id_or_numeric: str) -> TestPlanRun:
+    async def run(
+        self,
+        id_or_numeric: str,
+        *,
+        execution_mode_override: str | None = None,
+        record_detailed: bool = False,
+        notify_on_completion: bool = False,
+        notify_emails: list[str] | None = None,
+        configuration_ids: list[str] | None = None,
+    ) -> TestPlanRun:
+        """Start a plan; run_ids contains each run when configurations fan out."""
         key = _normalize_id(id_or_numeric)
-        resp = await self._request("POST", f"{_BASE}/{key}/run", json=None)
-        payload = resp.json()
-        return TestPlanRun(
-            id=payload.get("runId"),
-            plan_id=payload.get("planId"),
-            status=payload.get("status"),
+        body = _run_options(
+            execution_mode_override, record_detailed, notify_on_completion,
+            notify_emails, configuration_ids,
         )
+        resp = await self._request("POST", f"{_BASE}/{key}/run", json=body)
+        return _run_result(resp.json())
 
     async def get_run(self, run_id: str) -> TestPlanRun:
         resp = await self._request("GET", f"{_BASE}/runs/{run_id}")
