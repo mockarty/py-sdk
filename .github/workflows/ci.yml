@@ -25,6 +25,7 @@ jobs:
   test:
     # setup-python publishes Python 3.9 for Ubuntu 24.04.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +36,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[test]"
-      - run: pytest -v --tb=short
+      - run: pytest -v --tb=short -o faulthandler_timeout=60
 
   build:
     runs-on: ubuntu-latest
